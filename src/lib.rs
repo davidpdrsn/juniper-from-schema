@@ -107,10 +107,10 @@ fn gen_def(def: Definition, out: &mut Output) {
     use graphql_parser::schema::Definition::*;
 
     match def {
-        DirectiveDefinition(_) => todo!(),
+        DirectiveDefinition(_) => todo!("directive definition"),
         SchemaDefinition(schema_def) => gen_schema_def(schema_def, out),
         TypeDefinition(type_def) => gen_type_def(type_def, out),
-        TypeExtension(_) => todo!(),
+        TypeExtension(_) => todo!("type extension"),
     }
 }
 
@@ -140,12 +140,12 @@ fn gen_type_def(type_def: TypeDefinition, out: &mut Output) {
     use graphql_parser::schema::TypeDefinition::*;
 
     match type_def {
-        Enum(_) => todo!(),
-        InputObject(_) => todo!(),
-        Interface(_) => todo!(),
+        Enum(_) => todo!("enum"),
+        InputObject(_) => todo!("input object"),
+        Interface(_) => todo!("interface"),
         Object(obj_type) => gen_obj_type(obj_type, out),
         Scalar(scalar_type) => gen_scalar_type(scalar_type, out),
-        Union(_) => todo!(),
+        Union(_) => todo!("union"),
     }
 }
 
@@ -228,6 +228,10 @@ fn argument_to_name_and_rust_type(arg: InputValue, out: &Output) -> (Name, Token
     //   default_value
     //   directives
 
+    if let Some(_) = arg.default_value {
+        todo!("default value");
+    }
+
     let arg_name = arg.name.to_snake_case();
     let arg_type = gen_field_type(arg.value_type, out);
     (arg_name, arg_type)
@@ -263,7 +267,7 @@ fn graphql_scalar_type_to_rust_type(name: Name, out: &Output) -> TokenStream {
         "Float" => quote! { f64 },
         "String" => quote! { String },
         "Boolean" => quote! { bool },
-        "ID" => todo!(),
+        "ID" => todo!("ID scalar"),
         "Date" => {
             if out.is_date_scalar_defined() {
                 quote! { chrono::naive::NaiveDate }

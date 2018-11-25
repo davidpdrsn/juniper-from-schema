@@ -1,6 +1,6 @@
 macro_rules! todo {
-    () => {
-        panic!("TODO at {}:{}", file!(), line!())
+    ($info:expr) => {
+        panic!("TODO `{}` at {}:{}", $info, file!(), line!())
     };
 }
 

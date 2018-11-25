@@ -1,6 +1,6 @@
 extern crate juniper;
 
-use juniper::FieldResult;
+use juniper::{Executor, FieldResult};
 use juniper_from_schema::graphql_schema;
 
 pub struct Context;
@@ -151,6 +151,57 @@ pub mod nullable_list_nullable_items {
 
     impl Query {
         pub fn field_field<T>(&self, _: T) -> FieldResult<Option<Vec<Option<i32>>>> {
+            unimplemented!()
+        }
+    }
+}
+
+mod correct_executor_signature {
+    use super::*;
+
+    graphql_schema! {
+        type Query {
+            field: Int!
+        }
+
+        schema { query: Query }
+    }
+
+    pub struct Query;
+
+    impl Query {
+        pub fn field_field<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<i32> {
+            unimplemented!()
+        }
+    }
+}
+
+mod field_args {
+    use super::*;
+
+    graphql_schema! {
+        type Query {
+            single(arg: Int!): Int!
+            multiple(one: Int!, two: String, three: [Float]): Int!
+        }
+
+        schema { query: Query }
+    }
+
+    pub struct Query;
+
+    impl Query {
+        pub fn field_single<T>(&self, executor: T, arg: i32) -> FieldResult<i32> {
+            unimplemented!()
+        }
+
+        pub fn field_multiple<T>(
+            &self,
+            executor: T,
+            one: i32,
+            two: Option<String>,
+            three: Option<Vec<Option<f64>>>,
+        ) -> FieldResult<i32> {
             unimplemented!()
         }
     }
