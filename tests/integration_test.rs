@@ -206,3 +206,32 @@ mod field_args {
         }
     }
 }
+
+mod enums {
+    use super::*;
+
+    graphql_schema! {
+        enum YES_NO {
+            YES
+            NO
+            NOT_SURE
+        }
+
+        type Query {
+            yesNo(arg: YES_NO): YES_NO!
+        }
+
+        schema { query: Query }
+    }
+
+    pub struct Query;
+
+    impl Query {
+        pub fn field_yes_no<T>(&self, _: T, arg: Option<YesNo>) -> FieldResult<YesNo> {
+            let _: YesNo = YesNo::No;
+            let _: YesNo = YesNo::Yes;
+            let _: YesNo = YesNo::NotSure;
+            unimplemented!()
+        }
+    }
+}

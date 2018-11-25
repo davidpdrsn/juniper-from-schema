@@ -2,7 +2,7 @@ extern crate proc_macro;
 extern crate proc_macro2;
 
 use graphql_parser::{parse_schema, query::Name, schema::*};
-use heck::SnakeCase;
+use heck::{CamelCase, SnakeCase};
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
@@ -140,13 +140,47 @@ fn gen_type_def(type_def: TypeDefinition, out: &mut Output) {
     use graphql_parser::schema::TypeDefinition::*;
 
     match type_def {
-        Enum(_) => todo!("enum"),
-        InputObject(_) => todo!("input object"),
-        Interface(_) => todo!("interface"),
+        Enum(enum_type) => gen_enum_type(enum_type, out),
         Object(obj_type) => gen_obj_type(obj_type, out),
         Scalar(scalar_type) => gen_scalar_type(scalar_type, out),
+        InputObject(_) => todo!("input object"),
+        Interface(_) => todo!("interface"),
         Union(_) => todo!("union"),
     }
+}
+
+fn gen_enum_type(enum_type: EnumType, out: &mut Output) {
+    // TODO: use
+    //   position
+    //   description
+    //   directives
+
+    let name = ident(enum_type.name.to_camel_case());
+    pp!(name);
+
+    let values = gen_with(gen_enum_value, enum_type.values, &out);
+
+    (quote! {
+        #[derive(juniper::GraphQLEnum, Debug, Eq, PartialEq, Copy, Clone, Hash)]
+        pub enum #name {
+            #values
+        }
+    })
+    .add_to(out)
+}
+
+fn gen_enum_value(enum_type: EnumValue, out: &mut Output) {
+    // TODO: use
+    //   position
+    //   description
+    //   directives
+
+    let graphql_name = enum_type.name;
+    let name = ident(graphql_name.to_camel_case());
+    (quote! {
+        #[graphql(name=#graphql_name)]
+        #name,
+    }).add_to(out)
 }
 
 fn gen_scalar_type(scalar_type: ScalarType, out: &mut Output) {
@@ -246,9 +280,7 @@ fn gen_nullable_field_type(field_type: NullableType, out: &Output) -> TokenStrea
     use self::nullable_type::NullableType::*;
 
     match field_type {
-        NamedType(name) => {
-            graphql_scalar_type_to_rust_type(name, &out)
-        }
+        NamedType(name) => graphql_scalar_type_to_rust_type(name, &out),
         ListType(item_type) => {
             let item_type = gen_nullable_field_type(*item_type, &out);
             quote! { Vec<#item_type> }
@@ -286,7 +318,7 @@ fn graphql_scalar_type_to_rust_type(name: Name, out: &Output) -> TokenStream {
                 )
             }
         }
-        name => quote_ident(name),
+        name => quote_ident(name.to_camel_case()),
     }
 }
 
