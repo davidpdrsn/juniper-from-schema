@@ -1,0 +1,15 @@
+[package]
+name = "juniper-from-schema"
+version = "0.1.0"
+authors = ["David Pedersen <david.pdrsn@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+syn = { version = "0.15.22", features = ["full"] }
+quote = "0.6.10"
+graphql-parser = "0.2.2"
+proc-macro2 = "0.4.24"
+heck = "0.3.0"
+
+[lib]
+proc-macro = true
