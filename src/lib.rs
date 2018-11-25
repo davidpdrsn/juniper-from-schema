@@ -13,6 +13,10 @@ use syn::{
 #[macro_use]
 mod macros;
 
+mod nullable_type;
+
+use self::nullable_type::NullableType;
+
 #[proc_macro]
 pub fn graphql_schema_from_file(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input: TokenStream = input.into();
@@ -230,65 +234,24 @@ fn argument_to_name_and_rust_type(arg: InputValue, out: &Output) -> (Name, Token
 }
 
 fn gen_field_type(field_type: Type, out: &Output) -> TokenStream {
-    let field_type = TypeWithNullability::from_root_type(field_type);
-    gen_field_type_with_nullability(field_type, out)
+    let field_type = NullableType::from_type(field_type);
+    gen_nullable_field_type(field_type, out)
 }
 
-#[derive(Debug)]
-enum Nullability {
-    NotNull,
-    Nullable,
-}
-
-#[derive(Debug)]
-enum TypeWithNullability {
-    NamedType(Name, Nullability),
-    ListType(Box<TypeWithNullability>, Nullability),
-}
-
-impl TypeWithNullability {
-    fn from_root_type(field_type: Type) -> Self {
-        use self::Nullability::*;
-        use graphql_parser::query::Type::*;
-
-        match field_type {
-            NamedType(name) => TypeWithNullability::NamedType(name, Nullable),
-            ListType(inner) => Self::from_inner_type(*inner, Nullable),
-            NonNullType(inner) => Self::from_inner_type(*inner, NotNull),
-        }
-    }
-
-    fn from_inner_type(field_type: Type, nullability: Nullability) -> Self {
-        use graphql_parser::query::Type::*;
-
-        match field_type {
-            NamedType(name) => TypeWithNullability::NamedType(name, nullability),
-            ListType(inner) => {
-                let inner = Self::from_root_type(*inner);
-                TypeWithNullability::ListType(Box::new(inner), nullability)
-            }
-            NonNullType(inner) => Self::from_inner_type(*inner, nullability),
-        }
-    }
-}
-
-fn gen_field_type_with_nullability(field_type: TypeWithNullability, out: &Output) -> TokenStream {
-    use self::{Nullability::*, TypeWithNullability::*};
+fn gen_nullable_field_type(field_type: NullableType, out: &Output) -> TokenStream {
+    use self::nullable_type::NullableType::*;
 
     match field_type {
-        NamedType(name, nullability) => {
-            let name = graphql_scalar_type_to_rust_type(name, out);
-            match nullability {
-                NotNull => quote! { #name },
-                Nullable => quote! { Option<#name> },
-            }
+        NamedType(name) => {
+            graphql_scalar_type_to_rust_type(name, &out)
         }
-        ListType(inner, nullability) => {
-            let inner = gen_field_type_with_nullability(*inner, out);
-            match nullability {
-                NotNull => quote! { Vec<#inner> },
-                Nullable => quote! { Option<Vec<#inner>> },
-            }
+        ListType(item_type) => {
+            let item_type = gen_nullable_field_type(*item_type, &out);
+            quote! { Vec<#item_type> }
+        }
+        NullableType(item_type) => {
+            let item_type = gen_nullable_field_type(*item_type, &out);
+            quote! { Option<#item_type> }
         }
     }
 }
