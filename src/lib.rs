@@ -130,7 +130,7 @@ fn gen_schema_def(schema_def: SchemaDefinition, out: &mut Output) {
         None => quote! { juniper::EmptyMutation<()> },
     };
 
-    (quote!{
+    (quote! {
         pub type Schema = juniper::RootNode<'static, #query, #mutation>;
     })
     .add_to(out)
@@ -180,7 +180,8 @@ fn gen_enum_value(enum_type: EnumValue, out: &mut Output) {
     (quote! {
         #[graphql(name=#graphql_name)]
         #name,
-    }).add_to(out)
+    })
+    .add_to(out)
 }
 
 fn gen_scalar_type(scalar_type: ScalarType, out: &mut Output) {
@@ -202,19 +203,69 @@ fn gen_obj_type(obj_type: ObjectType, out: &mut Output) {
     //   implements_interface
     //   directives
 
-    let name = ident(obj_type.name);
+    let struct_name = ident(obj_type.name);
 
-    let fields = gen_with(gen_field, obj_type.fields, out);
+    let trait_name = ident(format!("{}Fields", struct_name));
 
-    quote! (
-        juniper::graphql_object!(#name: Context |&self| {
+    let field_tokens = obj_type
+        .fields
+        .into_iter()
+        .map(|field| gen_field(field, &out))
+        .collect::<Vec<_>>();
+
+    let trait_methods = field_tokens
+        .iter()
+        .map(|field| {
+            let field_name = field.field_method.clone();
+            let field_type = field.field_type.clone();
+            let args = field.args.clone();
+            quote! {
+                fn #field_name<'a>(&self, executor: &Executor<'a, Context>, #args) -> FieldResult<#field_type>;
+            }
+        })
+        .collect::<TokenStream>();
+
+    println!("hi");
+    (quote! {
+        pub trait #trait_name {
+            #trait_methods
+        }
+    })
+    .add_to(out);
+
+    let fields = field_tokens
+        .iter()
+        .map(|field| {
+            let field_name = field.name.clone();
+            let field_type = field.field_type.clone();
+            let args = field.args.clone();
+            let field_method = field.field_method.clone();
+            let params = field.params.clone();
+            quote! {
+                field #field_name(&executor, #args) -> juniper::FieldResult<#field_type> {
+                    <#struct_name as self::#trait_name>::#field_method(&self, &executor, #params)
+                }
+            }
+        })
+        .collect::<TokenStream>();
+
+    (quote! {
+        juniper::graphql_object!(#struct_name: Context |&self| {
             #fields
         });
-    )
-    .add_to(out)
+    })
+    .add_to(out);
 }
 
-fn gen_field(field: Field, out: &mut Output) {
+struct FieldTokens {
+    name: Ident,
+    args: TokenStream,
+    field_type: TokenStream,
+    field_method: Ident,
+    params: TokenStream,
+}
+
+fn gen_field(field: Field, out: &Output) -> FieldTokens {
     // TODO: Use
     //   description
     //   directives
@@ -247,12 +298,13 @@ fn gen_field(field: Field, out: &mut Output) {
         })
         .collect::<TokenStream>();
 
-    (quote! {
-        field #name(&executor, #args) -> juniper::FieldResult<#field_type> {
-            self.#field_method(&executor, #params)
-        }
-    })
-    .add_to(out)
+    FieldTokens {
+        name,
+        args,
+        field_type,
+        field_method,
+        params,
+    }
 }
 
 fn argument_to_name_and_rust_type(arg: InputValue, out: &Output) -> (Name, TokenStream) {

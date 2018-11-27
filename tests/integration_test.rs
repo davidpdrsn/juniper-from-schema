@@ -22,20 +22,20 @@ mod simple_non_null_scalars {
 
     pub struct Query;
 
-    impl Query {
-        pub fn field_string<T>(&self, _: T) -> FieldResult<String> {
+    impl QueryFields for Query {
+        fn field_string<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<String> {
             unimplemented!()
         }
 
-        pub fn field_float<T>(&self, _: T) -> FieldResult<f64> {
+        fn field_float<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<f64> {
             unimplemented!()
         }
 
-        pub fn field_int<T>(&self, _: T) -> FieldResult<i32> {
+        fn field_int<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<i32> {
             unimplemented!()
         }
 
-        pub fn field_boolean<T>(&self, _: T) -> FieldResult<bool> {
+        fn field_boolean<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<bool> {
             unimplemented!()
         }
     }
@@ -57,20 +57,23 @@ pub mod simple_nullable_scalars {
 
     pub struct Query;
 
-    impl Query {
-        pub fn field_string<T>(&self, _: T) -> FieldResult<Option<String>> {
+    impl QueryFields for Query {
+        fn field_string<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+        ) -> FieldResult<Option<String>> {
             unimplemented!()
         }
 
-        pub fn field_float<T>(&self, _: T) -> FieldResult<Option<f64>> {
+        fn field_float<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<Option<f64>> {
             unimplemented!()
         }
 
-        pub fn field_int<T>(&self, _: T) -> FieldResult<Option<i32>> {
+        fn field_int<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<Option<i32>> {
             unimplemented!()
         }
 
-        pub fn field_boolean<T>(&self, _: T) -> FieldResult<Option<bool>> {
+        fn field_boolean<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<Option<bool>> {
             unimplemented!()
         }
     }
@@ -89,8 +92,8 @@ pub mod non_null_list_non_null_items {
 
     pub struct Query;
 
-    impl Query {
-        pub fn field_field<T>(&self, _: T) -> FieldResult<Vec<i32>> {
+    impl QueryFields for Query {
+        fn field_field<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<Vec<i32>> {
             unimplemented!()
         }
     }
@@ -109,8 +112,11 @@ pub mod nullable_list_non_null_items {
 
     pub struct Query;
 
-    impl Query {
-        pub fn field_field<T>(&self, _: T) -> FieldResult<Option<Vec<i32>>> {
+    impl QueryFields for Query {
+        fn field_field<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+        ) -> FieldResult<Option<Vec<i32>>> {
             unimplemented!()
         }
     }
@@ -129,8 +135,11 @@ pub mod non_null_list_nullable_items {
 
     pub struct Query;
 
-    impl Query {
-        pub fn field_field<T>(&self, _: T) -> FieldResult<Vec<Option<i32>>> {
+    impl QueryFields for Query {
+        fn field_field<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+        ) -> FieldResult<Vec<Option<i32>>> {
             unimplemented!()
         }
     }
@@ -149,8 +158,11 @@ pub mod nullable_list_nullable_items {
 
     pub struct Query;
 
-    impl Query {
-        pub fn field_field<T>(&self, _: T) -> FieldResult<Option<Vec<Option<i32>>>> {
+    impl QueryFields for Query {
+        fn field_field<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+        ) -> FieldResult<Option<Vec<Option<i32>>>> {
             unimplemented!()
         }
     }
@@ -169,8 +181,8 @@ mod correct_executor_signature {
 
     pub struct Query;
 
-    impl Query {
-        pub fn field_field<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<i32> {
+    impl QueryFields for Query {
+        fn field_field<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<i32> {
             unimplemented!()
         }
     }
@@ -190,14 +202,14 @@ mod field_args {
 
     pub struct Query;
 
-    impl Query {
-        pub fn field_single<T>(&self, executor: T, arg: i32) -> FieldResult<i32> {
+    impl QueryFields for Query {
+        fn field_single<'a>(&self, executor: &Executor<'a, Context>, arg: i32) -> FieldResult<i32> {
             unimplemented!()
         }
 
-        pub fn field_multiple<T>(
+        fn field_multiple<'a>(
             &self,
-            executor: T,
+            executor: &Executor<'a, Context>,
             one: i32,
             two: Option<String>,
             three: Option<Vec<Option<f64>>>,
@@ -226,8 +238,12 @@ mod enums {
 
     pub struct Query;
 
-    impl Query {
-        pub fn field_yes_no<T>(&self, _: T, arg: Option<YesNo>) -> FieldResult<YesNo> {
+    impl QueryFields for Query {
+        fn field_yes_no<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+            arg: Option<YesNo>,
+        ) -> FieldResult<YesNo> {
             let _: YesNo = YesNo::No;
             let _: YesNo = YesNo::Yes;
             let _: YesNo = YesNo::NotSure;
