@@ -199,7 +199,6 @@ fn gen_scalar_type(scalar_type: ScalarType, out: &mut Output) {
 
 fn gen_obj_type(obj_type: ObjectType, out: &mut Output) {
     // TODO: Use
-    //   description
     //   implements_interface
     //   directives
 
@@ -225,7 +224,6 @@ fn gen_obj_type(obj_type: ObjectType, out: &mut Output) {
         })
         .collect::<TokenStream>();
 
-    println!("hi");
     (quote! {
         pub trait #trait_name {
             #trait_methods
@@ -241,20 +239,36 @@ fn gen_obj_type(obj_type: ObjectType, out: &mut Output) {
             let args = field.args.clone();
             let field_method = field.field_method.clone();
             let params = field.params.clone();
+            let description = field
+                .description
+                .clone()
+                .map(|d| quote! { as #d })
+                .unwrap_or(empty_token_stream());
+
             quote! {
-                field #field_name(&executor, #args) -> juniper::FieldResult<#field_type> {
+                field #field_name(&executor, #args) -> juniper::FieldResult<#field_type> #description {
                     <#struct_name as self::#trait_name>::#field_method(&self, &executor, #params)
                 }
             }
         })
         .collect::<TokenStream>();
 
+    let description = obj_type
+        .description
+        .map(|d| quote! { description: #d })
+        .unwrap_or(empty_token_stream());
+
     (quote! {
         juniper::graphql_object!(#struct_name: Context |&self| {
+            #description
             #fields
         });
     })
     .add_to(out);
+}
+
+fn empty_token_stream() -> TokenStream {
+    quote! {}
 }
 
 struct FieldTokens {
@@ -263,11 +277,11 @@ struct FieldTokens {
     field_type: TokenStream,
     field_method: Ident,
     params: TokenStream,
+    description: Option<String>,
 }
 
 fn gen_field(field: Field, out: &Output) -> FieldTokens {
     // TODO: Use
-    //   description
     //   directives
 
     let name = ident(field.name);
@@ -304,6 +318,7 @@ fn gen_field(field: Field, out: &Output) -> FieldTokens {
         field_type,
         field_method,
         params,
+        description: field.description,
     }
 }
 
