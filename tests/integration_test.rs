@@ -251,3 +251,30 @@ mod enums {
         }
     }
 }
+
+mod custom_scalar {
+    use super::*;
+
+    graphql_schema! {
+        scalar Cursor
+
+        type Query {
+            field(arg: Cursor!): Cursor!
+        }
+
+        schema { query: Query }
+    }
+
+    pub struct Query;
+
+    impl QueryFields for Query {
+        fn field_field<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+            arg: Cursor,
+        ) -> FieldResult<Cursor> {
+            Cursor("123".to_string());
+            unimplemented!()
+        }
+    }
+}

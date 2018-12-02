@@ -156,7 +156,6 @@ fn gen_enum_type(enum_type: EnumType, out: &mut Output) {
     //   directives
 
     let name = ident(enum_type.name.to_camel_case());
-    pp!(name);
 
     let values = gen_with(gen_enum_value, enum_type.values, &out);
 
@@ -187,13 +186,36 @@ fn gen_enum_value(enum_type: EnumValue, out: &mut Output) {
 fn gen_scalar_type(scalar_type: ScalarType, out: &mut Output) {
     // TODO: use
     //   position
-    //   description
     //   directives
 
     match &*scalar_type.name {
         "Date" => out.date_scalar_defined(),
         "DateTime" => out.date_time_scalar_defined(),
-        _ => panic!("Only Date and DateTime scalars are supported at the moment"),
+        name => {
+            let mod_name = ident(format!("__juniper_from_schema_{}", name.to_snake_case()));
+            let name = ident(name);
+            let description = scalar_type
+                .description
+                .map(|desc| quote! { description: #desc })
+                .unwrap_or(quote! {});
+
+            (quote! {
+                pub struct #name(pub String);
+
+                juniper::graphql_scalar!(#name {
+                    #description
+
+                    resolve(&self) -> juniper::Value {
+                        juniper::Value::string(&self.0)
+                    }
+
+                    from_input_value(v: &InputValue) -> Option<#name> {
+                        v.as_string_value().map(|s| #name(s.to_owned()))
+                    }
+                });
+            })
+            .add_to(out);
+        }
     };
 }
 
@@ -372,7 +394,7 @@ fn graphql_scalar_type_to_rust_type(name: Name, out: &Output) -> TokenStream {
                 quote! { chrono::naive::NaiveDate }
             } else {
                 panic!(
-                    "Fields with type `Date` is only allowed if you have define a scalar named `Date`"
+                    "Fields with type `Date` is only allowed if you have defined a scalar named `Date`"
                 )
             }
         }
@@ -381,7 +403,7 @@ fn graphql_scalar_type_to_rust_type(name: Name, out: &Output) -> TokenStream {
                 quote! { chrono::DateTime<chrono::offset::Utc> }
             } else {
                 panic!(
-                    "Fields with type `DateTime` is only allowed if you have define a scalar named `DateTime`"
+                    "Fields with type `DateTime` is only allowed if you have defined a scalar named `DateTime`"
                 )
             }
         }
