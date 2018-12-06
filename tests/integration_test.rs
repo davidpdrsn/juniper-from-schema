@@ -273,13 +273,17 @@ mod custom_scalar {
             executor: &Executor<'a, Context>,
             arg: Cursor,
         ) -> FieldResult<Cursor> {
-            Cursor("123".to_string());
+            Cursor::new("123".to_string());
             unimplemented!()
         }
     }
-}
 
-// TODO: Returning borrows from fields
+    impl Cursor {
+        fn new(t: String) -> Self {
+            Cursor(t)
+        }
+    }
+}
 
 mod returning_references {
     use super::*;

@@ -212,7 +212,7 @@ fn gen_scalar_type(scalar_type: ScalarType, out: &mut Output) {
                     }
 
                     from_input_value(v: &InputValue) -> Option<#name> {
-                        v.as_string_value().map(|s| #name(s.to_owned()))
+                        v.as_string_value().map(|s| #name::new(s.to_owned()))
                     }
                 });
             })
