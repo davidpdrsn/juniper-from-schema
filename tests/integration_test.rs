@@ -23,19 +23,19 @@ mod simple_non_null_scalars {
     pub struct Query;
 
     impl QueryFields for Query {
-        fn field_string<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<String> {
+        fn field_string<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&String> {
             unimplemented!()
         }
 
-        fn field_float<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<f64> {
+        fn field_float<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&f64> {
             unimplemented!()
         }
 
-        fn field_int<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<i32> {
+        fn field_int<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&i32> {
             unimplemented!()
         }
 
-        fn field_boolean<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<bool> {
+        fn field_boolean<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&bool> {
             unimplemented!()
         }
     }
@@ -61,19 +61,19 @@ pub mod simple_nullable_scalars {
         fn field_string<'a>(
             &self,
             executor: &Executor<'a, Context>,
-        ) -> FieldResult<Option<String>> {
+        ) -> FieldResult<&Option<String>> {
             unimplemented!()
         }
 
-        fn field_float<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<Option<f64>> {
+        fn field_float<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&Option<f64>> {
             unimplemented!()
         }
 
-        fn field_int<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<Option<i32>> {
+        fn field_int<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&Option<i32>> {
             unimplemented!()
         }
 
-        fn field_boolean<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<Option<bool>> {
+        fn field_boolean<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&Option<bool>> {
             unimplemented!()
         }
     }
@@ -93,7 +93,7 @@ pub mod non_null_list_non_null_items {
     pub struct Query;
 
     impl QueryFields for Query {
-        fn field_field<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<Vec<i32>> {
+        fn field_field<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&Vec<i32>> {
             unimplemented!()
         }
     }
@@ -116,7 +116,7 @@ pub mod nullable_list_non_null_items {
         fn field_field<'a>(
             &self,
             executor: &Executor<'a, Context>,
-        ) -> FieldResult<Option<Vec<i32>>> {
+        ) -> FieldResult<&Option<Vec<i32>>> {
             unimplemented!()
         }
     }
@@ -139,7 +139,7 @@ pub mod non_null_list_nullable_items {
         fn field_field<'a>(
             &self,
             executor: &Executor<'a, Context>,
-        ) -> FieldResult<Vec<Option<i32>>> {
+        ) -> FieldResult<&Vec<Option<i32>>> {
             unimplemented!()
         }
     }
@@ -162,7 +162,7 @@ pub mod nullable_list_nullable_items {
         fn field_field<'a>(
             &self,
             executor: &Executor<'a, Context>,
-        ) -> FieldResult<Option<Vec<Option<i32>>>> {
+        ) -> FieldResult<&Option<Vec<Option<i32>>>> {
             unimplemented!()
         }
     }
@@ -182,7 +182,7 @@ mod correct_executor_signature {
     pub struct Query;
 
     impl QueryFields for Query {
-        fn field_field<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<i32> {
+        fn field_field<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&i32> {
             unimplemented!()
         }
     }
@@ -203,7 +203,7 @@ mod field_args {
     pub struct Query;
 
     impl QueryFields for Query {
-        fn field_single<'a>(&self, executor: &Executor<'a, Context>, arg: i32) -> FieldResult<i32> {
+        fn field_single<'a>(&self, executor: &Executor<'a, Context>, arg: i32) -> FieldResult<&i32> {
             unimplemented!()
         }
 
@@ -213,7 +213,7 @@ mod field_args {
             one: i32,
             two: Option<String>,
             three: Option<Vec<Option<f64>>>,
-        ) -> FieldResult<i32> {
+        ) -> FieldResult<&i32> {
             unimplemented!()
         }
     }
@@ -276,5 +276,66 @@ mod custom_scalar {
             Cursor("123".to_string());
             unimplemented!()
         }
+    }
+}
+
+// TODO: Returning borrows from fields
+
+mod returning_references {
+    use super::*;
+
+    graphql_schema! {
+        type Query {
+            userNullable(id: Int!): User
+            userNonNull(id: Int!): User!
+        }
+
+        type User {
+            id: Int!
+            nameNullable: String
+            nameNonNull: String!
+        }
+
+        schema { query: Query }
+    }
+
+    pub struct Query;
+
+    impl QueryFields for Query {
+        fn field_user_nullable<'a>(&self, executor: &Executor<'a, Context>, id: i32) -> FieldResult<Option<User>> {
+            Ok(find_user(id))
+        }
+
+        fn field_user_non_null<'a>(&self, executor: &Executor<'a, Context>, id: i32) -> FieldResult<User> {
+            Ok(find_user(id).unwrap())
+        }
+    }
+
+    struct User {
+        id: i32,
+        name: String,
+        name_nullable: Option<String>,
+    }
+
+    impl UserFields for User {
+        fn field_id<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&i32> {
+            Ok(&self.id)
+        }
+
+        fn field_name_nullable<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&Option<String>> {
+            Ok(&self.name_nullable)
+        }
+
+        fn field_name_non_null<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&String> {
+            Ok(&self.name)
+        }
+    }
+
+    fn find_user(id: i32) -> Option<User> {
+        Some(User {
+            id,
+            name: "Bob".to_string(),
+            name_nullable: None,
+        })
     }
 }

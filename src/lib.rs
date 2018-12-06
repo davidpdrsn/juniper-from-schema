@@ -1,3 +1,5 @@
+#![deny(dead_code, unused_variables)]
+
 extern crate proc_macro;
 extern crate proc_macro2;
 
@@ -5,10 +7,7 @@ use graphql_parser::{parse_schema, query::Name, schema::*};
 use heck::{CamelCase, SnakeCase};
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::{
-    punctuated::Punctuated, token::Colon2, AngleBracketedGenericArguments, Ident, Path,
-    PathArguments, PathSegment, Token,
-};
+use syn::{punctuated::Punctuated, token::Colon2, Ident, PathArguments, PathSegment};
 
 #[macro_use]
 mod macros;
@@ -195,7 +194,6 @@ fn gen_scalar_type(scalar_type: ScalarType, out: &mut Output) {
         "Date" => out.date_scalar_defined(),
         "DateTime" => out.date_time_scalar_defined(),
         name => {
-            let mod_name = ident(format!("__juniper_from_schema_{}", name.to_snake_case()));
             let name = ident(name);
             let description = scalar_type
                 .description
@@ -314,7 +312,7 @@ fn gen_field(field: Field, out: &Output) -> FieldTokens {
 
     let name = ident(field.name);
 
-    let field_type = gen_field_type(field.field_type, out);
+    let field_type = gen_field_type(field.field_type,&FieldTypeDestination::Return, out);
 
     let field_method = ident(format!("field_{}", name.to_string().to_snake_case()));
 
@@ -362,42 +360,61 @@ fn argument_to_name_and_rust_type(arg: InputValue, out: &Output) -> (Name, Token
     }
 
     let arg_name = arg.name.to_snake_case();
-    let arg_type = gen_field_type(arg.value_type, out);
+    let arg_type = gen_field_type(arg.value_type, &FieldTypeDestination::Argument, out);
     (arg_name, arg_type)
 }
 
-fn gen_field_type(field_type: Type, out: &Output) -> TokenStream {
-    let field_type = NullableType::from_type(field_type);
-    gen_nullable_field_type(field_type, out)
+enum FieldTypeDestination {
+    Argument,
+    Return,
 }
 
-fn gen_nullable_field_type(field_type: NullableType, out: &Output) -> TokenStream {
+// In a way this is also a kind, but not really. Both are `*`
+enum TypeType {
+    Scalar,
+    Type,
+}
+
+fn gen_field_type(field_type: Type, destination: &FieldTypeDestination, out: &Output) -> TokenStream {
+    let field_type = NullableType::from_type(field_type);
+    let (tokens, ty) = gen_nullable_field_type(field_type, out);
+
+    match (destination, ty) {
+        (FieldTypeDestination::Return, TypeType::Scalar) => quote! { &#tokens },
+        (FieldTypeDestination::Return, TypeType::Type) => tokens,
+        (FieldTypeDestination::Argument, TypeType::Scalar) => tokens,
+        (FieldTypeDestination::Argument, TypeType::Type) => tokens,
+    }
+}
+
+fn gen_nullable_field_type(field_type: NullableType, out: &Output) -> (TokenStream, TypeType) {
     use self::nullable_type::NullableType::*;
 
     match field_type {
         NamedType(name) => graphql_scalar_type_to_rust_type(name, &out),
         ListType(item_type) => {
-            let item_type = gen_nullable_field_type(*item_type, &out);
-            quote! { Vec<#item_type> }
+            let (item_type, ty) = gen_nullable_field_type(*item_type, &out);
+            (quote! { Vec<#item_type> }, ty)
         }
         NullableType(item_type) => {
-            let item_type = gen_nullable_field_type(*item_type, &out);
-            quote! { Option<#item_type> }
+            let (item_type, ty) =
+                gen_nullable_field_type(*item_type, &out);
+            (quote! { Option<#item_type> }, ty)
         }
     }
 }
 
 // Type according to https://graphql.org/learn/schema/#scalar-types
-fn graphql_scalar_type_to_rust_type(name: Name, out: &Output) -> TokenStream {
+fn graphql_scalar_type_to_rust_type(name: Name, out: &Output) -> (TokenStream, TypeType) {
     match &*name {
-        "Int" => quote! { i32 },
-        "Float" => quote! { f64 },
-        "String" => quote! { String },
-        "Boolean" => quote! { bool },
+        "Int" => (quote! { i32 }, TypeType::Scalar),
+        "Float" => (quote! { f64 }, TypeType::Scalar),
+        "String" => (quote! { String }, TypeType::Scalar),
+        "Boolean" => (quote! { bool }, TypeType::Scalar),
         "ID" => todo!("ID scalar"),
         "Date" => {
             if out.is_date_scalar_defined() {
-                quote! { chrono::naive::NaiveDate }
+                (quote! { chrono::naive::NaiveDate }, TypeType::Scalar)
             } else {
                 panic!(
                     "Fields with type `Date` is only allowed if you have defined a scalar named `Date`"
@@ -405,23 +422,16 @@ fn graphql_scalar_type_to_rust_type(name: Name, out: &Output) -> TokenStream {
             }
         }
         "DateTime" => {
-            if out.is_date_scalar_defined() {
-                quote! { chrono::DateTime<chrono::offset::Utc> }
+            if out.is_date_time_scalar_defined() {
+                (quote! { chrono::DateTime<chrono::offset::Utc> }, TypeType::Scalar)
             } else {
                 panic!(
                     "Fields with type `DateTime` is only allowed if you have defined a scalar named `DateTime`"
                 )
             }
         }
-        name => quote_ident(name.to_camel_case()),
+        name => (quote_ident(name.to_camel_case()), TypeType::Type),
     }
-}
-
-fn push_simple_path(s: &str, segments: &mut Punctuated<PathSegment, Colon2>) {
-    segments.push(PathSegment {
-        ident: ident(s),
-        arguments: PathArguments::None,
-    });
 }
 
 trait AddToOutput {
