@@ -1,4 +1,5 @@
 #![deny(unused_imports, dead_code, unused_variables)]
+#![recursion_limit="128"]
 
 extern crate proc_macro;
 extern crate proc_macro2;
@@ -8,7 +9,7 @@ mod macros;
 mod nullable_type;
 mod walk_ast;
 
-use self::walk_ast::{find_special_scalar_types, gen_doc, Output};
+use self::walk_ast::{find_special_scalar_types, gen_juniper_code, gen_query_trails, Output};
 use graphql_parser::parse_schema;
 use proc_macro2::TokenStream;
 
@@ -42,7 +43,9 @@ fn parse_and_gen_schema(schema: String) -> proc_macro::TokenStream {
     let special_scalars = find_special_scalar_types(&doc);
 
     let mut output = Output::new(special_scalars);
-    gen_doc(doc, &mut output);
+
+    gen_query_trails(&doc, &mut output);
+    gen_juniper_code(doc, &mut output);
 
     output.tokens().into_iter().collect::<TokenStream>().into()
 }
