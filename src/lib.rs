@@ -3,18 +3,18 @@
 extern crate proc_macro;
 extern crate proc_macro2;
 
+#[macro_use]
+mod macros;
+mod nullable_type;
+mod walk_ast;
+
+use self::nullable_type::NullableType;
+use self::walk_ast::{find_special_scalar_types, SpecialScalarTypesList};
 use graphql_parser::{parse_schema, query::Name, schema::*};
 use heck::{CamelCase, SnakeCase};
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{punctuated::Punctuated, token::Colon2, Ident, PathArguments, PathSegment};
-
-#[macro_use]
-mod macros;
-
-mod nullable_type;
-
-use self::nullable_type::NullableType;
 
 #[proc_macro]
 pub fn graphql_schema_from_file(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -38,28 +38,29 @@ pub fn graphql_schema(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 }
 
 fn parse_and_gen_schema(schema: String) -> proc_macro::TokenStream {
-    let mut output = Output::new();
-
-    match parse_schema(&schema) {
-        Ok(doc) => gen_doc(doc, &mut output),
+    let doc = match parse_schema(&schema) {
+        Ok(doc) => doc,
         Err(parse_error) => panic!("{}", parse_error),
     };
+
+    let special_scalars = find_special_scalar_types(&doc);
+
+    let mut output = Output::new(special_scalars);
+    gen_doc(doc, &mut output);
 
     output.tokens().into_iter().collect::<TokenStream>().into()
 }
 
 struct Output {
     tokens: Vec<TokenStream>,
-    date_time_scalar_defined: bool,
-    date_scalar_defined: bool,
+    special_scalars: SpecialScalarTypesList,
 }
 
 impl Output {
-    fn new() -> Self {
+    fn new(special_scalars: SpecialScalarTypesList) -> Self {
         Output {
             tokens: vec![],
-            date_scalar_defined: false,
-            date_time_scalar_defined: false,
+            special_scalars,
         }
     }
 
@@ -72,26 +73,17 @@ impl Output {
     }
 
     fn is_date_time_scalar_defined(&self) -> bool {
-        self.date_time_scalar_defined
+        self.special_scalars.date_defined()
     }
 
     fn is_date_scalar_defined(&self) -> bool {
-        self.date_scalar_defined
-    }
-
-    fn date_time_scalar_defined(&mut self) {
-        self.date_time_scalar_defined = true
-    }
-
-    fn date_scalar_defined(&mut self) {
-        self.date_scalar_defined = true
+        self.special_scalars.date_time_defined()
     }
 
     fn clone_without_tokens(&self) -> Self {
         Output {
             tokens: vec![],
-            date_scalar_defined: self.date_scalar_defined,
-            date_time_scalar_defined: self.date_time_scalar_defined,
+            special_scalars: self.special_scalars.clone(),
         }
     }
 }
@@ -191,8 +183,8 @@ fn gen_scalar_type(scalar_type: ScalarType, out: &mut Output) {
     //   directives
 
     match &*scalar_type.name {
-        "Date" => out.date_scalar_defined(),
-        "DateTime" => out.date_time_scalar_defined(),
+        "Date" => {}
+        "DateTime" => {}
         name => {
             let name = ident(name);
             let description = scalar_type
