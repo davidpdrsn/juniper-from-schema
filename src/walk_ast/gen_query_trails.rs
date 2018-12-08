@@ -56,15 +56,15 @@ fn gen_query_trail(out: &mut Output) {
         pub struct NotWalked;
 
         trait MakeQueryTrail<'a> {
-            fn make_query_trail<T>(&'a self) -> QueryTrail<'a, T, NotWalked>;
+            fn make_query_trail<T>(&'a self) -> QueryTrail<'a, T, Walked>;
         }
 
         impl<'a> MakeQueryTrail<'a> for juniper::LookAheadSelection<'a> {
-            fn make_query_trail<T>(&'a self) -> QueryTrail<'a, T, NotWalked> {
+            fn make_query_trail<T>(&'a self) -> QueryTrail<'a, T, Walked> {
                 QueryTrail {
                     look_ahead: Some(self),
                     node_type: std::marker::PhantomData,
-                    walked: NotWalked,
+                    walked: Walked,
                 }
             }
         }

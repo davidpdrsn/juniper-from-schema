@@ -392,7 +392,7 @@ mod query_trail {
         fn field_user<'a>(
             &self,
             executor: &Executor<'a, Context>,
-            trail: &QueryTrail<'a, User, NotWalked>,
+            trail: &QueryTrail<'a, User, Walked>,
         ) -> FieldResult<User> {
             trail.club().walk();
             trail.club_2().walk();
@@ -413,7 +413,7 @@ mod query_trail {
         fn field_club<'a>(
             &self,
             executor: &Executor<'a, Context>,
-            trail: &QueryTrail<'a, Club, NotWalked>,
+            trail: &QueryTrail<'a, Club, Walked>,
         ) -> FieldResult<Option<Club>> {
             unimplemented!()
         }
@@ -421,7 +421,7 @@ mod query_trail {
         fn field_club_2<'a>(
             &self,
             executor: &Executor<'a, Context>,
-            trail: &QueryTrail<'a, Club, NotWalked>,
+            trail: &QueryTrail<'a, Club, Walked>,
         ) -> FieldResult<Club> {
             unimplemented!()
         }
