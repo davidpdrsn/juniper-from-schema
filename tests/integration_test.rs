@@ -73,7 +73,10 @@ pub mod simple_nullable_scalars {
             unimplemented!()
         }
 
-        fn field_boolean<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&Option<bool>> {
+        fn field_boolean<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+        ) -> FieldResult<&Option<bool>> {
             unimplemented!()
         }
     }
@@ -203,7 +206,11 @@ mod field_args {
     pub struct Query;
 
     impl QueryFields for Query {
-        fn field_single<'a>(&self, executor: &Executor<'a, Context>, arg: i32) -> FieldResult<&i32> {
+        fn field_single<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+            arg: i32,
+        ) -> FieldResult<&i32> {
             unimplemented!()
         }
 
@@ -306,11 +313,19 @@ mod returning_references {
     pub struct Query;
 
     impl QueryFields for Query {
-        fn field_user_nullable<'a>(&self, executor: &Executor<'a, Context>, id: i32) -> FieldResult<Option<User>> {
+        fn field_user_nullable<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+            id: i32,
+        ) -> FieldResult<Option<User>> {
             Ok(find_user(id))
         }
 
-        fn field_user_non_null<'a>(&self, executor: &Executor<'a, Context>, id: i32) -> FieldResult<User> {
+        fn field_user_non_null<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+            id: i32,
+        ) -> FieldResult<User> {
             Ok(find_user(id).unwrap())
         }
     }
@@ -326,11 +341,17 @@ mod returning_references {
             Ok(&self.id)
         }
 
-        fn field_name_nullable<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&Option<String>> {
+        fn field_name_nullable<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+        ) -> FieldResult<&Option<String>> {
             Ok(&self.name_nullable)
         }
 
-        fn field_name_non_null<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&String> {
+        fn field_name_non_null<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+        ) -> FieldResult<&String> {
             Ok(&self.name)
         }
     }

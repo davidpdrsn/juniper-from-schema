@@ -312,7 +312,7 @@ fn gen_field(field: Field, out: &Output) -> FieldTokens {
 
     let name = ident(field.name);
 
-    let field_type = gen_field_type(field.field_type,&FieldTypeDestination::Return, out);
+    let field_type = gen_field_type(field.field_type, &FieldTypeDestination::Return, out);
 
     let field_method = ident(format!("field_{}", name.to_string().to_snake_case()));
 
@@ -375,7 +375,11 @@ enum TypeType {
     Type,
 }
 
-fn gen_field_type(field_type: Type, destination: &FieldTypeDestination, out: &Output) -> TokenStream {
+fn gen_field_type(
+    field_type: Type,
+    destination: &FieldTypeDestination,
+    out: &Output,
+) -> TokenStream {
     let field_type = NullableType::from_type(field_type);
     let (tokens, ty) = gen_nullable_field_type(field_type, out);
 
@@ -397,8 +401,7 @@ fn gen_nullable_field_type(field_type: NullableType, out: &Output) -> (TokenStre
             (quote! { Vec<#item_type> }, ty)
         }
         NullableType(item_type) => {
-            let (item_type, ty) =
-                gen_nullable_field_type(*item_type, &out);
+            let (item_type, ty) = gen_nullable_field_type(*item_type, &out);
             (quote! { Option<#item_type> }, ty)
         }
     }
@@ -423,7 +426,10 @@ fn graphql_scalar_type_to_rust_type(name: Name, out: &Output) -> (TokenStream, T
         }
         "DateTime" => {
             if out.is_date_time_scalar_defined() {
-                (quote! { chrono::DateTime<chrono::offset::Utc> }, TypeType::Scalar)
+                (
+                    quote! { chrono::DateTime<chrono::offset::Utc> },
+                    TypeType::Scalar,
+                )
             } else {
                 panic!(
                     "Fields with type `DateTime` is only allowed if you have defined a scalar named `DateTime`"
