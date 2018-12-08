@@ -394,8 +394,8 @@ mod query_trail {
             executor: &Executor<'a, Context>,
             trail: &QueryTrail<'a, User>,
         ) -> FieldResult<User> {
-            trail.club().is_present();
-            trail.club_2().is_present();
+            trail.club().try_unwrap();
+            trail.club_2().try_unwrap();
 
             unimplemented!()
         }
