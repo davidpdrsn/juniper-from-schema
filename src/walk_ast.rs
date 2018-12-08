@@ -6,8 +6,11 @@ pub use self::find_special_scalar_types::{find_special_scalar_types, SpecialScal
 pub use self::gen_juniper_code::gen_juniper_code;
 pub use self::gen_query_trails::gen_query_trails;
 
+use graphql_parser::{query::Name, schema::Type};
+use heck::CamelCase;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
+use quote::quote;
 use syn::Ident;
 
 pub struct Output {
@@ -59,4 +62,57 @@ impl AddToOutput for TokenStream {
 
 pub fn ident<T: AsRef<str>>(name: T) -> Ident {
     Ident::new(name.as_ref(), Span::call_site())
+}
+
+pub fn type_name(type_: &Type) -> Name {
+    match *type_ {
+        Type::NamedType(ref name) => name.clone(),
+        Type::ListType(ref item_type) => type_name(&*item_type),
+        Type::NonNullType(ref item_type) => type_name(&*item_type),
+    }
+}
+
+// Type according to https://graphql.org/learn/schema/#scalar-types
+pub fn graphql_scalar_type_to_rust_type(name: Name, out: &Output) -> (TokenStream, TypeType) {
+    match &*name {
+        "Int" => (quote! { i32 }, TypeType::Scalar),
+        "Float" => (quote! { f64 }, TypeType::Scalar),
+        "String" => (quote! { String }, TypeType::Scalar),
+        "Boolean" => (quote! { bool }, TypeType::Scalar),
+        "ID" => todo!("ID scalar"),
+        "Date" => {
+            if out.is_date_scalar_defined() {
+                (quote! { chrono::naive::NaiveDate }, TypeType::Scalar)
+            } else {
+                panic!(
+                    "Fields with type `Date` is only allowed if you have defined a scalar named `Date`"
+                )
+            }
+        }
+        "DateTime" => {
+            if out.is_date_time_scalar_defined() {
+                (
+                    quote! { chrono::DateTime<chrono::offset::Utc> },
+                    TypeType::Scalar,
+                )
+            } else {
+                panic!(
+                    "Fields with type `DateTime` is only allowed if you have defined a scalar named `DateTime`"
+                )
+            }
+        }
+        name => (quote_ident(name.to_camel_case()), TypeType::Type),
+    }
+}
+
+pub fn quote_ident<T: AsRef<str>>(name: T) -> TokenStream {
+    let ident = ident(name);
+    quote! { #ident }
+}
+
+// In a way this is also a kind, but not really. Both are `*`
+#[derive(Debug)]
+pub enum TypeType {
+    Scalar,
+    Type,
 }

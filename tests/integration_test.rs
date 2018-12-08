@@ -375,7 +375,8 @@ mod query_trail {
 
         type User {
             id: Int!
-            club: Club!
+            club: Club
+            club_2: Club!
         }
 
         type Club {
@@ -393,8 +394,8 @@ mod query_trail {
             executor: &Executor<'a, Context>,
             trail: &QueryTrail<'a, User>,
         ) -> FieldResult<User> {
-            trail.id().is_present();
             trail.club().is_present();
+            trail.club_2().is_present();
 
             unimplemented!()
         }
@@ -410,6 +411,14 @@ mod query_trail {
         }
 
         fn field_club<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+            trail: &QueryTrail<'a, Club>,
+        ) -> FieldResult<Option<Club>> {
+            unimplemented!()
+        }
+
+        fn field_club_2<'a>(
             &self,
             executor: &Executor<'a, Context>,
             trail: &QueryTrail<'a, Club>,

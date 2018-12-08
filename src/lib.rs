@@ -1,4 +1,4 @@
-#![deny(unused_imports, dead_code, unused_variables)]
+// #![deny(unused_imports, dead_code, unused_variables)]
 #![recursion_limit="128"]
 
 extern crate proc_macro;
