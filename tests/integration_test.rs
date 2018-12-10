@@ -400,6 +400,7 @@ mod query_trail {
         ) -> FieldResult<User> {
             trail.club().walk();
             trail.club_2().walk();
+            trail.club_2().id() == true;
 
             unimplemented!()
         }
