@@ -262,7 +262,7 @@ fn gen_field(field: Field, out: &Output) -> FieldTokens {
 
     let name = ident(field.name);
 
-    let inner_type = type_name(&field.field_type);
+    let inner_type = type_name(&field.field_type).to_camel_case();
 
     let (field_type, type_type) =
         gen_field_type(field.field_type, &FieldTypeDestination::Return, out);

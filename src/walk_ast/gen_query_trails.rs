@@ -2,7 +2,7 @@ use super::{graphql_scalar_type_to_rust_type, ident, type_name, AddToOutput, Out
 use graphql_parser::schema::Definition::*;
 use graphql_parser::schema::TypeDefinition::*;
 use graphql_parser::schema::*;
-use heck::SnakeCase;
+use heck::{CamelCase, SnakeCase};
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -90,7 +90,7 @@ fn gen_field_walk_methods(obj: &ObjectType, out: &mut Output) {
 fn gen_field_walk_method(field: &Field, out: &Output) -> TokenStream {
     let field_type = type_name(&field.field_type);
     let (_, ty) = graphql_scalar_type_to_rust_type(field_type.clone(), &out);
-    let field_type = ident(field_type.clone());
+    let field_type = ident(field_type.clone().to_camel_case());
 
     match ty {
         TypeType::Scalar => {
