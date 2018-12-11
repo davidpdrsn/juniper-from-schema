@@ -6,7 +6,12 @@
 
 Wouldn't it be neat if you could parse your GraphQL schema at compile and generate all the juniper boilerplate? While of course ensuring your Rust types match the schema.
 
-That is the idea of this crate.
+That would in theory give you some nice benefits:
+
+- Actually have a GraphQL schema file you can share with the clients. [I don't believe juniper currently supports this.](https://github.com/graphql-rust/juniper#features)
+- You app only compiles if its types match the schema.
+
+Also, if you know all the queries your clients will make, you could technically verify that the queries match the schema. And if you know your backend implements the schema then you know queries should work. The circle is complete ♻️
 
 ## Basic example
 
