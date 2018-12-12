@@ -111,7 +111,7 @@ pub fn quote_ident<T: AsRef<str>>(name: T) -> TokenStream {
 }
 
 // In a way this is also a kind, but not really. Both are `*`
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum TypeType {
     Scalar,
     Type,

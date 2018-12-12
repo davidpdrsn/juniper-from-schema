@@ -1,0 +1,19 @@
+type Query {
+  """
+  Some other comment
+
+  #[ownership(borrowed)]
+  """
+  borrowed_string: String!
+
+  """
+  Some other comment
+
+  #[ownership(owned)]
+  """
+  owned_string: String!
+}
+
+schema {
+  query: Query
+}

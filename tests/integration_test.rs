@@ -1,7 +1,7 @@
 extern crate juniper;
 
 use juniper::{Executor, FieldResult};
-use juniper_from_schema::graphql_schema;
+use juniper_from_schema::{graphql_schema, graphql_schema_from_file};
 
 pub struct Context;
 impl juniper::Context for Context {}
@@ -251,7 +251,7 @@ mod enums {
             executor: &Executor<'a, Context>,
             trail: &QueryTrail<'a, YesNo, Walked>,
             arg: Option<YesNo>,
-        ) -> FieldResult<YesNo> {
+        ) -> FieldResult<&YesNo> {
             let _: YesNo = YesNo::No;
             let _: YesNo = YesNo::Yes;
             let _: YesNo = YesNo::NotSure;
@@ -281,7 +281,7 @@ mod custom_scalar {
             executor: &Executor<'a, Context>,
             trail: &QueryTrail<'a, Cursor, Walked>,
             arg: Cursor,
-        ) -> FieldResult<Cursor> {
+        ) -> FieldResult<&Cursor> {
             Cursor::new("123".to_string());
             unimplemented!()
         }
@@ -297,20 +297,7 @@ mod custom_scalar {
 mod returning_references {
     use super::*;
 
-    graphql_schema! {
-        type Query {
-            userNullable(id: Int!): User
-            userNonNull(id: Int!): User!
-        }
-
-        type User {
-            id: Int!
-            nameNullable: String
-            nameNonNull: String!
-        }
-
-        schema { query: Query }
-    }
+    graphql_schema_from_file!("tests/schemas/returning_references.graphql");
 
     pub struct Query;
 
@@ -348,8 +335,8 @@ mod returning_references {
         fn field_name_nullable<'a>(
             &self,
             executor: &Executor<'a, Context>,
-        ) -> FieldResult<&Option<String>> {
-            Ok(&self.name_nullable)
+        ) -> FieldResult<Option<String>> {
+            Ok(self.name_nullable.clone())
         }
 
         fn field_name_non_null<'a>(
@@ -397,7 +384,7 @@ mod query_trail {
             &self,
             executor: &Executor<'a, Context>,
             trail: &QueryTrail<'a, User, Walked>,
-        ) -> FieldResult<User> {
+        ) -> FieldResult<&User> {
             trail.club().walk();
             trail.club_2().walk();
             trail.club_2().id() == true;
@@ -419,7 +406,7 @@ mod query_trail {
             &self,
             executor: &Executor<'a, Context>,
             trail: &QueryTrail<'a, Club, Walked>,
-        ) -> FieldResult<Option<Club>> {
+        ) -> FieldResult<&Option<Club>> {
             unimplemented!()
         }
 
@@ -427,7 +414,7 @@ mod query_trail {
             &self,
             executor: &Executor<'a, Context>,
             trail: &QueryTrail<'a, Club, Walked>,
-        ) -> FieldResult<Club> {
+        ) -> FieldResult<&Club> {
             unimplemented!()
         }
     }
@@ -438,6 +425,27 @@ mod query_trail {
 
     impl ClubFields for Club {
         fn field_id<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&i32> {
+            unimplemented!()
+        }
+    }
+}
+
+mod ownership_attributes {
+    use super::*;
+
+    graphql_schema_from_file!("tests/schemas/ownership_attributes.graphql");
+
+    pub struct Query;
+
+    impl QueryFields for Query {
+        fn field_borrowed_string<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+        ) -> FieldResult<&String> {
+            unimplemented!()
+        }
+
+        fn field_owned_string<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<String> {
             unimplemented!()
         }
     }

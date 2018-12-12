@@ -1,0 +1,19 @@
+type Query {
+  "#[ownership(owned)]"
+  userNonNull(id: Int!): User!
+
+  "#[ownership(owned)]"
+  userNullable(id: Int!): User
+}
+
+type User {
+  id: Int!
+  nameNonNull: String!
+
+  "#[ownership(owned)]"
+  nameNullable: String
+}
+
+schema {
+  query: Query
+}
