@@ -450,3 +450,32 @@ mod ownership_attributes {
         }
     }
 }
+
+mod input_object {
+    use super::*;
+
+    graphql_schema! {
+        type Query {
+            usersAtLocation(coordinate: Coordinate): Boolean!
+        }
+
+        input Coordinate {
+            lat: Int!
+            long: Int!
+        }
+
+        schema { query: Query }
+    }
+
+    pub struct Query;
+
+    impl QueryFields for Query {
+        fn field_users_at_location<'a>(
+            &self,
+            executor: &Executor<'a, Context>,
+            coordinat: Option<Coordinate>,
+        ) -> FieldResult<&bool> {
+            unimplemented!()
+        }
+    }
+}
