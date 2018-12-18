@@ -78,4 +78,6 @@ The `QueryTrail` is another generated type which provides compile look aheads ch
 
 ## Debugging
 
-Setting `JUNIPER_FROM_SCHEMA_DEBUG` to `1` will make the generated code be printed to your terminal. The recommended way to do that is with `JUNIPER_FROM_SCHEMA_DEBUG=1 cargo build`. The code will be pretty printed using [rustfmt][https://crates.io/crates/rustfmt], which sadly doesn't support macros so `graphql_object!` calls wont be very legible.
+Setting `JUNIPER_FROM_SCHEMA_DEBUG` to `1` will cause the generated code be printed to your terminal. The recommended way to do that is with `JUNIPER_FROM_SCHEMA_DEBUG=1 cargo build`.
+
+By default the code will not be pretty printed. If you want pretty printing you can include the [feature](https://doc.rust-lang.org/cargo/reference/manifest.html#the-features-section) `format-debug-output`. This will pretty print the code using [rustfmt][https://crates.io/crates/rustfmt]. Note this requires you to be on nightly because of rustfmt.
