@@ -1,7 +1,9 @@
+mod find_interface_implementors;
 mod find_special_scalar_types;
 mod gen_juniper_code;
 mod gen_query_trails;
 
+pub use self::find_interface_implementors::{find_interface_implementors, InterfaceImplementors};
 pub use self::find_special_scalar_types::{find_special_scalar_types, SpecialScalarTypesList};
 pub use self::gen_juniper_code::gen_juniper_code;
 pub use self::gen_query_trails::gen_query_trails;
@@ -16,13 +18,18 @@ use syn::Ident;
 pub struct Output {
     tokens: Vec<TokenStream>,
     special_scalars: SpecialScalarTypesList,
+    interface_implementors: InterfaceImplementors,
 }
 
 impl Output {
-    pub fn new(special_scalars: SpecialScalarTypesList) -> Self {
+    pub fn new(
+        special_scalars: SpecialScalarTypesList,
+        interface_implementors: InterfaceImplementors,
+    ) -> Self {
         Output {
             tokens: vec![],
             special_scalars,
+            interface_implementors,
         }
     }
 
@@ -35,17 +42,26 @@ impl Output {
     }
 
     fn is_date_time_scalar_defined(&self) -> bool {
-        self.special_scalars.date_defined()
+        self.special_scalars.date_time_defined()
     }
 
     fn is_date_scalar_defined(&self) -> bool {
-        self.special_scalars.date_time_defined()
+        self.special_scalars.date_defined()
+    }
+
+    fn is_id_scalar_used(&self) -> bool {
+        self.special_scalars.id_scalar_used()
+    }
+
+    fn interface_implementors(&self) -> &InterfaceImplementors {
+        &self.interface_implementors
     }
 
     fn clone_without_tokens(&self) -> Self {
         Output {
             tokens: vec![],
             special_scalars: self.special_scalars.clone(),
+            interface_implementors: self.interface_implementors.clone(),
         }
     }
 }
@@ -79,7 +95,7 @@ pub fn graphql_scalar_type_to_rust_type(name: Name, out: &Output) -> (TokenStrea
         "Float" => (quote! { f64 }, TypeType::Scalar),
         "String" => (quote! { String }, TypeType::Scalar),
         "Boolean" => (quote! { bool }, TypeType::Scalar),
-        "ID" => todo!("ID scalar"),
+        "ID" => (quote! { Id }, TypeType::Scalar),
         "Date" => {
             if out.is_date_scalar_defined() {
                 (quote! { chrono::naive::NaiveDate }, TypeType::Scalar)

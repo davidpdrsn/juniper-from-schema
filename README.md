@@ -76,6 +76,18 @@ For each type in your GraphQL schema `graphql_schema_from_file!` will generate t
 
 The `QueryTrail` is another generated type which provides compile look aheads check by the compiler. So rather than calling `select_child("edges")?.select_child("nodes")` you instead call `trail.edges().nodes().walk()?` where the method names are generated from the schema, so you cannot get them wrong.
 
+## Supported GraphQL features
+
+- [x] Queries
+- [x] Mutations
+- [x] Custom object types
+- [ ] Default values for arguments
+- [x] Custom scalar types
+- [x] Interfaces
+- [x] Unions
+- [x] Input objects
+- [x] Enumeration types
+
 ## Debugging
 
 Setting `JUNIPER_FROM_SCHEMA_DEBUG` to `1` will cause the generated code be printed to your terminal. The recommended way to do that is with `JUNIPER_FROM_SCHEMA_DEBUG=1 cargo build`.

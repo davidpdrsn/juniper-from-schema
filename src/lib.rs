@@ -10,7 +10,10 @@ mod nullable_type;
 mod pretty_print;
 mod walk_ast;
 
-use self::walk_ast::{find_special_scalar_types, gen_juniper_code, gen_query_trails, Output};
+use self::walk_ast::{
+    find_interface_implementors, find_special_scalar_types, gen_juniper_code, gen_query_trails,
+    Output,
+};
 use graphql_parser::parse_schema;
 use proc_macro2::TokenStream;
 
@@ -42,8 +45,9 @@ fn parse_and_gen_schema(schema: String) -> proc_macro::TokenStream {
     };
 
     let special_scalars = find_special_scalar_types(&doc);
+    let interface_implementors = find_interface_implementors(&doc);
 
-    let mut output = Output::new(special_scalars);
+    let mut output = Output::new(special_scalars, interface_implementors);
 
     gen_query_trails(&doc, &mut output);
     gen_juniper_code(doc, &mut output);

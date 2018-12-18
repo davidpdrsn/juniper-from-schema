@@ -1,0 +1,94 @@
+# From https://github.com/apollographql/starwars-server/blob/master/data/swapiSchema.js
+# Missing:
+#   - subscription type
+
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+"The query type, represents all of the entry points into our object graph"
+type Query {
+  "#[ownership(owned)]"
+  hero(episode: Episode): Character
+  "#[ownership(owned)]"
+  search(text: String): [SearchResult!]
+}
+
+"The mutation type, represents all updates we can make to our data"
+type Mutation {
+  "#[ownership(owned)]"
+  createReview(episode: Episode, review: ReviewInput!): Review
+}
+
+"The episodes in the Star Wars trilogy"
+enum Episode {
+  "Star Wars Episode IV: A New Hope, released in 1977."
+  NEWHOPE
+  "Star Wars Episode V: The Empire Strikes Back, released in 1980."
+  EMPIRE
+  "Star Wars Episode VI: Return of the Jedi, released in 1983."
+  JEDI
+}
+
+"A character from the Star Wars universe"
+interface Character {
+  """
+  The ID of the character
+  #[ownership(owned)]
+  """
+  id: ID!
+  "The name of the character"
+  name: String!
+}
+
+"A humanoid creature from the Star Wars universe"
+type Human implements Character {
+  """
+  The ID of the human
+  #[ownership(owned)]
+  """
+  id: ID!
+  "What this human calls themselves"
+  name: String!
+}
+
+"A humanoid creature from the Star Wars universe"
+type Droid implements Character {
+  """
+  The ID of the human
+  #[ownership(owned)]
+  """
+  id: ID!
+  "What this human calls themselves"
+  name: String!
+}
+
+union SearchResult = Human | Droid
+
+input ReviewInput {
+  "0-5 stars"
+  stars: Int!
+  "Comment about the movie, optional"
+  commentary: String
+  "Favorite color, optional"
+  favoriteColor: ColorInput
+}
+
+"The input object sent when passing in a color"
+input ColorInput {
+  red: Int!
+  green: Int!
+  blue: Int!
+}
+
+"Represents a review for a movie"
+type Review {
+  "The movie"
+  episode: Episode
+  "The number of stars this review gave, 1-5"
+  stars: Int!
+  "Comment about the movie"
+  commentary: String
+  favoriteColor: ColorInput
+}
