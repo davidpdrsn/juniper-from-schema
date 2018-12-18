@@ -34,6 +34,10 @@ schema {
 Rust code:
 
 ```rust
+// This is needed to import internal juniper macros
+#[macro_use]
+extern crate juniper;
+
 use juniper::{Executor, FieldResult};
 use juniper_from_schema::graphql_schema;
 

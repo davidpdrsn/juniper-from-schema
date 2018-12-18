@@ -75,17 +75,23 @@ fn gen_input_def(input_type: InputObjectType, out: &mut Output) {
 
     let name = ident(input_type.name);
 
-    let description = input_type.description.map(|desc| {
-        quote! { #[graphql(description=#desc)] }
-    }).unwrap_or_else(|| empty_token_stream());
+    let description = input_type
+        .description
+        .map(|desc| {
+            quote! { #[graphql(description=#desc)] }
+        })
+        .unwrap_or_else(|| empty_token_stream());
 
     let fields = input_type.fields.into_iter().map(|field| {
         let (name, rust_type) = argument_to_name_and_rust_type(&field, &out);
         let name = ident(name);
 
-        let description = field.description.map(|desc| {
-            quote! { #[graphql(description=#desc)] }
-        }).unwrap_or_else(|| empty_token_stream());
+        let description = field
+            .description
+            .map(|desc| {
+                quote! { #[graphql(description=#desc)] }
+            })
+            .unwrap_or_else(|| empty_token_stream());
 
         quote! {
             #[allow(missing_docs)]
@@ -101,7 +107,8 @@ fn gen_input_def(input_type: InputObjectType, out: &mut Output) {
         struct #name {
             #(#fields),*
         }
-    }).add_to(out)
+    })
+    .add_to(out)
 }
 
 fn gen_enum_type(enum_type: EnumType, out: &mut Output) {
@@ -165,6 +172,10 @@ fn gen_scalar_type(scalar_type: ScalarType, out: &mut Output) {
 
                     from_input_value(v: &InputValue) -> Option<#name> {
                         v.as_string_value().map(|s| #name::new(s.to_owned()))
+                    }
+
+                    from_str<'a>(value: ScalarToken<'a>) -> juniper::ParseScalarResult<'a> {
+                        <String as juniper::ParseScalarValue>::from_str(value)
                     }
                 });
             })
@@ -256,8 +267,14 @@ fn gen_obj_type(obj_type: ObjectType, out: &mut Output) {
                 }
             };
 
+            let all_args = if args.is_empty() {
+                quote! { &executor }
+            } else {
+                quote! { &executor, #(#args),* }
+            };
+
             quote! {
-                field #field_name(&executor, #(#args),*) -> juniper::FieldResult<#field_type> #description {
+                field #field_name(#all_args) -> juniper::FieldResult<#field_type> #description {
                     #body
                 }
             }

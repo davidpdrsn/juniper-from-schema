@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate juniper;
 
 use juniper::{Executor, FieldResult};
