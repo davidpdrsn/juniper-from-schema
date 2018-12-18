@@ -75,3 +75,7 @@ impl UserFields for User {
 For each type in your GraphQL schema `graphql_schema_from_file!` will generate traits named `{Type}Fields` with methods for each field. It also generates calls to `graphql_object!` that just calls the methods from the trait.
 
 The `QueryTrail` is another generated type which provides compile look aheads check by the compiler. So rather than calling `select_child("edges")?.select_child("nodes")` you instead call `trail.edges().nodes().walk()?` where the method names are generated from the schema, so you cannot get them wrong.
+
+## Debugging
+
+Setting `JUNIPER_FROM_SCHEMA_DEBUG` to `1` will make the generated code be printed to your terminal. The recommended way to do that is with `JUNIPER_FROM_SCHEMA_DEBUG=1 cargo build`. The code will be pretty printed using [rustfmt][https://crates.io/crates/rustfmt], which sadly doesn't support macros so `graphql_object!` calls wont be very legible.

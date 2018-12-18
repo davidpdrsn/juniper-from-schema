@@ -7,6 +7,7 @@ extern crate proc_macro2;
 #[macro_use]
 mod macros;
 mod nullable_type;
+mod pretty_print;
 mod walk_ast;
 
 use self::walk_ast::{find_special_scalar_types, gen_juniper_code, gen_query_trails, Output};
@@ -47,7 +48,13 @@ fn parse_and_gen_schema(schema: String) -> proc_macro::TokenStream {
     gen_query_trails(&doc, &mut output);
     gen_juniper_code(doc, &mut output);
 
-    output.tokens().into_iter().collect::<TokenStream>().into()
+    let out: proc_macro::TokenStream = output.tokens().into_iter().collect::<TokenStream>().into();
+
+    if debugging_enabled() {
+        self::pretty_print::code_gen_debug(out.to_string());
+    }
+
+    out
 }
 
 fn read_file(path: &std::path::PathBuf) -> Result<String, std::io::Error> {
@@ -56,4 +63,14 @@ fn read_file(path: &std::path::PathBuf) -> Result<String, std::io::Error> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     Ok(contents)
+}
+
+fn debugging_enabled() -> bool {
+    if let Ok(val) = std::env::var("JUNIPER_FROM_SCHEMA_DEBUG") {
+        if &val == "1" {
+            return true;
+        }
+    }
+
+    false
 }
