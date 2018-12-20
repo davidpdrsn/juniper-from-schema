@@ -10,12 +10,12 @@ pub fn gen_query_trails(doc: &Document, out: &mut Output) {
     gen_query_trail(out);
 
     for def in &doc.definitions {
-        match def {
-            TypeDefinition(type_def) => match type_def {
-                Object(obj) => gen_field_walk_methods(obj, out),
-                _ => {}
-            },
-            _ => {}
+        // This can be cleaned up when https://github.com/rust-lang/rust/issues/53667
+        // has landed
+        if let TypeDefinition(type_def) = def {
+            if let Object(obj) = type_def {
+                gen_field_walk_methods(obj, out)
+            }
         }
     }
 }
@@ -89,7 +89,7 @@ fn gen_field_walk_methods(obj: &ObjectType, out: &mut Output) {
 
 fn gen_field_walk_method(field: &Field, out: &Output) -> TokenStream {
     let field_type = type_name(&field.field_type);
-    let (_, ty) = graphql_scalar_type_to_rust_type(field_type.clone(), &out);
+    let (_, ty) = graphql_scalar_type_to_rust_type(&field_type, &out);
     let field_type = ident(field_type.clone().to_camel_case());
 
     match ty {

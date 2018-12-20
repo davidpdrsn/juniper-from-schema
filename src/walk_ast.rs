@@ -89,8 +89,8 @@ pub fn type_name(type_: &Type) -> Name {
 }
 
 // Type according to https://graphql.org/learn/schema/#scalar-types
-pub fn graphql_scalar_type_to_rust_type(name: Name, out: &Output) -> (TokenStream, TypeType) {
-    match &*name {
+pub fn graphql_scalar_type_to_rust_type(name: &str, out: &Output) -> (TokenStream, TypeType) {
+    match name {
         "Int" => (quote! { i32 }, TypeType::Scalar),
         "Float" => (quote! { f64 }, TypeType::Scalar),
         "String" => (quote! { String }, TypeType::Scalar),

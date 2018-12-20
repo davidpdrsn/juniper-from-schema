@@ -1,4 +1,4 @@
-// #![deny(unused_imports, dead_code, unused_variables)]
+#![deny(unused_imports, dead_code, unused_variables)]
 #![recursion_limit = "128"]
 
 extern crate proc_macro;
@@ -26,7 +26,7 @@ pub fn graphql_schema_from_file(input: proc_macro::TokenStream) -> proc_macro::T
     let path = pwd.join(file);
 
     match read_file(&path) {
-        Ok(schema) => parse_and_gen_schema(schema),
+        Ok(schema) => parse_and_gen_schema(&schema),
         Err(err) => panic!("{}", err),
     }
 }
@@ -35,10 +35,10 @@ pub fn graphql_schema_from_file(input: proc_macro::TokenStream) -> proc_macro::T
 pub fn graphql_schema(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input: TokenStream = input.into();
     let schema = input.to_string();
-    parse_and_gen_schema(schema)
+    parse_and_gen_schema(&schema)
 }
 
-fn parse_and_gen_schema(schema: String) -> proc_macro::TokenStream {
+fn parse_and_gen_schema(schema: &str) -> proc_macro::TokenStream {
     let doc = match parse_schema(&schema) {
         Ok(doc) => doc,
         Err(parse_error) => panic!("{}", parse_error),
