@@ -19,7 +19,7 @@ graphql-parser = "0.2.2"
 proc-macro2 = "0.4.24"
 heck = "0.3.0"
 regex = "1.1.0"
-lazy_static = "1.2.0"
+lazy_static = "1.1.0"
 rustfmt-nightly = { version = "1.0.1", optional = true }
 
 [features]
@@ -31,6 +31,8 @@ juniper = "0.11.0"
 serde_json = "1.0.33"
 assert-json-diff = "0.2.1"
 maplit = "1.0.1"
+version-sync = "0.6"
 
 [lib]
 proc-macro = true
+path = "src/lib.rs"
