@@ -1,0 +1,13 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+type Query {
+  "#[ownership(owned)]"
+  helloWorld(name: String!): String!
+}
+
+type Mutation {
+  noop: Boolean!
+}
