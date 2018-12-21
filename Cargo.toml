@@ -10,7 +10,7 @@ license = "MIT"
 name = "juniper-from-schema"
 readme = "README.md"
 repository = "https://github.com/davidpdrsn/juniper-from-schema.git"
-version = "0.0.3"
+version = "0.0.4"
 
 [dependencies]
 syn = { version = "0.15.22", features = ["full"] }
