@@ -22,6 +22,12 @@ N/A
 
 N/A
 
+## [0.1.1] - 2018-12-21
+
+Just fixed broken homepage link on crates.io
+
 ## 0.1.0 - 2018-12-21
 
 Initial release.
+
+[0.1.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/v0.1.0...v0.1.1
