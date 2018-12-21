@@ -30,4 +30,4 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
-[0.1.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/v0.1.0...v0.1.1
+[0.1.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.0...0.1.1
