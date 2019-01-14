@@ -22,6 +22,12 @@ N/A
 
 N/A
 
+## [0.1.2] - 2019-01-14
+
+### Fixed
+
+- `QueryTrail` methods now generated for interface types.
+
 ## [0.1.1] - 2018-12-21
 
 Just fixed broken homepage link on crates.io
@@ -30,4 +36,5 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.1.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.1...0.1.2
 [0.1.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.0...0.1.1
