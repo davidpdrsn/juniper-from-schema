@@ -362,6 +362,9 @@ impl QueryFields for Query {
 }
 ```
 
+Note that union types current don't work with `QueryTrail`s, meaning that it will not generate
+methods for each field in the union. Expect that to be fixed in a future version.
+
 ### Input objects
 
 Input objects will be converted into Rust structs with public fields.
