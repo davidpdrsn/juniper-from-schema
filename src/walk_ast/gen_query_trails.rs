@@ -10,11 +10,13 @@ pub fn gen_query_trails(doc: &Document, out: &mut Output) {
     gen_query_trail(out);
 
     for def in &doc.definitions {
-        // This can be cleaned up when https://github.com/rust-lang/rust/issues/53667
-        // has landed
         if let TypeDefinition(type_def) = def {
-            if let Object(obj) = type_def {
-                gen_field_walk_methods(obj, out)
+            match type_def {
+                Object(obj) => gen_field_walk_methods(InternalQueryTrailNode::Object(obj), out),
+                Interface(interface) => {
+                    gen_field_walk_methods(InternalQueryTrailNode::Interface(interface), out)
+                }
+                _ => {}
             }
         }
     }
@@ -72,10 +74,31 @@ fn gen_query_trail(out: &mut Output) {
     .add_to(out);
 }
 
-fn gen_field_walk_methods(obj: &ObjectType, out: &mut Output) {
-    let name = ident(&obj.name);
+enum InternalQueryTrailNode<'a> {
+    Object(&'a ObjectType),
+    Interface(&'a InterfaceType),
+}
+
+impl InternalQueryTrailNode<'_> {
+    fn name(&self) -> &String {
+        match self {
+            InternalQueryTrailNode::Object(inner) => &inner.name,
+            InternalQueryTrailNode::Interface(inner) => &inner.name,
+        }
+    }
+
+    fn fields(&self) -> &Vec<Field> {
+        match self {
+            InternalQueryTrailNode::Object(inner) => &inner.fields,
+            InternalQueryTrailNode::Interface(inner) => &inner.fields,
+        }
+    }
+}
+
+fn gen_field_walk_methods(obj: InternalQueryTrailNode<'_>, out: &mut Output) {
+    let name = ident(&obj.name());
     let methods = obj
-        .fields
+        .fields()
         .iter()
         .map(|field| gen_field_walk_method(field, &out));
 
