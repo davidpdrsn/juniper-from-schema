@@ -711,7 +711,7 @@
 
 #![deny(unused_imports, dead_code, unused_variables)]
 #![recursion_limit = "128"]
-#![doc(html_root_url = "https://docs.rs/juniper-from-schema/0.1.2")]
+#![doc(html_root_url = "https://docs.rs/juniper-from-schema/0.1.3-alpha.0")]
 
 extern crate proc_macro;
 extern crate proc_macro2;
