@@ -1,20 +1,37 @@
 use super::{graphql_scalar_type_to_rust_type, ident, type_name, AddToOutput, Output, TypeType};
-use graphql_parser::schema::Definition::*;
-use graphql_parser::schema::TypeDefinition::*;
+use graphql_parser::query::Name;
+use graphql_parser::schema::NamedType;
 use graphql_parser::schema::*;
 use heck::{CamelCase, SnakeCase};
 use proc_macro2::TokenStream;
 use quote::quote;
+use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 
 pub fn gen_query_trails(doc: &Document, out: &mut Output) {
     gen_query_trail(out);
 
+    let fields_map = build_fields_map(doc);
+
     for def in &doc.definitions {
-        if let TypeDefinition(type_def) = def {
+        if let Definition::TypeDefinition(type_def) = def {
             match type_def {
-                Object(obj) => gen_field_walk_methods(InternalQueryTrailNode::Object(obj), out),
-                Interface(interface) => {
+                TypeDefinition::Object(obj) => {
+                    gen_field_walk_methods(InternalQueryTrailNode::Object(obj), out)
+                }
+                TypeDefinition::Interface(interface) => {
                     gen_field_walk_methods(InternalQueryTrailNode::Interface(interface), out)
+                }
+                TypeDefinition::Union(union) => {
+                    panic_if_field_types_dont_overlap(union, &fields_map);
+
+                    gen_field_walk_methods(
+                        InternalQueryTrailNode::Union(
+                            union,
+                            build_union_fields_set(union, &fields_map),
+                        ),
+                        out,
+                    )
                 }
                 _ => {}
             }
@@ -74,9 +91,27 @@ fn gen_query_trail(out: &mut Output) {
     .add_to(out);
 }
 
+#[derive(Clone)]
+struct HashFieldByName(Field);
+
+impl PartialEq for HashFieldByName {
+    fn eq(&self, other: &HashFieldByName) -> bool {
+        self.0.name == other.0.name
+    }
+}
+
+impl Eq for HashFieldByName {}
+
+impl Hash for HashFieldByName {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.name.hash(state);
+    }
+}
+
 enum InternalQueryTrailNode<'a> {
     Object(&'a ObjectType),
     Interface(&'a InterfaceType),
+    Union(&'a UnionType, HashSet<HashFieldByName>),
 }
 
 impl InternalQueryTrailNode<'_> {
@@ -84,21 +119,26 @@ impl InternalQueryTrailNode<'_> {
         match self {
             InternalQueryTrailNode::Object(inner) => &inner.name,
             InternalQueryTrailNode::Interface(inner) => &inner.name,
+            InternalQueryTrailNode::Union(inner, _fields) => &inner.name,
         }
     }
 
-    fn fields(&self) -> &Vec<Field> {
+    fn fields(&self) -> Vec<Field> {
         match self {
-            InternalQueryTrailNode::Object(inner) => &inner.fields,
-            InternalQueryTrailNode::Interface(inner) => &inner.fields,
+            InternalQueryTrailNode::Object(inner) => inner.fields.clone(),
+            InternalQueryTrailNode::Interface(inner) => inner.fields.clone(),
+            InternalQueryTrailNode::Union(_inner, fields) => fields
+                .iter()
+                .map(|hashable_field| hashable_field.clone().0)
+                .collect(),
         }
     }
 }
 
 fn gen_field_walk_methods(obj: InternalQueryTrailNode<'_>, out: &mut Output) {
     let name = ident(&obj.name());
-    let methods = obj
-        .fields()
+    let fields = obj.fields();
+    let methods = fields
         .iter()
         .map(|field| gen_field_walk_method(field, &out));
 
@@ -154,5 +194,121 @@ fn gen_field_walk_method(field: &Field, out: &Output) -> TokenStream {
                 }
             }
         }
+    }
+}
+
+fn panic_if_field_types_dont_overlap(
+    union: &UnionType,
+    fields_map: &HashMap<NamedType, Vec<Field>>,
+) {
+    let mut prev: HashMap<Name, (NamedType, Name)> = HashMap::new();
+
+    for type_ in &union.types {
+        if let Some(fields) = fields_map.get(type_) {
+            for field in fields {
+                let field_name = field.name.clone();
+                let field_type_name = type_name(&field.field_type);
+
+                if let Some((type_with_other_field, other_type)) = prev.get(&field_name) {
+                    if &field_type_name != other_type {
+                        // NOTE: The error is not tested, change with care
+                        let mut panic_msg = String::new();
+                        panic_msg.push_str("\n");
+                        panic_msg.push_str("\n");
+                        panic_msg.push_str(&format!("Both `{}` and `{}` have a field named `{}` but those fields aren't of the same type\n", type_with_other_field, type_, field_name));
+                        panic_msg.push_str(&format!(
+                            "    `{}.{}` is of type `{}`\n",
+                            type_with_other_field, field_name, other_type
+                        ));
+                        panic_msg.push_str(&format!(
+                            "    `{}.{}` is of type `{}`",
+                            type_, field_name, field_type_name
+                        ));
+                        panic_msg.push_str("\n");
+                        panic_msg.push_str("\n");
+                        panic!("{}", panic_msg);
+                    }
+                }
+
+                prev.insert(field_name, (type_.to_string(), field_type_name));
+            }
+        }
+    }
+}
+
+fn build_union_fields_set(
+    union: &UnionType,
+    fields_map: &HashMap<NamedType, Vec<Field>>,
+) -> HashSet<HashFieldByName> {
+    let mut union_fields_set = HashSet::new();
+
+    for type_ in &union.types {
+        if let Some(fields) = fields_map.get(type_) {
+            for field in fields {
+                union_fields_set.insert(HashFieldByName(field.clone()));
+            }
+        }
+    }
+
+    union_fields_set
+}
+
+fn build_fields_map(doc: &Document) -> HashMap<NamedType, Vec<Field>> {
+    let mut map = HashMap::new();
+
+    for def in &doc.definitions {
+        if let Definition::TypeDefinition(type_def) = def {
+            if let TypeDefinition::Object(obj) = type_def {
+                for field in &obj.fields {
+                    let entry = map.entry(obj.name.clone()).or_insert_with(|| vec![]);
+                    entry.push(field.clone());
+                }
+            }
+        }
+    }
+
+    map
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::walk_ast::{
+        find_interface_implementors::find_interface_implementors,
+        find_special_scalar_types::find_special_scalar_types,
+    };
+
+    #[test]
+    #[should_panic]
+    fn test_fails_to_generate_query_trail_for_unions_where_fields_dont_overlap() {
+        let schema = r#"
+            union Entity = User | Company
+
+            type User {
+              country: Country!
+            }
+
+            type Company {
+              country: OtherCountry!
+            }
+
+            type Country {
+              id: Int!
+            }
+
+            type OtherCountry {
+              id: Int!
+            }
+        "#;
+
+        let doc = graphql_parser::parse_schema(&schema).unwrap();
+
+        let mut out = Output {
+            tokens: Vec::new(),
+            special_scalars: find_special_scalar_types(&doc),
+            interface_implementors: find_interface_implementors(&doc),
+        };
+
+        gen_query_trails(&doc, &mut out);
     }
 }
