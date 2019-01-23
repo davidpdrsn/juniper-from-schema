@@ -1,0 +1,15 @@
+language: rust
+
+rust:
+  - stable
+  - beta
+  - nightly
+
+cache: cargo
+
+before_script:
+  - rustup component add rustfmt-preview
+
+script:
+  - cargo fmt -- --check
+  - cargo test --all
