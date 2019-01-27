@@ -20,7 +20,7 @@ N/A
 
 ### Fixed
 
-N/A
+- `QueryTrail` methods now generated for union types.
 
 ## [0.1.2] - 2019-01-14
 
