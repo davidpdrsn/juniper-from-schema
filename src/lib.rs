@@ -706,7 +706,7 @@
 //! You can always run `cargo doc` and inspect all the methods on `QueryTrail` and in which
 //! contexts you can call them.
 
-#![deny(unused_imports, dead_code, unused_variables)]
+// #![deny(unused_imports, dead_code, unused_variables)]
 #![recursion_limit = "128"]
 #![doc(html_root_url = "https://docs.rs/juniper-from-schema/0.1.3-alpha.0")]
 
@@ -716,15 +716,20 @@ extern crate proc_macro2;
 #[macro_use]
 mod macros;
 mod nullable_type;
+mod parse_input;
 mod pretty_print;
 mod walk_ast;
 
-use self::walk_ast::{
-    find_interface_implementors, find_special_scalar_types, gen_juniper_code, gen_query_trails,
-    Output,
+use self::{
+    parse_input::{default_error_type, parse_input},
+    walk_ast::{
+        find_interface_implementors, find_special_scalar_types, gen_juniper_code, gen_query_trails,
+        Output,
+    },
 };
 use graphql_parser::parse_schema;
 use proc_macro2::TokenStream;
+use syn::Type;
 
 /// Read a GraphQL schema file and generate corresponding Juniper macro calls.
 ///
@@ -733,12 +738,11 @@ use proc_macro2::TokenStream;
 pub fn graphql_schema_from_file(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input: TokenStream = input.into();
 
-    let file = input.to_string().replace("\"", "");
-    let pwd = std::env::current_dir().unwrap();
-    let path = pwd.join(file);
+    let parsed =
+        parse_input(&input.to_string()).expect("Failed to parse input to graphql_schema_from_file");
 
-    match read_file(&path) {
-        Ok(schema) => parse_and_gen_schema(&schema),
+    match read_file(&parsed.schema_path) {
+        Ok(schema) => parse_and_gen_schema(&schema, parsed.error_type),
         Err(err) => panic!("{}", err),
     }
 }
@@ -787,10 +791,10 @@ pub fn graphql_schema_from_file(input: proc_macro::TokenStream) -> proc_macro::T
 pub fn graphql_schema(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input: TokenStream = input.into();
     let schema = input.to_string();
-    parse_and_gen_schema(&schema)
+    parse_and_gen_schema(&schema, default_error_type())
 }
 
-fn parse_and_gen_schema(schema: &str) -> proc_macro::TokenStream {
+fn parse_and_gen_schema(schema: &str, error_type: Type) -> proc_macro::TokenStream {
     let doc = match parse_schema(&schema) {
         Ok(doc) => doc,
         Err(parse_error) => panic!("{}", parse_error),
@@ -802,7 +806,8 @@ fn parse_and_gen_schema(schema: &str) -> proc_macro::TokenStream {
     let mut output = Output::new(special_scalars, interface_implementors);
 
     gen_query_trails(&doc, &mut output);
-    gen_juniper_code(doc, &mut output);
+
+    gen_juniper_code(doc, error_type, &mut output);
 
     let out: proc_macro::TokenStream = output.tokens().into_iter().collect::<TokenStream>().into();
 

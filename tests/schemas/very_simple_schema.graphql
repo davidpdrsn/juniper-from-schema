@@ -1,0 +1,5 @@
+type Query {
+    string: String!
+}
+
+schema { query: Query }
