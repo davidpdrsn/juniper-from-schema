@@ -20,6 +20,12 @@ N/A
 
 ### Fixed
 
+N/A
+
+## [0.1.3] - 2019-02-01
+
+### Fixed
+
 - `QueryTrail` methods now generated for union types.
 
 ## [0.1.2] - 2019-01-14
@@ -36,5 +42,6 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.1.3]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.2...0.1.3
 [0.1.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.1...0.1.2
 [0.1.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.0...0.1.1

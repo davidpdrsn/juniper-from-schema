@@ -706,9 +706,9 @@
 //! You can always run `cargo doc` and inspect all the methods on `QueryTrail` and in which
 //! contexts you can call them.
 
-// #![deny(unused_imports, dead_code, unused_variables)]
+#![deny(unused_imports, dead_code, unused_variables)]
 #![recursion_limit = "128"]
-#![doc(html_root_url = "https://docs.rs/juniper-from-schema/0.1.3-alpha.0")]
+#![doc(html_root_url = "https://docs.rs/juniper-from-schema/0.1.3")]
 
 extern crate proc_macro;
 extern crate proc_macro2;
