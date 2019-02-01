@@ -1,7 +1,9 @@
-//! This library exposes a procedural macro that reads a GraphQL schema file, and generates the
-//! corresponding Juniper macro calls. This means you can have a real schema file and be guaranteed
-//! that it matches your Rust implementation. It also removes most of the boilerplate from using
-//! Juniper.
+//! This library contains a procedural macro that reads a GraphQL schema file, and generates the
+//! corresponding [Juniper](https://crates.io/crates/juniper) [macro calls]. This means you can
+//! have a real schema file and be guaranteed that it matches your Rust implementation. It also
+//! removes most of the boilerplate involved in using Juniper.
+//!
+//! [macro calls]: https://graphql-rust.github.io/types/objects/complex_fields.html
 //!
 //! # Table of contents
 //!
@@ -46,7 +48,6 @@
 //! #[macro_use]
 //! extern crate juniper;
 //!
-//! use juniper::*;
 //! use juniper_from_schema::graphql_schema_from_file;
 //!
 //! // This is the important line
@@ -60,9 +61,9 @@
 //! impl QueryFields for Query {
 //!     fn field_hello_world(
 //!         &self,
-//!         executor: &Executor<'_, Context>,
+//!         executor: &juniper::Executor<'_, Context>,
 //!         name: String,
-//!     ) -> FieldResult<String> {
+//!     ) -> juniper::FieldResult<String> {
 //!         Ok(format!("Hello, {}!", name))
 //!     }
 //! }
@@ -70,7 +71,7 @@
 //! pub struct Mutation;
 //!
 //! impl MutationFields for Mutation {
-//!     fn field_noop(&self, executor: &Executor<'_, Context>) -> FieldResult<&bool> {
+//!     fn field_noop(&self, executor: &juniper::Executor<'_, Context>) -> juniper::FieldResult<&bool> {
 //!         Ok(&true)
 //!     }
 //! }
@@ -84,7 +85,7 @@
 //!         query,
 //!         None,
 //!         &Schema::new(Query, Mutation),
-//!         &Variables::new(),
+//!         &juniper::Variables::new(),
 //!         &ctx,
 //!     )
 //!     .unwrap();
@@ -261,7 +262,7 @@
 //!
 //! For the generated code we use the `enum` pattern because we found it to be the most flexible.
 //!
-//! Example:
+//! Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/interface.rs)):
 //!
 //! ```
 //! # #[macro_use]
@@ -349,7 +350,7 @@
 //!
 //! Union types are basically just interfaces so they work in very much the same way.
 //!
-//! Example:
+//! Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/union_types.rs)):
 //!
 //! ```
 //! # #[macro_use]
@@ -431,7 +432,7 @@
 //!
 //! Input objects will be converted into Rust structs with public fields.
 //!
-//! Example:
+//! Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/input_types.rs)):
 //!
 //! ```
 //! # #[macro_use]
@@ -517,7 +518,7 @@
 //! GraphQL enumeration types will be converted into normal Rust enums. The name of each variant
 //! will be camel cased.
 //!
-//! Example:
+//! Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/enumeration_types.rs)):
 //!
 //! ```
 //! # #[macro_use]
@@ -601,7 +602,9 @@
 //! [N+1 query bugs]: https://secure.phabricator.com/book/phabcontrib/article/n_plus_one/
 //! [look ahead api]: https://docs.rs/juniper/0.11.1/juniper/struct.LookAheadSelection.html
 //!
-//! ## Example
+//! ## Abbreviated example
+//!
+//! Find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/query_trails.rs)
 //!
 //! ```
 //! # #[macro_use]
@@ -691,14 +694,21 @@
 //!
 //! ## Types
 //!
-//! A query trial has two generic parameters: `QueryTrail<'_, T, K>`. `T` is the type the current
+//! A query trial has two generic parameters: `QueryTrail<'a, T, K>`. `T` is the type the current
 //! field returns and `K` is either `Walked` or `NotWalked`.
+//!
+//! The lifetime `'a` comes from Juniper and is the lifetime of the incoming query.
 //!
 //! ### `T`
 //!
 //! The `T` allows us to implement different methods for different types. For example in the
 //! example above we implement `id` and `author` for `QueryTrail<'_, Post, K>` but only `id` for
 //! `QueryTrail<'_, User, K>`.
+//!
+//! If your field returns a `Vec<T>` or `Option<T>` the given query trail will be `QueryTrail<'_,
+//! T, _>`. So `Vec` or `Option` will be removed and you'll only be given the inner most type.
+//! That is because in the GraphQL query syntax it doesn't matter if you're querying a `User`
+//! or `[User]`. The fields you have access to are the same.
 //!
 //! ### `K`
 //!

@@ -254,7 +254,7 @@ and disadvantages.
 
 For the generated code we use the `enum` pattern because we found it to be the most flexible.
 
-Example:
+Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/interface.rs)):
 
 ```rust
 #
@@ -313,7 +313,7 @@ implements `From<T>` for each type.
 
 Union types are basically just interfaces so they work in very much the same way.
 
-Example:
+Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/union_types.rs)):
 
 ```rust
 #
@@ -366,7 +366,7 @@ impl QueryFields for Query {
 
 Input objects will be converted into Rust structs with public fields.
 
-Example:
+Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/input_types.rs)):
 
 ```rust
 graphql_schema! {
@@ -421,7 +421,7 @@ pub struct CreatePost {
 GraphQL enumeration types will be converted into normal Rust enums. The name of each variant
 will be camel cased.
 
-Example:
+Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/enumeration_types.rs)):
 
 ```rust
 #
@@ -489,7 +489,9 @@ besides the executor.
 [N+1 query bugs]: https://secure.phabricator.com/book/phabcontrib/article/n_plus_one/
 [look ahead api]: https://docs.rs/juniper/0.11.1/juniper/struct.LookAheadSelection.html
 
-### Example
+### Abbreviated example
+
+Find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/query_trails.rs)
 
 ```rust
 #

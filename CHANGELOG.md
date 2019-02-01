@@ -8,7 +8,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Added
 
-- Describe customizing the error type in the docs.
+N/A
 
 ### Changed
 
@@ -20,7 +20,15 @@ N/A
 
 ### Fixed
 
-- Make `graphql_schema_from_file` look from same folder as your `Cargo.toml` file. This fixes issues with finding the schema within a [workspace](https://doc.rust-lang.org/book/second-edition/ch14-03-cargo-workspaces.html) project.
+- Make `graphql_schema_from_file!` look from same folder as your `Cargo.toml`. This fixes issues with finding the schema within a [workspace](https://doc.rust-lang.org/book/second-edition/ch14-03-cargo-workspaces.html) project. Should not be a breaking change.
+- Added missing `juniper::` qualifications for generated code that referenced `Executor`.
+- Many documentation improvements, including:
+    - Table of contents
+    - Description of how to customize the error type
+    - Clearer example code by removing `use juniper::*`
+    - Description of how `QueryTrail` works for `Vec<T>` and `Option<T>`
+    - Several typo fixes
+
 
 ## [0.1.3] - 2019-02-01
 
