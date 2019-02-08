@@ -1,5 +1,5 @@
 use regex::Regex;
-use std::{env, path::PathBuf};
+use std::path::PathBuf;
 use syn::Type;
 
 #[derive(Debug)]
@@ -44,7 +44,9 @@ pub fn parse_input(input: &str) -> Result<ParseOutput, ()> {
         },
     };
 
-    let pwd = env::current_dir().expect("Failed to get current working directory");
+    let cargo_dir =
+        std::env::var("CARGO_MANIFEST_DIR").expect("Env var `CARGO_MANIFEST_DIR` was missing");
+    let pwd = PathBuf::from(cargo_dir);
     let schema_path = pwd.join(file);
 
     Ok(ParseOutput {

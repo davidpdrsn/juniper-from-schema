@@ -741,7 +741,7 @@ pub fn graphql_schema_from_file(input: proc_macro::TokenStream) -> proc_macro::T
     let parsed =
         parse_input(&input.to_string()).expect("Failed to parse input to graphql_schema_from_file");
 
-    match read_file(&parsed.schema_path) {
+    match std::fs::read_to_string(&parsed.schema_path) {
         Ok(schema) => parse_and_gen_schema(&schema, parsed.error_type),
         Err(err) => panic!("{}", err),
     }
@@ -816,14 +816,6 @@ fn parse_and_gen_schema(schema: &str, error_type: Type) -> proc_macro::TokenStre
     }
 
     out
-}
-
-fn read_file(path: &std::path::PathBuf) -> Result<String, std::io::Error> {
-    use std::{fs::File, io::prelude::*};
-    let mut file = File::open(path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    Ok(contents)
 }
 
 fn debugging_enabled() -> bool {

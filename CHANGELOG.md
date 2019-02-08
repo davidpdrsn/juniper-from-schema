@@ -20,7 +20,7 @@ N/A
 
 ### Fixed
 
-N/A
+- Make `graphql_schema_from_file` look from same folder as your `Cargo.toml` file. This fixes issues with finding the schema within a [workspace](https://doc.rust-lang.org/book/second-edition/ch14-03-cargo-workspaces.html) project.
 
 ## [0.1.3] - 2019-02-01
 
