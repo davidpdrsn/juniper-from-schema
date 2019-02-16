@@ -27,8 +27,8 @@ N/A
     - Description of how to customize the error type
     - Clearer example code by removing `use juniper::*`
     - Description of how `QueryTrail` works for `Vec<T>` and `Option<T>`
+    - Describe how to view the generated code
     - Several typo fixes
-
 
 ## [0.1.3] - 2019-02-01
 

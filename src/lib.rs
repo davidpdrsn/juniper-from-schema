@@ -19,6 +19,7 @@
 //! - [GraphQL to Rust types](#graphql-to-rust-types)
 //! - [Query trails](#query-trails)
 //! - [Customizing the error type](#customizing-the-error-type)
+//! - [Inspecting the generated code](#inspecting-the-generated-code)
 //!
 //! # Example
 //!
@@ -791,6 +792,35 @@
 //! [`juniper::IntoFieldError`]: https://docs.rs/juniper/0.11.1/juniper/trait.IntoFieldError.html
 //! [`juniper::FieldError`]: https://docs.rs/juniper/0.11.1/juniper/struct.FieldError.html
 //! [`juniper::FieldResult<T>`]: https://docs.rs/juniper/0.11.1/juniper/type.FieldResult.html
+//!
+//! # Inspecting the generated code
+//!
+//! If you wish to see exactly what code gets generated you can set the env var
+//! `JUNIPER_FROM_SCHEMA_DEBUG` to `1` when compiling. For example:
+//!
+//! ```bash
+//! JUNIPER_FROM_SCHEMA_DEBUG=1 cargo build
+//! ```
+//!
+//! The code will not be formatted so it might be tricky to read. The easiest way to fix this is to
+//! copy the printed code to a file and run it through [rustfmt].
+//!
+//! Alternatively you can include the [feature] called `"format-debug-output"`. This will run the
+//! output through [rustfmt] before printing it. That way you don't have to do that manually.
+//! Example `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! juniper-from-schema = { version = "x.y.z", features = ["format-debug-output"] }
+//! ```
+//!
+//! Unfortunately this requires that you're using nightly, because [rustfmt requires
+//! nightly](https://github.com/rust-lang/rustfmt#installing-from-source). It might also break your
+//! build because [rustfmt] doesn't always compile for some reason ¯\\\_(ツ)\_/¯. If you experience
+//! this just remove the `"format-debug-output"` feature and format the output manually.
+//!
+//! [feature]: https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features
+//! [rustfmt]: https://github.com/rust-lang/rustfmt
 
 #![deny(unused_imports, dead_code, unused_variables)]
 #![recursion_limit = "128"]
