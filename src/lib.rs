@@ -698,13 +698,76 @@
 //! Example:
 //!
 //! ```ignore
-//! if let Some(walked_trail) = trail.some_field().some_other_field().third_field().walk() {
+//! if let Some(walked_trail) = trail
+//!     .some_field()
+//!     .some_other_field()
+//!     .third_field()
+//!     .walk()
+//! {
 //!     // preload stuff
 //! }
 //! ```
 //!
 //! You can always run `cargo doc` and inspect all the methods on `QueryTrail` and in which
 //! contexts you can call them.
+//!
+//! # Customizing the error type
+//!
+//! By default the return type of the generated field methods will be [`juniper::FieldResult<T>`].
+//! That is just a type alias for `std::result::Result<T, juniper::FieldError>`. Should you want to
+//! use a different error type than [`juniper::FieldError`] that can be done by passing `,
+//! error_type: YourType` to [`graphql_schema_from_file!`].
+//!
+//! Just keep in that your custom error type must implement [`juniper::IntoFieldError`] to
+//! type check.
+//!
+//! Example:
+//!
+//! ```
+//! # #[macro_use]
+//! # extern crate juniper;
+//! # use juniper::*;
+//! # use juniper_from_schema::graphql_schema_from_file;
+//! # fn main() {}
+//! # pub struct Context;
+//! # impl juniper::Context for Context {}
+//! # pub struct Mutation;
+//! # impl MutationFields for Mutation {
+//! #     fn field_noop(&self, executor: &Executor<'_, Context>) -> Result<&bool, MyError> {
+//! #         Ok(&true)
+//! #     }
+//! # }
+//! graphql_schema_from_file!("tests/schemas/doc_schema.graphql", error_type: MyError);
+//!
+//! pub struct MyError(String);
+//!
+//! impl juniper::IntoFieldError for MyError {
+//!     fn into_field_error(self) -> juniper::FieldError {
+//!         // Perform custom error handling
+//!         juniper::FieldError::from(self.0)
+//!     }
+//! }
+//!
+//! pub struct Query;
+//!
+//! impl QueryFields for Query {
+//!     fn field_hello_world(
+//!         &self,
+//!         executor: &Executor<'_, Context>,
+//!         name: String,
+//!     ) -> Result<String, MyError> {
+//!         Ok(format!("Hello, {}!", name))
+//!     }
+//! }
+//! ```
+//!
+//! [`graphql_schema!`] does not support changing the error type.
+//!
+//! [`graphql_schema!`]: macro.graphql_schema.html
+//! [`graphql_schema_from_file!`]: macro.graphql_schema_from_file.html
+//! [`juniper::IntoFieldError`]: https://docs.rs/juniper/0.11.1/juniper/trait.IntoFieldError.html
+//! [`juniper::FieldError`]: https://docs.rs/juniper/0.11.1/juniper/struct.FieldError.html
+//! [`juniper::FieldResult<T>`]: https://docs.rs/juniper/0.11.1/juniper/type.FieldResult.html
 
 #![deny(unused_imports, dead_code, unused_variables)]
 #![recursion_limit = "128"]
