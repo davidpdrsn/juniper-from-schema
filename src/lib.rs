@@ -3,6 +3,21 @@
 //! that it matches your Rust implementation. It also removes most of the boilerplate from using
 //! Juniper.
 //!
+//! # Table of contents
+//!
+//! - [Example](#example)
+//! - [Customizing ownership](#customizing-ownership)
+//! - [GraphQL features](#graphql-features)
+//!     - [The `ID` type](#the-id-type)
+//!     - [Custom scalar types](#custom-scalar-types)
+//!     - [Interfaces](#interfaces)
+//!     - [Union types](#union-types)
+//!     - [Input objects](#input-objects)
+//!     - [Enumeration types](#enumeration-types)
+//! - [GraphQL to Rust types](#graphql-to-rust-types)
+//! - [Query trails](#query-trails)
+//! - [Customizing the error type](#customizing-the-error-type)
+//!
 //! # Example
 //!
 //! Schema:
@@ -192,7 +207,7 @@
 //! Here is the complete list of features:
 //!
 //! Supported:
-//! - Object types including converting lists on non-nulls to Rust types
+//! - Object types including converting lists and non-nulls to Rust types
 //! - Custom scalar types including the `ID` type
 //! - Interfaces
 //! - Unions
