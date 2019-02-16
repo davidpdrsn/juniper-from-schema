@@ -40,7 +40,7 @@
 //! }
 //! ```
 //!
-//! Rust implementation of schema:
+//! How you could implement that schema:
 //!
 //! ```
 //! #[macro_use]
@@ -103,21 +103,19 @@
 //! }
 //! ```
 //!
-//! This expands into:
+//! And with `graphql_schema_from_file!` expanded your code would look something like this:
 //!
 //! ```
 //! #[macro_use]
 //! extern crate juniper;
-//!
-//! use juniper::*;
 //!
 //! pub struct Context;
 //! impl juniper::Context for Context {}
 //!
 //! pub struct Query;
 //!
-//! graphql_object!(Query: Context |&self| {
-//!     field hello_world(&executor, name: String) -> FieldResult<String> {
+//! juniper::graphql_object!(Query: Context |&self| {
+//!     field hello_world(&executor, name: String) -> juniper::FieldResult<String> {
 //!         <Self as QueryFields>::field_hello_world(&self, &executor, name)
 //!     }
 //! });
@@ -125,35 +123,35 @@
 //! trait QueryFields {
 //!     fn field_hello_world(
 //!         &self,
-//!         executor: &Executor<'_, Context>,
+//!         executor: &juniper::Executor<'_, Context>,
 //!         name: String,
-//!     ) -> FieldResult<String>;
+//!     ) -> juniper::FieldResult<String>;
 //! }
 //!
 //! impl QueryFields for Query {
 //!     fn field_hello_world(
 //!         &self,
-//!         executor: &Executor<'_, Context>,
+//!         executor: &juniper::Executor<'_, Context>,
 //!         name: String,
-//!     ) -> FieldResult<String> {
+//!     ) -> juniper::FieldResult<String> {
 //!         Ok(format!("Hello, {}!", name))
 //!     }
 //! }
 //!
 //! pub struct Mutation;
 //!
-//! graphql_object!(Mutation: Context |&self| {
-//!     field noop(&executor) -> FieldResult<&bool> {
+//! juniper::graphql_object!(Mutation: Context |&self| {
+//!     field noop(&executor) -> juniper::FieldResult<&bool> {
 //!         <Self as MutationFields>::field_noop(&self, &executor)
 //!     }
 //! });
 //!
 //! trait MutationFields {
-//!     fn field_noop(&self, executor: &Executor<'_, Context>) -> FieldResult<&bool>;
+//!     fn field_noop(&self, executor: &juniper::Executor<'_, Context>) -> juniper::FieldResult<&bool>;
 //! }
 //!
 //! impl MutationFields for Mutation {
-//!     fn field_noop(&self, executor: &Executor<'_, Context>) -> FieldResult<&bool> {
+//!     fn field_noop(&self, executor: &juniper::Executor<'_, Context>) -> juniper::FieldResult<&bool> {
 //!         Ok(&true)
 //!     }
 //! }
@@ -169,7 +167,7 @@
 //!         query,
 //!         None,
 //!         &Schema::new(Query, Mutation),
-//!         &Variables::new(),
+//!         &juniper::Variables::new(),
 //!         &ctx,
 //!     )
 //!     .unwrap();
