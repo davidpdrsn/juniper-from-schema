@@ -20,6 +20,12 @@ N/A
 
 ### Fixed
 
+N/A
+
+## [0.1.4] - 2019-02-16
+
+### Fixed
+
 - Make `graphql_schema_from_file!` look from same folder as your `Cargo.toml`. This fixes issues with finding the schema within a [workspace](https://doc.rust-lang.org/book/second-edition/ch14-03-cargo-workspaces.html) project. Should not be a breaking change.
 - Added missing `juniper::` qualifications for generated code that referenced `Executor`.
 - Many documentation improvements, including:
@@ -50,6 +56,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.1.4]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.3...0.1.4
 [0.1.3]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.2...0.1.3
 [0.1.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.1...0.1.2
 [0.1.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.0...0.1.1
