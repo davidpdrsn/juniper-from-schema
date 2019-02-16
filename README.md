@@ -1,13 +1,26 @@
 # [juniper-from-schema](https://crates.io/crates/juniper-from-schema)
 
-**Important notice**: This project is still in a very experimental state. It does work but the API might change drastically.
+This library contains a procedural macro that reads a GraphQL schema file, and generates the
+corresponding [Juniper](https://crates.io/crates/juniper) [macro calls]. This means you can
+have a real schema file and be guaranteed that it matches your Rust implementation. It also
+removes most of the boilerplate involved in using Juniper.
 
----
+[macro calls]: https://graphql-rust.github.io/types/objects/complex_fields.html
 
-This library exposes a procedural macro that reads a GraphQL schema file, and generates the
-corresponding Juniper macro calls. This means you can have a real schema file and be guaranteed
-that it matches your Rust implementation. It also removes most of the boilerplate from using
-Juniper.
+## Table of contents
+
+- [Example](#example)
+- [Customizing ownership](#customizing-ownership)
+- [GraphQL features](#graphql-features)
+    - [The `ID` type](#the-id-type)
+    - [Custom scalar types](#custom-scalar-types)
+    - [Interfaces](#interfaces)
+    - [Union types](#union-types)
+    - [Input objects](#input-objects)
+    - [Enumeration types](#enumeration-types)
+- [GraphQL to Rust types](#graphql-to-rust-types)
+- [Query trails](#query-trails)
+- [Customizing the error type](#customizing-the-error-type)
 
 ## Example
 
@@ -31,13 +44,12 @@ type Mutation {
 }
 ```
 
-Rust implementation of schema:
+How you could implement that schema:
 
 ```rust
 #[macro_use]
 extern crate juniper;
 
-use juniper::*;
 use juniper_from_schema::graphql_schema_from_file;
 
 // This is the important line
@@ -51,9 +63,9 @@ pub struct Query;
 impl QueryFields for Query {
     fn field_hello_world(
         &self,
-        executor: &Executor<'_, Context>,
+        executor: &juniper::Executor<'_, Context>,
         name: String,
-    ) -> FieldResult<String> {
+    ) -> juniper::FieldResult<String> {
         Ok(format!("Hello, {}!", name))
     }
 }
@@ -61,7 +73,7 @@ impl QueryFields for Query {
 pub struct Mutation;
 
 impl MutationFields for Mutation {
-    fn field_noop(&self, executor: &Executor<'_, Context>) -> FieldResult<&bool> {
+    fn field_noop(&self, executor: &juniper::Executor<'_, Context>) -> juniper::FieldResult<&bool> {
         Ok(&true)
     }
 }
@@ -75,7 +87,7 @@ fn main() {
         query,
         None,
         &Schema::new(Query, Mutation),
-        &Variables::new(),
+        &juniper::Variables::new(),
         &ctx,
     )
     .unwrap();
@@ -94,21 +106,19 @@ fn main() {
 }
 ```
 
-This expands into:
+And with `graphql_schema_from_file!` expanded your code would look something like this:
 
 ```rust
 #[macro_use]
 extern crate juniper;
-
-use juniper::*;
 
 pub struct Context;
 impl juniper::Context for Context {}
 
 pub struct Query;
 
-graphql_object!(Query: Context |&self| {
-    field hello_world(&executor, name: String) -> FieldResult<String> {
+juniper::graphql_object!(Query: Context |&self| {
+    field hello_world(&executor, name: String) -> juniper::FieldResult<String> {
         <Self as QueryFields>::field_hello_world(&self, &executor, name)
     }
 });
@@ -116,35 +126,35 @@ graphql_object!(Query: Context |&self| {
 trait QueryFields {
     fn field_hello_world(
         &self,
-        executor: &Executor<'_, Context>,
+        executor: &juniper::Executor<'_, Context>,
         name: String,
-    ) -> FieldResult<String>;
+    ) -> juniper::FieldResult<String>;
 }
 
 impl QueryFields for Query {
     fn field_hello_world(
         &self,
-        executor: &Executor<'_, Context>,
+        executor: &juniper::Executor<'_, Context>,
         name: String,
-    ) -> FieldResult<String> {
+    ) -> juniper::FieldResult<String> {
         Ok(format!("Hello, {}!", name))
     }
 }
 
 pub struct Mutation;
 
-graphql_object!(Mutation: Context |&self| {
-    field noop(&executor) -> FieldResult<&bool> {
+juniper::graphql_object!(Mutation: Context |&self| {
+    field noop(&executor) -> juniper::FieldResult<&bool> {
         <Self as MutationFields>::field_noop(&self, &executor)
     }
 });
 
 trait MutationFields {
-    fn field_noop(&self, executor: &Executor<'_, Context>) -> FieldResult<&bool>;
+    fn field_noop(&self, executor: &juniper::Executor<'_, Context>) -> juniper::FieldResult<&bool>;
 }
 
 impl MutationFields for Mutation {
-    fn field_noop(&self, executor: &Executor<'_, Context>) -> FieldResult<&bool> {
+    fn field_noop(&self, executor: &juniper::Executor<'_, Context>) -> juniper::FieldResult<&bool> {
         Ok(&true)
     }
 }
@@ -160,7 +170,7 @@ fn main() {
         query,
         None,
         &Schema::new(Query, Mutation),
-        &Variables::new(),
+        &juniper::Variables::new(),
         &ctx,
     )
     .unwrap();
@@ -198,7 +208,7 @@ The goal of this library is to support as much of GraphQL as Juniper does.
 Here is the complete list of features:
 
 Supported:
-- Object types including converting lists on non-nulls to Rust types
+- Object types including converting lists and non-nulls to Rust types
 - Custom scalar types including the `ID` type
 - Interfaces
 - Unions
@@ -574,14 +584,21 @@ impl UserFields for User {
 
 ### Types
 
-A query trial has two generic parameters: `QueryTrail<'_, T, K>`. `T` is the type the current
+A query trial has two generic parameters: `QueryTrail<'a, T, K>`. `T` is the type the current
 field returns and `K` is either `Walked` or `NotWalked`.
+
+The lifetime `'a` comes from Juniper and is the lifetime of the incoming query.
 
 #### `T`
 
 The `T` allows us to implement different methods for different types. For example in the
 example above we implement `id` and `author` for `QueryTrail<'_, Post, K>` but only `id` for
 `QueryTrail<'_, User, K>`.
+
+If your field returns a `Vec<T>` or `Option<T>` the given query trail will be `QueryTrail<'_,
+T, _>`. So `Vec` or `Option` will be removed and you'll only be given the inner most type.
+That is because in the GraphQL query syntax it doesn't matter if you're querying a `User`
+or `[User]`. The fields you have access to are the same.
 
 #### `K`
 
@@ -594,13 +611,63 @@ you'll know the trail is part of the query and you can do whatever preloading is
 Example:
 
 ```rust
-if let Some(walked_trail) = trail.some_field().some_other_field().third_field().walk() {
+if let Some(walked_trail) = trail
+    .some_field()
+    .some_other_field()
+    .third_field()
+    .walk()
+{
     // preload stuff
 }
 ```
 
 You can always run `cargo doc` and inspect all the methods on `QueryTrail` and in which
 contexts you can call them.
+
+## Customizing the error type
+
+By default the return type of the generated field methods will be [`juniper::FieldResult<T>`].
+That is just a type alias for `std::result::Result<T, juniper::FieldError>`. Should you want to
+use a different error type than [`juniper::FieldError`] that can be done by passing `,
+error_type: YourType` to [`graphql_schema_from_file!`].
+
+Just keep in that your custom error type must implement [`juniper::IntoFieldError`] to
+type check.
+
+Example:
+
+```rust
+graphql_schema_from_file!("tests/schemas/doc_schema.graphql", error_type: MyError);
+
+pub struct MyError(String);
+
+impl juniper::IntoFieldError for MyError {
+    fn into_field_error(self) -> juniper::FieldError {
+        // Perform custom error handling
+        juniper::FieldError::from(self.0)
+    }
+}
+
+pub struct Query;
+
+impl QueryFields for Query {
+    fn field_hello_world(
+        &self,
+        executor: &Executor<'_, Context>,
+        name: String,
+    ) -> Result<String, MyError> {
+        Ok(format!("Hello, {}!", name))
+    }
+}
+```
+
+[`graphql_schema!`] does not support changing the error type.
+
+[`graphql_schema!`]: macro.graphql_schema.html
+[`graphql_schema_from_file!`]: macro.graphql_schema_from_file.html
+[`juniper::IntoFieldError`]: https://docs.rs/juniper/0.11.1/juniper/trait.IntoFieldError.html
+[`juniper::FieldError`]: https://docs.rs/juniper/0.11.1/juniper/struct.FieldError.html
+[`juniper::FieldResult<T>`]: https://docs.rs/juniper/0.11.1/juniper/type.FieldResult.html
 
 ---
 
