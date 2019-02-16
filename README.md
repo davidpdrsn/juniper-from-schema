@@ -10,6 +10,7 @@ removes most of the boilerplate involved in using Juniper.
 ## Table of contents
 
 - [Example](#example)
+- [Example web app](#example-web-app)
 - [Customizing ownership](#customizing-ownership)
 - [GraphQL features](#graphql-features)
     - [The `ID` type](#the-id-type)
@@ -189,6 +190,14 @@ fn main() {
     );
 }
 ```
+
+## Example web app
+
+You can find an example of how to use this library together with [Rocket] and [Diesel] to make a
+GraphQL web app at <https://github.com/davidpdrsn/graphql-app-example>
+
+[Rocket]: https://rocket.rs
+[Diesel]: http://diesel.rs
 
 ## Customizing ownership
 
