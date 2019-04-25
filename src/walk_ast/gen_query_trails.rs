@@ -274,6 +274,7 @@ fn build_fields_map(doc: &Document) -> HashMap<NamedType, Vec<Field>> {
 mod test {
     use super::*;
     use crate::walk_ast::{
+        find_enum_variants::find_enum_variants,
         find_interface_implementors::find_interface_implementors,
         find_special_scalar_types::find_special_scalar_types,
     };
@@ -307,6 +308,7 @@ mod test {
             tokens: Vec::new(),
             special_scalars: find_special_scalar_types(&doc),
             interface_implementors: find_interface_implementors(&doc),
+            enum_variants: find_enum_variants(&doc),
         };
 
         gen_query_trails(&doc, &mut out);

@@ -20,7 +20,7 @@ N/A
 
 ### Fixed
 
-N/A
+- Field methods that return enumerations no longer get `QueryTrails`. You couldn't really do anything with them since enumerations cannot contain data.
 
 ## [0.1.4] - 2019-02-16
 

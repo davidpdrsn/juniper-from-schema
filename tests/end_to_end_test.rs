@@ -93,11 +93,7 @@ pub struct Review {
 }
 
 impl ReviewFields for Review {
-    fn field_episode<'a>(
-        &self,
-        executor: &Executor<'a, Context>,
-        _: &QueryTrail<'a, Episode, Walked>,
-    ) -> FieldResult<&Option<Episode>> {
+    fn field_episode<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&Option<Episode>> {
         Ok(&self.episode)
     }
 

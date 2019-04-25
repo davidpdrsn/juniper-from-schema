@@ -250,7 +250,6 @@ mod enums {
         fn field_yes_no<'a>(
             &self,
             executor: &Executor<'a, Context>,
-            trail: &QueryTrail<'a, YesNo, Walked>,
             arg: Option<YesNo>,
         ) -> FieldResult<&YesNo> {
             let _: YesNo = YesNo::No;
