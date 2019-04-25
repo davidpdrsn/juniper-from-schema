@@ -8,8 +8,24 @@ pub enum NullableType {
 }
 
 impl NullableType {
-    pub fn from_type(type_: Type) -> Self {
+    pub fn from_schema_type(type_: Type) -> Self {
         map(type_)
+    }
+
+    pub fn remove_one_layer_of_nullability(self) -> Self {
+        match self {
+            ty @ NullableType::NamedType(_) => ty,
+            ty @ NullableType::ListType(_) => ty,
+            NullableType::NullableType(inner) => *inner,
+        }
+    }
+
+    pub fn is_nullable(&self) -> bool {
+        match self {
+            NullableType::NamedType(_) => false,
+            NullableType::ListType(_) => false,
+            NullableType::NullableType(_) => true,
+        }
     }
 }
 
