@@ -74,7 +74,9 @@ fn gen_def(def: Definition, error_type: &syn::Type, out: &mut Output) {
 }
 
 fn gen_schema_def(schema_def: SchemaDefinition, out: &mut Output) {
-    // TODO: panic if has subscription
+    if schema_def.subscription.is_some() {
+        not_supported!("Subscriptions");
+    }
 
     panic_if_has_directives(&schema_def);
 
