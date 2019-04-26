@@ -848,8 +848,8 @@ mod walk_ast;
 use self::{
     parse_input::{default_error_type, parse_input},
     walk_ast::{
-        find_interface_implementors, find_special_scalar_types, gen_juniper_code, gen_query_trails,
-        Output,
+        find_enum_variants, find_interface_implementors, find_special_scalar_types,
+        gen_juniper_code, gen_query_trails, Output,
     },
 };
 use graphql_parser::parse_schema;
@@ -927,8 +927,9 @@ fn parse_and_gen_schema(schema: &str, error_type: Type) -> proc_macro::TokenStre
 
     let special_scalars = find_special_scalar_types(&doc);
     let interface_implementors = find_interface_implementors(&doc);
+    let enum_variants = find_enum_variants(&doc);
 
-    let mut output = Output::new(special_scalars, interface_implementors);
+    let mut output = Output::new(special_scalars, interface_implementors, enum_variants);
 
     gen_query_trails(&doc, &mut output);
 

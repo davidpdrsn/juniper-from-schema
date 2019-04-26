@@ -1,8 +1,11 @@
+mod find_enum_variants;
 mod find_interface_implementors;
 mod find_special_scalar_types;
+
 mod gen_juniper_code;
 mod gen_query_trails;
 
+pub use self::find_enum_variants::{find_enum_variants, EnumVariants};
 pub use self::find_interface_implementors::{find_interface_implementors, InterfaceImplementors};
 pub use self::find_special_scalar_types::{find_special_scalar_types, SpecialScalarTypesList};
 pub use self::gen_juniper_code::gen_juniper_code;
@@ -19,17 +22,20 @@ pub struct Output {
     tokens: Vec<TokenStream>,
     special_scalars: SpecialScalarTypesList,
     interface_implementors: InterfaceImplementors,
+    enum_variants: EnumVariants,
 }
 
 impl Output {
     pub fn new(
         special_scalars: SpecialScalarTypesList,
         interface_implementors: InterfaceImplementors,
+        enum_variants: EnumVariants,
     ) -> Self {
         Output {
             tokens: vec![],
             special_scalars,
             interface_implementors,
+            enum_variants,
         }
     }
 
@@ -57,11 +63,16 @@ impl Output {
         &self.interface_implementors
     }
 
+    fn enum_variants(&self) -> &EnumVariants {
+        &self.enum_variants
+    }
+
     fn clone_without_tokens(&self) -> Self {
         Output {
             tokens: vec![],
             special_scalars: self.special_scalars.clone(),
             interface_implementors: self.interface_implementors.clone(),
+            enum_variants: self.enum_variants.clone(),
         }
     }
 }
@@ -117,7 +128,13 @@ pub fn graphql_scalar_type_to_rust_type(name: &str, out: &Output) -> (TokenStrea
                 )
             }
         }
-        name => (quote_ident(name.to_camel_case()), TypeType::Type),
+        name => {
+            if out.enum_variants().contains(name) {
+                (quote_ident(name.to_camel_case()), TypeType::Scalar)
+            } else {
+                (quote_ident(name.to_camel_case()), TypeType::Type)
+            }
+        }
     }
 }
 
