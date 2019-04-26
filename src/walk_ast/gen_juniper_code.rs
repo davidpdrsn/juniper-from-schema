@@ -1,3 +1,6 @@
+mod directives;
+
+use self::directives::panic_if_has_directives;
 use super::{
     graphql_scalar_type_to_rust_type, ident, quote_ident, type_name, AddToOutput, Output, TypeKind,
 };
@@ -71,9 +74,9 @@ fn gen_def(def: Definition, error_type: &syn::Type, out: &mut Output) {
 }
 
 fn gen_schema_def(schema_def: SchemaDefinition, out: &mut Output) {
-    // TODO: use
-    //   directives
-    //   subscription
+    // TODO: panic if has subscription
+
+    panic_if_has_directives(&schema_def);
 
     let query = match schema_def.query {
         Some(query) => ident(query),
@@ -106,8 +109,7 @@ fn gen_type_def(type_def: TypeDefinition, error_type: &syn::Type, out: &mut Outp
 }
 
 fn gen_input_def(input_type: InputObjectType, out: &mut Output) {
-    // TODO: use
-    //   directives
+    panic_if_has_directives(&input_type);
 
     let name = ident(input_type.name);
 
@@ -149,9 +151,9 @@ fn gen_input_def(input_type: InputObjectType, out: &mut Output) {
 }
 
 fn gen_enum_type(enum_type: EnumType, out: &mut Output) {
-    // TODO: use
-    //   description
-    //   directives
+    // TODO: use description
+
+    panic_if_has_directives(&enum_type);
 
     let name = to_enum_name(&enum_type.name);
 
@@ -195,12 +197,12 @@ fn to_enum_name(name: &str) -> Ident {
     ident(name.to_camel_case())
 }
 
-fn gen_enum_value(enum_type: EnumValue, out: &mut Output) {
-    // TODO: use
-    //   description
-    //   directives
+fn gen_enum_value(enum_value: EnumValue, out: &mut Output) {
+    // TODO: use description
 
-    let graphql_name = enum_type.name;
+    panic_if_has_directives(&enum_value);
+
+    let graphql_name = enum_value.name;
     let name = to_enum_name(&graphql_name);
     (quote! {
         #[allow(missing_docs)]
@@ -211,8 +213,7 @@ fn gen_enum_value(enum_type: EnumValue, out: &mut Output) {
 }
 
 fn gen_scalar_type(scalar_type: ScalarType, out: &mut Output) {
-    // TODO: use
-    //   directives
+    panic_if_has_directives(&scalar_type);
 
     match &*scalar_type.name {
         "Date" => {}
@@ -259,8 +260,7 @@ fn trait_map_for_struct_name(struct_name: &Ident) -> Ident {
 }
 
 fn gen_obj_type(obj_type: ObjectType, error_type: &syn::Type, out: &mut Output) {
-    // TODO: Use
-    //   directives
+    panic_if_has_directives(&obj_type);
 
     let struct_name = ident(obj_type.name);
 
@@ -394,6 +394,8 @@ fn gen_field_body(
 }
 
 fn gen_interface(interface: InterfaceType, error_type: &syn::Type, out: &mut Output) {
+    panic_if_has_directives(&interface);
+
     let interface_name = ident(interface.name.clone());
 
     let implementors = out.interface_implementors().get(&interface.name);
@@ -504,6 +506,8 @@ fn to_field_args_list(args: Vec<TokenStream>) -> TokenStream {
 }
 
 fn gen_union(union: &UnionType, out: &mut Output) {
+    panic_if_has_directives(union);
+
     let union_name = ident(union.name.clone());
     let implementors = union.types.iter().map(|name| ident(name.clone()));
 
@@ -565,8 +569,7 @@ struct FieldTokens {
 }
 
 fn collect_data_for_field_gen(field: Field, out: &Output) -> FieldTokens {
-    // TODO: Use
-    //   directives
+    panic_if_has_directives(&field);
 
     let name = ident(field.name);
 
@@ -640,9 +643,9 @@ fn collect_data_for_field_gen(field: Field, out: &Output) -> FieldTokens {
 }
 
 fn argument_to_name_and_rust_type(arg: &InputValue, out: &Output) -> FieldArgument {
-    // TODO: use
-    //   description
-    //   directives
+    // TODO: use description
+
+    panic_if_has_directives(arg);
 
     let default_value = arg.default_value.as_ref().map(|value| quote_value(&value));
 
