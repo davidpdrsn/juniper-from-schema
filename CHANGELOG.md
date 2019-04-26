@@ -20,7 +20,7 @@ N/A
 
 ### Fixed
 
-N/A
+- Schemes that don't contain a root mutation type now doesn't fail to compile. It would use `()` for the context, when it should have used `Context`.
 
 ## [0.1.4] - 2019-02-16
 
