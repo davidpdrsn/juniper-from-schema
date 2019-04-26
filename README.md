@@ -19,6 +19,7 @@ removes most of the boilerplate involved in using Juniper.
     - [Union types](#union-types)
     - [Input objects](#input-objects)
     - [Enumeration types](#enumeration-types)
+    - [Default argument values](#default-argument-values)
 - [GraphQL to Rust types](#graphql-to-rust-types)
 - [Query trails](#query-trails)
 - [Customizing the error type](#customizing-the-error-type)
@@ -226,7 +227,6 @@ Supported:
 - Enumeration types
 
 Not supported yet:
-- Default values for arguments
 - Subscriptions (currently not supported by Juniper so we're unsure when or if this will happen)
 
 ### The `ID` type
@@ -274,7 +274,7 @@ and disadvantages.
 
 For the generated code we use the `enum` pattern because we found it to be the most flexible.
 
-Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/interface.rs)):
+Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/master/examples/interface.rs)):
 
 ```rust
 #
@@ -333,7 +333,7 @@ implements `From<T>` for each type.
 
 Union types are basically just interfaces so they work in very much the same way.
 
-Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/union_types.rs)):
+Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/master/examples/union_types.rs)):
 
 ```rust
 #
@@ -386,7 +386,7 @@ impl QueryFields for Query {
 
 Input objects will be converted into Rust structs with public fields.
 
-Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/input_types.rs)):
+Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/master/examples/input_types.rs)):
 
 ```rust
 graphql_schema! {
@@ -441,7 +441,7 @@ pub struct CreatePost {
 GraphQL enumeration types will be converted into normal Rust enums. The name of each variant
 will be camel cased.
 
-Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/enumeration_types.rs)):
+Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/master/examples/enumeration_types.rs)):
 
 ```rust
 #
@@ -457,7 +457,7 @@ graphql_schema! {
 
     type Query {
         "#[ownership(owned)]"
-        allPosts(status: STATUS!): [Post!]!
+        allPosts(status: Status!): [Post!]!
     }
 
     type Post {
@@ -474,6 +474,67 @@ impl QueryFields for Query {
         trail: &QueryTrail<'_, Post, Walked>,
         status: Status,
     ) -> FieldResult<Vec<Post>> {
+        match status {
+            Status::Published => unimplemented!("find published posts"),
+            Status::Unpublished => unimplemented!("find unpublished posts"),
+        }
+    }
+}
+```
+
+### Default argument values
+
+In GraphQL you are able to provide default values for field arguments, provided the argument is
+nullable.
+
+Arguments of the following types support default values:
+- `Float`
+- `Int`
+- `String`
+- `Boolean`
+- Enumerations
+- Lists containing some other supported type
+
+Input objects are currently not supported as default arguments, but might be in the future.
+
+You also cannot have `null` as the default value. In that case you might as well not have a
+default value.
+
+Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/master/examples/default_argument_values.rs)):
+
+```rust
+#
+graphql_schema! {
+    schema {
+        query: Query
+    }
+
+    enum Status {
+        PUBLISHED
+        UNPUBLISHED
+    }
+
+    type Query {
+        "#[ownership(owned)]"
+        allPosts(status: Status = PUBLISHED): [Post!]!
+    }
+
+    type Post {
+        id: ID!
+    }
+}
+
+pub struct Query;
+
+impl QueryFields for Query {
+    fn field_all_posts(
+        &self,
+        executor: &Executor<'_, Context>,
+        trail: &QueryTrail<'_, Post, Walked>,
+        status: Status,
+    ) -> FieldResult<Vec<Post>> {
+        // `status` will be `Status::Published` if not given in the query
+
         match status {
             Status::Published => unimplemented!("find published posts"),
             Status::Unpublished => unimplemented!("find unpublished posts"),
@@ -511,7 +572,7 @@ besides the executor.
 
 ### Abbreviated example
 
-Find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/examples/examples/query_trails.rs)
+Find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/master/examples/query_trails.rs)
 
 ```rust
 #
