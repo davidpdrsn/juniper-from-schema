@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_variables, unused_must_use)]
+
 #[macro_use]
 extern crate juniper;
 
@@ -321,7 +323,7 @@ mod returning_references {
         }
     }
 
-    struct User {
+    pub struct User {
         id: i32,
         name: String,
         name_nullable: Option<String>,
@@ -393,7 +395,7 @@ mod query_trail {
         }
     }
 
-    struct User {
+    pub struct User {
         id: i32,
     }
 
@@ -419,7 +421,7 @@ mod query_trail {
         }
     }
 
-    struct Club {
+    pub struct Club {
         id: i32,
     }
 
@@ -473,7 +475,7 @@ mod input_object {
         fn field_users_at_location<'a>(
             &self,
             executor: &Executor<'a, Context>,
-            coordinat: Option<Coordinate>,
+            coordinate: Option<Coordinate>,
         ) -> FieldResult<&bool> {
             unimplemented!()
         }
@@ -765,7 +767,7 @@ mod customizing_the_error_type {
         error_type: MyError,
     );
 
-    enum MyError {
+    pub enum MyError {
         Foo,
         Bar,
     }

@@ -1,4 +1,4 @@
-use super::{graphql_scalar_type_to_rust_type, ident, type_name, AddToOutput, Output, TypeType};
+use super::{graphql_scalar_type_to_rust_type, ident, type_name, AddToOutput, Output, TypeKind};
 use graphql_parser::query::Name;
 use graphql_parser::schema::NamedType;
 use graphql_parser::schema::*;
@@ -156,7 +156,7 @@ fn gen_field_walk_method(field: &Field, out: &Output) -> TokenStream {
     let field_type = ident(field_type.clone().to_camel_case());
 
     match ty {
-        TypeType::Scalar => {
+        TypeKind::Scalar => {
             let name = ident(&field.name.to_snake_case());
             let string_name = &field.name;
 
@@ -173,7 +173,7 @@ fn gen_field_walk_method(field: &Field, out: &Output) -> TokenStream {
                 }
             }
         }
-        TypeType::Type => {
+        TypeKind::Type => {
             let name = ident(&field.name.to_snake_case());
             let string_name = &field.name;
 

@@ -8,7 +8,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Added
 
-N/A
+- Make default argument values work for floats, integers, strings, booleans, enumerations, and lists (of supported types). Objects, variables, and nulls are not supported.
 
 ### Changed
 
