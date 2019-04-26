@@ -64,7 +64,7 @@ fn gen_schema_def(schema_def: SchemaDefinition, out: &mut Output) {
 
     let mutation = match schema_def.mutation {
         Some(mutation) => quote_ident(mutation),
-        None => quote! { juniper::EmptyMutation<()> },
+        None => quote! { juniper::EmptyMutation<Context> },
     };
 
     (quote! {
