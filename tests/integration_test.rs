@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate juniper;
 
-use juniper::{Executor, FieldResult};
+use juniper::{EmptyMutation, Executor, FieldResult, Variables};
 use juniper_from_schema::{graphql_schema, graphql_schema_from_file};
 
 pub struct Context;
@@ -783,5 +783,36 @@ mod customizing_the_error_type {
         fn field_string<'a>(&self, executor: &Executor<'a, Context>) -> Result<&String, MyError> {
             unimplemented!()
         }
+    }
+}
+
+mod empty_mutations {
+    use super::*;
+
+    graphql_schema! {
+        type Query {
+            string: String!
+        }
+
+        schema { query: Query }
+    }
+
+    pub struct Query;
+
+    impl QueryFields for Query {
+        fn field_string<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&String> {
+            unimplemented!()
+        }
+    }
+
+    fn main() {
+        let _ = juniper::execute(
+            "query Foo { string }",
+            None,
+            &Schema::new(Query, EmptyMutation::new()),
+            &Variables::new(),
+            &Context,
+        )
+        .unwrap();
     }
 }
