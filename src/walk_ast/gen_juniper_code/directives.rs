@@ -8,7 +8,7 @@ pub trait GetDirectives {
 
 pub fn panic_if_has_directives<T: GetDirectives>(t: &T) {
     if !t.directives().is_empty() {
-        todo!("Directives are not supported yet");
+        not_supported!("Directives");
     }
 }
 

@@ -66,10 +66,10 @@ fn gen_def(def: Definition, error_type: &syn::Type, out: &mut Output) {
     use graphql_parser::schema::Definition::*;
 
     match def {
-        DirectiveDefinition(_) => todo!("directive definition"),
+        DirectiveDefinition(_) => not_supported!("Directives"),
         SchemaDefinition(schema_def) => gen_schema_def(schema_def, out),
         TypeDefinition(type_def) => gen_type_def(type_def, error_type, out),
-        TypeExtension(_) => todo!("type extension"),
+        TypeExtension(_) => not_supported!("Extensions"),
     }
 }
 
