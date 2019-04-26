@@ -15,10 +15,6 @@ rust:
 
 cache: cargo
 
-before_script:
-  - rustup component add rustfmt-preview
-
 script:
-  - cargo fmt -- --check
   - cargo test --all
   - bin/run_all_examples
