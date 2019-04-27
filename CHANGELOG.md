@@ -20,7 +20,7 @@ N/A
 
 ### Fixed
 
-N/A
+- Correctly panic if schema contains unsupported features such as directives or a subscription type.
 
 ## [0.1.5] - 2019-04-26
 
