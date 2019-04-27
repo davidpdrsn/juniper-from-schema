@@ -34,11 +34,11 @@ pub struct Context;
 impl juniper::Context for Context {}
 
 pub struct Post {
-    id: Id,
+    id: ID,
 }
 
 impl PostFields for Post {
-    fn field_id(&self, executor: &Executor<'_, Context>) -> FieldResult<&Id> {
+    fn field_id(&self, executor: &Executor<'_, Context>) -> FieldResult<&ID> {
         unimplemented!()
     }
 

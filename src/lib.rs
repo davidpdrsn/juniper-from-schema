@@ -229,25 +229,13 @@
 //!
 //! ## The `ID` type
 //!
-//! The `ID` GraphQL type will be generated as a newtype wrapper around a `String` using
-//! [`juniper::graphql_scalar!`](https://docs.rs/juniper/0.11.1/juniper/macro.graphql_scalar.html). The Rust type will be called `Id`.
+//! The `ID` GraphQL type will be generated into [`juniper::ID`].
 //!
-//! Example:
-//!
-//! ```
-//! pub struct Id(pub String);
-//!
-//! impl Id {
-//!     // A generated convenience initializer
-//!     pub fn new<T: Into<String>>(id: T) -> Self {
-//!         Id(id.into())
-//!     }
-//! }
-//! ```
+//! [`juniper::ID`]: https://docs.rs/juniper/latest/juniper/struct.ID.html
 //!
 //! ## Custom scalar types
 //!
-//! Similarly to `ID`, custom scalar types get converted into newtype wrappers around `String`s. For example:
+//! Custom scalar types will be generated into a newtype wrapper around a `String`. For example:
 //!
 //! ```graphql
 //! scalar Cursor
@@ -282,23 +270,23 @@
 //! # fn main() {}
 //! # pub struct Context;
 //! # impl juniper::Context for Context {}
-//! # pub struct Article { id: Id, text: String }
+//! # pub struct Article { id: ID, text: String }
 //! # impl ArticleFields for Article {
 //! #     fn field_id(
 //! #         &self,
 //! #         executor: &Executor<'_, Context>,
-//! #     ) -> FieldResult<&Id> { unimplemented!() }
+//! #     ) -> FieldResult<&ID> { unimplemented!() }
 //! #     fn field_text(
 //! #         &self,
 //! #         executor: &Executor<'_, Context>,
 //! #     ) -> FieldResult<&String> { unimplemented!() }
 //! # }
-//! # pub struct Tweet { id: Id, text: String }
+//! # pub struct Tweet { id: ID, text: String }
 //! # impl TweetFields for Tweet {
 //! #     fn field_id(
 //! #         &self,
 //! #         executor: &Executor<'_, Context>,
-//! #     ) -> FieldResult<&Id> { unimplemented!() }
+//! #     ) -> FieldResult<&ID> { unimplemented!() }
 //! #     fn field_text(
 //! #         &self,
 //! #         executor: &Executor<'_, Context>,
@@ -340,8 +328,8 @@
 //!         trail: &QueryTrail<'_, SearchResult, Walked>,
 //!         query: String,
 //!     ) -> FieldResult<Vec<SearchResult>> {
-//!         let article: Article = Article { id: Id::new("1"), text: "Business".to_string() };
-//!         let tweet: Tweet = Tweet { id: Id::new("2"), text: "1 weird tip".to_string() };
+//!         let article: Article = Article { id: ID::new("1"), text: "Business".to_string() };
+//!         let tweet: Tweet = Tweet { id: ID::new("2"), text: "1 weird tip".to_string() };
 //!
 //!         let posts = vec![
 //!             SearchResult::from(article),
@@ -370,23 +358,23 @@
 //! # fn main() {}
 //! # pub struct Context;
 //! # impl juniper::Context for Context {}
-//! # pub struct Article { id: Id, text: String }
+//! # pub struct Article { id: ID, text: String }
 //! # impl ArticleFields for Article {
 //! #     fn field_id(
 //! #         &self,
 //! #         executor: &Executor<'_, Context>,
-//! #     ) -> FieldResult<&Id> { unimplemented!() }
+//! #     ) -> FieldResult<&ID> { unimplemented!() }
 //! #     fn field_text(
 //! #         &self,
 //! #         executor: &Executor<'_, Context>,
 //! #     ) -> FieldResult<&String> { unimplemented!() }
 //! # }
-//! # pub struct Tweet { id: Id, text: String }
+//! # pub struct Tweet { id: ID, text: String }
 //! # impl TweetFields for Tweet {
 //! #     fn field_id(
 //! #         &self,
 //! #         executor: &Executor<'_, Context>,
-//! #     ) -> FieldResult<&Id> { unimplemented!() }
+//! #     ) -> FieldResult<&ID> { unimplemented!() }
 //! #     fn field_text(
 //! #         &self,
 //! #         executor: &Executor<'_, Context>,
@@ -425,8 +413,8 @@
 //!         trail: &QueryTrail<'_, SearchResult, Walked>,
 //!         query: String,
 //!     ) -> FieldResult<Vec<SearchResult>> {
-//!         let article: Article = Article { id: Id::new("1"), text: "Business".to_string() };
-//!         let tweet: Tweet = Tweet { id: Id::new("2"), text: "1 weird tip".to_string() };
+//!         let article: Article = Article { id: ID::new("1"), text: "Business".to_string() };
+//!         let tweet: Tweet = Tweet { id: ID::new("2"), text: "1 weird tip".to_string() };
 //!
 //!         let posts = vec![
 //!             SearchResult::from(article),
@@ -452,12 +440,12 @@
 //! # fn main() {}
 //! # pub struct Context;
 //! # impl juniper::Context for Context {}
-//! # pub struct Post { id: Id }
+//! # pub struct Post { id: ID }
 //! # impl PostFields for Post {
 //! #     fn field_id(
 //! #         &self,
 //! #         executor: &Executor<'_, Context>,
-//! #     ) -> FieldResult<&Id> {
+//! #     ) -> FieldResult<&ID> {
 //! #         unimplemented!()
 //! #     }
 //! #     fn field_title(
@@ -538,12 +526,12 @@
 //! # fn main() {}
 //! # pub struct Context;
 //! # impl juniper::Context for Context {}
-//! # pub struct Post { id: Id }
+//! # pub struct Post { id: ID }
 //! # impl PostFields for Post {
 //! #     fn field_id(
 //! #         &self,
 //! #         executor: &Executor<'_, Context>,
-//! #     ) -> FieldResult<&Id> {
+//! #     ) -> FieldResult<&ID> {
 //! #         Ok(&self.id)
 //! #     }
 //! # }
@@ -613,12 +601,12 @@
 //! # fn main() {}
 //! # pub struct Context;
 //! # impl juniper::Context for Context {}
-//! # pub struct Post { id: Id }
+//! # pub struct Post { id: ID }
 //! # impl PostFields for Post {
 //! #     fn field_id(
 //! #         &self,
 //! #         executor: &Executor<'_, Context>,
-//! #     ) -> FieldResult<&Id> {
+//! #     ) -> FieldResult<&ID> {
 //! #         Ok(&self.id)
 //! #     }
 //! # }
@@ -670,7 +658,7 @@
 //! - `Float` -> `f64`
 //! - `String` -> `String`
 //! - `Boolean` -> `bool`
-//! - `ID` -> `pub struct Id(pub String)`
+//! - `ID` -> [`juniper::ID`](https://docs.rs/juniper/latest/juniper/struct.ID.html)
 //!
 //! # Query trails
 //!

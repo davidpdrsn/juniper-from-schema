@@ -55,10 +55,6 @@ impl Output {
         self.special_scalars.date_defined()
     }
 
-    fn is_id_scalar_used(&self) -> bool {
-        self.special_scalars.id_scalar_used()
-    }
-
     fn interface_implementors(&self) -> &InterfaceImplementors {
         &self.interface_implementors
     }
@@ -106,7 +102,7 @@ pub fn graphql_scalar_type_to_rust_type(name: &str, out: &Output) -> (TokenStrea
         "Float" => (quote! { f64 }, TypeKind::Scalar),
         "String" => (quote! { String }, TypeKind::Scalar),
         "Boolean" => (quote! { bool }, TypeKind::Scalar),
-        "ID" => (quote! { Id }, TypeKind::Scalar),
+        "ID" => (quote! { juniper::ID }, TypeKind::Scalar),
         "Date" => {
             if out.is_date_scalar_defined() {
                 (quote! { chrono::naive::NaiveDate }, TypeKind::Scalar)

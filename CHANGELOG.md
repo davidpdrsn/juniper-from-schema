@@ -12,7 +12,7 @@ N/A
 
 ### Changed
 
-N/A
+- The `ID` GraphQL type now gets generated into `juniper::ID` instead of a custom newtype wrapper. This is a breaking change but should be straight forward to fix.
 
 ### Removed
 

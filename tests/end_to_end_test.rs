@@ -6,7 +6,7 @@ extern crate juniper;
 extern crate maplit;
 
 use assert_json_diff::assert_json_include;
-use juniper::{Executor, FieldResult, Variables};
+use juniper::{Executor, FieldResult, Variables, ID};
 use juniper_from_schema::{graphql_schema, graphql_schema_from_file};
 use serde_json::{self, json, Value};
 use std::collections::HashMap;
@@ -126,8 +126,8 @@ pub struct Human {
 }
 
 impl HumanFields for Human {
-    fn field_id<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<Id> {
-        Ok(Id::new(self.id.to_string()))
+    fn field_id<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<ID> {
+        Ok(ID::new(self.id))
     }
 
     fn field_name<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&String> {
@@ -142,8 +142,8 @@ pub struct Droid {
 }
 
 impl DroidFields for Droid {
-    fn field_id<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<Id> {
-        Ok(Id::new(self.id.to_string()))
+    fn field_id<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<ID> {
+        Ok(ID::new(self.id))
     }
 
     fn field_name<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&String> {

@@ -14,27 +14,9 @@ use regex::Regex;
 use syn::Ident;
 
 pub fn gen_juniper_code(doc: Document, error_type: syn::Type, out: &mut Output) {
-    if out.is_id_scalar_used() {
-        gen_id_scalar(out);
-    }
-
     gen_enum_from_name(out);
 
     gen_doc(doc, &error_type, out);
-}
-
-fn gen_id_scalar(out: &mut Output) {
-    gen_scalar_type_with_data(&ident("Id"), &quote! {}, out);
-
-    (quote! {
-        impl Id {
-            #[allow(missing_docs)]
-            pub fn new<T: Into<String>>(id: T) -> Self {
-                Id(id.into())
-            }
-        }
-    })
-    .add_to(out)
 }
 
 fn gen_enum_from_name(out: &mut Output) {
