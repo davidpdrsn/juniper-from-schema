@@ -226,6 +226,8 @@
 //!
 //! Not supported yet:
 //! - Subscriptions (currently not supported by Juniper so we're unsure when or if this will happen)
+//! - Schema directives
+//! - Type extensions
 //!
 //! ## The `ID` type
 //!
