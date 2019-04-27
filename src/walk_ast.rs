@@ -13,13 +13,13 @@ pub use self::gen_query_trails::gen_query_trails;
 
 use graphql_parser::{query::Name, schema::Type};
 use heck::CamelCase;
-use proc_macro2::Span;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream, TokenTree};
 use quote::quote;
+use std::iter::Extend;
 use syn::Ident;
 
 pub struct Output {
-    tokens: Vec<TokenStream>,
+    tokens: TokenStream,
     special_scalars: SpecialScalarTypesList,
     interface_implementors: InterfaceImplementors,
     enum_variants: EnumVariants,
@@ -32,19 +32,15 @@ impl Output {
         enum_variants: EnumVariants,
     ) -> Self {
         Output {
-            tokens: vec![],
+            tokens: quote! {},
             special_scalars,
             interface_implementors,
             enum_variants,
         }
     }
 
-    pub fn tokens(self) -> Vec<TokenStream> {
+    pub fn tokens(self) -> TokenStream {
         self.tokens
-    }
-
-    fn push(&mut self, toks: TokenStream) {
-        self.tokens.push(toks);
     }
 
     fn is_date_time_scalar_defined(&self) -> bool {
@@ -65,7 +61,7 @@ impl Output {
 
     fn clone_without_tokens(&self) -> Self {
         Output {
-            tokens: vec![],
+            tokens: quote! {},
             special_scalars: self.special_scalars.clone(),
             interface_implementors: self.interface_implementors.clone(),
             enum_variants: self.enum_variants.clone(),
@@ -73,13 +69,15 @@ impl Output {
     }
 }
 
-pub trait AddToOutput {
-    fn add_to(self, out: &mut Output);
+impl Extend<TokenTree> for Output {
+    fn extend<T: IntoIterator<Item = TokenTree>>(&mut self, iter: T) {
+        self.tokens.extend(iter);
+    }
 }
 
-impl AddToOutput for TokenStream {
-    fn add_to(self, out: &mut Output) {
-        out.push(self);
+impl Extend<TokenStream> for Output {
+    fn extend<T: IntoIterator<Item = TokenStream>>(&mut self, iter: T) {
+        self.tokens.extend(iter);
     }
 }
 
