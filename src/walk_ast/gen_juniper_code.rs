@@ -248,10 +248,10 @@ fn gen_obj_type(obj_type: ObjectType, error_type: &syn::Type, out: &mut Output) 
         .collect::<Vec<_>>();
 
     let trait_methods = field_tokens.iter().map(|field| {
-        let field_name = field.field_method.clone();
-        let field_type = field.field_type.clone();
+        let field_name = &field.field_method;
+        let field_type = &field.field_type;
 
-        let args = field.trait_args.clone();
+        let args = &field.trait_args;
 
         match field.type_kind {
             TypeKind::Scalar => {
@@ -320,11 +320,11 @@ fn gen_field(
     trait_name: &Ident,
     error_type: &syn::Type,
 ) -> TokenStream {
-    let field_name = field.name.clone();
-    let field_type = field.field_type.clone();
-    let args = field.macro_args.clone();
+    let field_name = &field.name;
+    let field_type = &field.field_type;
+    let args = &field.macro_args;
 
-    let body = gen_field_body(field.clone(), &quote! { &self }, struct_name, trait_name);
+    let body = gen_field_body(&field, &quote! { &self }, struct_name, trait_name);
 
     let description = field
         .description
@@ -341,13 +341,13 @@ fn gen_field(
 }
 
 fn gen_field_body(
-    field: FieldTokens,
+    field: &FieldTokens,
     self_tokens: &TokenStream,
     struct_name: &Ident,
     trait_name: &Ident,
 ) -> TokenStream {
-    let field_method = field.field_method;
-    let params = field.params;
+    let field_method = &field.field_method;
+    let params = &field.params;
 
     match field.type_kind {
         TypeKind::Scalar => {
@@ -369,7 +369,7 @@ fn gen_field_body(
 fn gen_interface(interface: InterfaceType, error_type: &syn::Type, out: &mut Output) {
     panic_if_has_directives(&interface);
 
-    let interface_name = ident(interface.name.clone());
+    let interface_name = ident(&interface.name);
 
     let implementors = out.interface_implementors().get(&interface.name);
 
@@ -382,7 +382,7 @@ fn gen_interface(interface: InterfaceType, error_type: &syn::Type, out: &mut Out
     let implementors = implementors.iter().map(ident).collect::<Vec<_>>();
 
     // Enum
-    let variants = implementors.clone().into_iter().map(|name| {
+    let variants = implementors.iter().map(|name| {
         quote! { #name(#name) }
     });
     out.extend(quote! {
@@ -392,7 +392,7 @@ fn gen_interface(interface: InterfaceType, error_type: &syn::Type, out: &mut Out
     });
 
     // From implementations
-    for variant in implementors.clone() {
+    for variant in &implementors {
         out.extend(quote! {
             impl std::convert::From<#variant> for #interface_name {
                 fn from(x: #variant) -> #interface_name {
@@ -403,7 +403,7 @@ fn gen_interface(interface: InterfaceType, error_type: &syn::Type, out: &mut Out
     }
 
     // Resolvers
-    let instance_resolvers = implementors.clone().into_iter().map(|name| {
+    let instance_resolvers = implementors.iter().map(|name| {
         quote! {
             &#name => match *self { #interface_name::#name(ref h) => Some(h), _ => None }
         }
@@ -418,23 +418,22 @@ fn gen_interface(interface: InterfaceType, error_type: &syn::Type, out: &mut Out
     let field_token_streams = field_tokens
         .into_iter()
         .map(|field| {
-            let field_name = field.name.clone();
-            let args = field.macro_args.clone();
-            let field_type = field.field_type.clone();
+            let field_name = &field.name;
+            let args = &field.macro_args;
+            let field_type = &field.field_type;
             let description = field
                 .description
-                .clone()
+                .as_ref()
                 .map(|description| {
                     quote! { #[doc = #description] }
                 })
                 .unwrap_or_else(empty_token_stream);
 
-            let arms = implementors.clone().into_iter().map(|variant| {
+            let arms = implementors.iter().map(|variant| {
                 let trait_name = trait_map_for_struct_name(&variant);
                 let struct_name = variant;
 
-                let body =
-                    gen_field_body(field.clone(), &quote! {inner}, &struct_name, &trait_name);
+                let body = gen_field_body(&field, &quote! {inner}, &struct_name, &trait_name);
 
                 quote! {
                     #interface_name::#struct_name(ref inner) => {
@@ -443,7 +442,7 @@ fn gen_interface(interface: InterfaceType, error_type: &syn::Type, out: &mut Out
                 }
             });
 
-            let all_args = to_field_args_list(args);
+            let all_args = to_field_args_list(&args);
 
             quote! {
                 #description
@@ -467,7 +466,7 @@ fn gen_interface(interface: InterfaceType, error_type: &syn::Type, out: &mut Out
     });
 }
 
-fn to_field_args_list(args: Vec<TokenStream>) -> TokenStream {
+fn to_field_args_list(args: &[TokenStream]) -> TokenStream {
     if args.is_empty() {
         quote! { &executor }
     } else {
@@ -478,11 +477,11 @@ fn to_field_args_list(args: Vec<TokenStream>) -> TokenStream {
 fn gen_union(union: &UnionType, out: &mut Output) {
     panic_if_has_directives(union);
 
-    let union_name = ident(union.name.clone());
-    let implementors = union.types.iter().map(|name| ident(name.clone()));
+    let union_name = ident(&union.name);
+    let implementors = union.types.iter().map(ident).collect::<Vec<_>>();
 
     // Enum
-    let variants = implementors.clone().map(|name| {
+    let variants = implementors.iter().map(|name| {
         quote! { #name(#name) }
     });
     out.extend(quote! {
@@ -492,7 +491,7 @@ fn gen_union(union: &UnionType, out: &mut Output) {
     });
 
     // From implementations
-    for variant in implementors.clone() {
+    for variant in &implementors {
         out.extend(quote! {
             impl std::convert::From<#variant> for #union_name {
                 fn from(x: #variant) -> #union_name {
@@ -503,7 +502,7 @@ fn gen_union(union: &UnionType, out: &mut Output) {
     }
 
     // Resolvers
-    let instance_resolvers = implementors.clone().map(|name| {
+    let instance_resolvers = implementors.iter().map(|name| {
         quote! {
             &#name => match *self { #union_name::#name(ref h) => Some(h), _ => None }
         }
