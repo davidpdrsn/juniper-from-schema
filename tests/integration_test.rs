@@ -284,14 +284,8 @@ mod custom_scalar {
             trail: &QueryTrail<'a, Cursor, Walked>,
             arg: Cursor,
         ) -> FieldResult<&Cursor> {
-            Cursor::new("123".to_string());
+            Cursor::new("123");
             unimplemented!()
-        }
-    }
-
-    impl Cursor {
-        fn new(t: String) -> Self {
-            Cursor(t)
         }
     }
 }

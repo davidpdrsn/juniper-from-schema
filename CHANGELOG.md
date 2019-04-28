@@ -21,6 +21,8 @@ N/A
 ### Fixed
 
 - Correctly panic if schema contains unsupported features such as directives or a subscription type.
+- Correctly generate docs for all types.
+- Fix compile error when using custom scalar.
 
 ## [0.1.5] - 2019-04-26
 
