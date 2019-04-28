@@ -215,89 +215,83 @@ impl juniper::Context for Context {}
 
 #[test]
 fn test_docs() {
-    let json = introspect_schema();
+    let mut json = introspect_schema()["__schema"]["types"]
+        .as_array()
+        .unwrap()
+        .clone()
+        .into_iter()
+        .filter(|type_| !type_["name"].as_str().unwrap().starts_with("__"))
+        .collect::<Vec<_>>();
+    json.sort_by_key(|key| key["name"].as_str().unwrap().to_string());
+    let json = serde_json::Value::Array(json);
 
     assert_json_include!(
         actual: json,
-        expected: json!({
-            "__schema": {
-                "directives": [],
-                "queryType": { "name": "Query" },
-                "subscriptionType": null,
-                "types": [
-                    { "name": "Boolean" },
-                    { "name": "__InputValue" },
-                    { "name": "String" },
-                    { "name": "__Field" },
-                    {
-                        "name": "UserType",
-                        "description": "UserType desc",
-                        "enumValues": [
-                            {
-                                "name": "REAL",
-                                "description": "REAL desc",
-                            },
-                            {
-                                "name": "BOT",
-                                "description": "BOT desc",
-                            },
-                        ],
-                    },
-                    { "name": "__TypeKind" },
-                    { "name": "__Type" },
-                    { "name": "ID" },
-                    { "name": "__Schema" },
-                    {
-                        "name": "Url",
-                        "description": "Url scalar desc",
-                    },
-                    {
-                        "name": "Query",
-                        "description": "Root query type",
-                        "fields": [
-                            {
-                                "name": "queryField",
-                                "description": "queryField desc",
-                                "args": [
-                                    {
-                                        "name": "queryFieldArg",
-                                        "description": "queryFieldArg desc",
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                    {
-                        "name": "InputType",
-                        "description": "InputType desc",
-                        "inputFields": [
-                            {
-                                "name": "id",
-                                "description": "id desc",
-                            },
-                        ]
-                    },
-                    { "name": "__EnumValue" },
-                    {
-                        "name": "SearchResult",
-                        "description": "SearchResult desc",
-                    },
-                    { "name": "User" },
-                    { "name": "__DirectiveLocation" },
-                    { "name": "__Directive" },
-                    {
-                        "name": "Entity",
-                        "description": "Entity desc",
-                        "fields": [
-                            {
-                                "name": "id",
-                                "description": "Entity id desc",
-                            },
-                        ],
-                    },
-                ],
-            }
-        })
+        expected:
+            json!([
+                { "name": "Boolean" },
+                {
+                    "name": "Entity",
+                    "description": "Entity desc",
+                    "fields": [
+                        {
+                            "name": "id",
+                            "description": "Entity id desc",
+                        },
+                    ],
+                },
+                { "name": "ID" },
+                {
+                    "name": "InputType",
+                    "description": "InputType desc",
+                    "inputFields": [
+                        {
+                            "name": "id",
+                            "description": "id desc",
+                        },
+                    ]
+                },
+                {
+                    "name": "Query",
+                    "description": "Root query type",
+                    "fields": [
+                        {
+                            "name": "queryField",
+                            "description": "queryField desc",
+                            "args": [
+                                {
+                                    "name": "queryFieldArg",
+                                    "description": "queryFieldArg desc",
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "name": "SearchResult",
+                    "description": "SearchResult desc",
+                },
+                { "name": "String" },
+                {
+                    "name": "Url",
+                    "description": "Url scalar desc",
+                },
+                { "name": "User" },
+                {
+                    "name": "UserType",
+                    "description": "UserType desc",
+                    "enumValues": [
+                        {
+                            "name": "REAL",
+                            "description": "REAL desc",
+                        },
+                        {
+                            "name": "BOT",
+                            "description": "BOT desc",
+                        },
+                    ],
+                },
+            ])
     );
 }
 
