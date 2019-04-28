@@ -12,6 +12,7 @@ pub fn gen_query_trails(doc: &Document, out: &mut Output) {
     gen_query_trail(out);
 
     let fields_map = build_fields_map(doc);
+    let mut union_errors = Vec::new();
 
     for def in &doc.definitions {
         if let Definition::TypeDefinition(type_def) = def {
@@ -23,7 +24,9 @@ pub fn gen_query_trails(doc: &Document, out: &mut Output) {
                     gen_field_walk_methods(InternalQueryTrailNode::Interface(interface), out)
                 }
                 TypeDefinition::Union(union) => {
-                    panic_if_field_types_dont_overlap(union, &fields_map);
+                    if let Some(error) = panic_msg_if_field_types_dont_overlap(union, &fields_map) {
+                        union_errors.push(error);
+                    }
 
                     gen_field_walk_methods(
                         InternalQueryTrailNode::Union(
@@ -36,6 +39,10 @@ pub fn gen_query_trails(doc: &Document, out: &mut Output) {
                 _ => {}
             }
         }
+    }
+
+    if !union_errors.is_empty() {
+        panic!("{}", union_errors.join("\n"));
     }
 }
 
@@ -195,11 +202,12 @@ fn gen_field_walk_method(field: &Field, out: &Output) -> TokenStream {
     }
 }
 
-fn panic_if_field_types_dont_overlap(
+fn panic_msg_if_field_types_dont_overlap(
     union: &UnionType,
     fields_map: &HashMap<NamedType, Vec<Field>>,
-) {
+) -> Option<String> {
     let mut prev: HashMap<Name, (NamedType, Name)> = HashMap::new();
+    let mut panic_msg = String::new();
 
     for type_ in &union.types {
         if let Some(fields) = fields_map.get(type_) {
@@ -210,27 +218,56 @@ fn panic_if_field_types_dont_overlap(
                 if let Some((type_with_other_field, other_type)) = prev.get(&field_name) {
                     if &field_type_name != other_type {
                         // NOTE: The error is not tested, change with care
-                        let mut panic_msg = String::new();
                         panic_msg.push_str("\n");
                         panic_msg.push_str("\n");
-                        panic_msg.push_str(&format!("Both `{}` and `{}` have a field named `{}` but those fields aren't of the same type\n", type_with_other_field, type_, field_name));
                         panic_msg.push_str(&format!(
-                            "    `{}.{}` is of type `{}`\n",
+                            "Error while generating `QueryTrail` code for union `{}`:",
+                            union.name
+                        ));
+                        panic_msg.push_str("\n");
+                        panic_msg.push_str(&format!("  Both `{}` and `{}` have a field named `{}` but those fields aren't of the same type\n", type_with_other_field, type_, field_name));
+                        panic_msg.push_str(&format!(
+                            "    `{}.{} :: {}`\n",
                             type_with_other_field, field_name, other_type
                         ));
                         panic_msg.push_str(&format!(
-                            "    `{}.{}` is of type `{}`",
+                            "    `{}.{} :: {}`",
                             type_, field_name, field_type_name
                         ));
                         panic_msg.push_str("\n");
                         panic_msg.push_str("\n");
-                        panic!("{}", panic_msg);
+                        panic_msg.push_str(&format!(
+                            "  If `{union}` is `{union}::{variant}` then `QueryTrail::<_, {union}, _>::{field}()` would return `{type_}`\n",
+                            union = union.name,
+                            variant = type_with_other_field,
+                            field = field_name,
+                            type_ = other_type,
+                        ));
+                        panic_msg.push_str(&format!(
+                            "  But if `{union}` is `{union}::{variant}` then `QueryTrail::<_, {union}, _>::{field}()` would return `{type_}`",
+                            union = union.name,
+                            variant = type_,
+                            field = field_name,
+                            type_ = field_type_name,
+                        ));
+                        panic_msg.push_str("\n");
+                        panic_msg.push_str("\n");
+                        panic_msg.push_str(&format!(
+                            "  We can't have one method that returns different types :(",
+                        ));
+                        panic_msg.push_str("\n");
                     }
                 }
 
                 prev.insert(field_name, (type_.to_string(), field_type_name));
             }
         }
+    }
+
+    if panic_msg.is_empty() {
+        None
+    } else {
+        Some(panic_msg)
     }
 }
 

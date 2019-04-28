@@ -91,6 +91,7 @@ fn gen_type_def(type_def: TypeDefinition, error_type: &syn::Type, out: &mut Outp
 fn gen_input_def(input_type: InputObjectType, out: &mut Output) {
     panic_if_has_directives(&input_type);
 
+    let input_type_name = input_type.name.clone();
     let name = ident(input_type.name);
 
     let description = input_type
@@ -101,7 +102,7 @@ fn gen_input_def(input_type: InputObjectType, out: &mut Output) {
         .unwrap_or_else(empty_token_stream);
 
     let fields = input_type.fields.into_iter().map(|field| {
-        let arg = argument_to_name_and_rust_type(&field, &out);
+        let arg = argument_to_name_and_rust_type(&field, &input_type_name, &out);
         let name = ident(arg.name);
         let rust_type = arg.macro_type;
 
@@ -537,6 +538,7 @@ struct FieldTokens {
 fn collect_data_for_field_gen(field: Field, out: &Output) -> FieldTokens {
     panic_if_has_directives(&field);
 
+    let field_name = field.name.clone();
     let name = ident(field.name);
 
     let inner_type = type_name(&field.field_type).to_camel_case();
@@ -560,7 +562,7 @@ fn collect_data_for_field_gen(field: Field, out: &Output) -> FieldTokens {
     let args_data = field
         .arguments
         .into_iter()
-        .map(|input_value| argument_to_name_and_rust_type(&input_value, out))
+        .map(|input_value| argument_to_name_and_rust_type(&input_value, &field_name, out))
         .collect::<Vec<_>>();
 
     let macro_args = args_data
@@ -608,12 +610,19 @@ fn collect_data_for_field_gen(field: Field, out: &Output) -> FieldTokens {
     }
 }
 
-fn argument_to_name_and_rust_type(arg: &InputValue, out: &Output) -> FieldArgument {
+fn argument_to_name_and_rust_type(
+    arg: &InputValue,
+    context_type: &str,
+    out: &Output,
+) -> FieldArgument {
     // TODO: use description
 
     panic_if_has_directives(arg);
 
-    let default_value = arg.default_value.as_ref().map(|value| quote_value(&value));
+    let default_value = arg
+        .default_value
+        .as_ref()
+        .map(|value| quote_value(&value, &context_type, &arg.name));
 
     let arg_name = arg.name.to_snake_case();
 
@@ -642,7 +651,7 @@ struct FieldArgument {
     default_value: Option<TokenStream>,
 }
 
-fn quote_value(value: &Value) -> TokenStream {
+fn quote_value(value: &Value, context_type: &str, arg_name: &str) -> TokenStream {
     match value {
         Value::Float(inner) => quote! { #inner },
         Value::Int(inner) => {
@@ -663,7 +672,7 @@ fn quote_value(value: &Value) -> TokenStream {
         Value::List(list) => {
             let mut acc = quote! { let mut vec = Vec::new(); };
             for value in list {
-                let value_quoted = quote_value(value);
+                let value_quoted = quote_value(value, context_type, arg_name);
                 acc.extend(quote! { vec.push(#value_quoted); });
             }
             acc.extend(quote! { vec });
@@ -672,7 +681,15 @@ fn quote_value(value: &Value) -> TokenStream {
 
         // Object is hard because the contained BTreeMap can have values of different types.
         // How do we quote such a map and convert it into the actual input type?
-        Value::Object(_map) => panic!("Default arguments where the type is an object is currently not supported."),
+        Value::Object(_map) => {
+            let mut panic_msg = String::new();
+            panic_msg.push_str("\n");
+            panic_msg.push_str("\n");
+            panic_msg.push_str(&format!("Error encountered on `{}.{}`:\n", context_type, arg_name));
+            panic_msg.push_str("  Default arguments where the type is an object is currently not supported.");
+            panic_msg.push_str("\n");
+            panic!("{}", panic_msg);
+        }
 
         Value::Variable(_name) => panic!("Default arguments cannot refer to variables."),
         Value::Null => panic!("Having a default argument value of `null` is not supported. Use a nullable type instead."),
