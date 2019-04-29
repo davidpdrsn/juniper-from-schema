@@ -898,7 +898,7 @@
 //! [feature]: https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features
 //! [rustfmt]: https://github.com/rust-lang/rustfmt
 
-#![deny(unused_imports, dead_code, unused_variables)]
+// #![deny(unused_imports, dead_code, unused_variables)]
 #![recursion_limit = "128"]
 #![doc(html_root_url = "https://docs.rs/juniper-from-schema/0.1.5")]
 
@@ -914,9 +914,13 @@ mod walk_ast;
 
 use self::{
     parse_input::{default_error_type, parse_input},
+    // walk_ast::{
+    //     find_enum_variants, find_interface_implementors, find_special_scalar_types,
+    //     gen_juniper_code, gen_query_trails, Output,
+    // },
     walk_ast::{
         find_enum_variants, find_interface_implementors, find_special_scalar_types,
-        gen_juniper_code, gen_query_trails, Output,
+        gen_query_trails, Output,
     },
 };
 use graphql_parser::parse_schema;
@@ -992,23 +996,23 @@ fn parse_and_gen_schema(schema: &str, error_type: Type) -> proc_macro::TokenStre
         Err(parse_error) => panic!("{}", parse_error),
     };
 
-    let special_scalars = find_special_scalar_types(&doc);
-    let interface_implementors = find_interface_implementors(&doc);
-    let enum_variants = find_enum_variants(&doc);
+    let mut output = Output::new(doc, error_type);
+    let tokens = output.gen_juniper_code();
 
-    let mut output = Output::new(special_scalars, interface_implementors, enum_variants);
+    // let special_scalars = find_special_scalar_types(&doc);
+    // let interface_implementors = find_interface_implementors(&doc);
+    // let enum_variants = find_enum_variants(&doc);
+    // let mut output = Output::new(special_scalars, interface_implementors, enum_variants);
+    // gen_query_trails(&doc, &mut output);
+    // gen_juniper_code(doc, error_type, &mut output);
 
-    gen_query_trails(&doc, &mut output);
-
-    gen_juniper_code(doc, error_type, &mut output);
-
-    let out: proc_macro::TokenStream = output.tokens().into_iter().collect::<TokenStream>().into();
+    let out: proc_macro::TokenStream = tokens.into();
 
     if debugging_enabled() {
         self::pretty_print::code_gen_debug(out.to_string());
     }
 
-    out
+    out.into()
 }
 
 fn debugging_enabled() -> bool {
