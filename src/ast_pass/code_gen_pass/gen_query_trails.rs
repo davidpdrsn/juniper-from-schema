@@ -1,4 +1,4 @@
-use super::{graphql_scalar_type_to_rust_type, ident, type_name, Output, TypeKind};
+use super::{graphql_scalar_type_to_rust_type, ident, type_name, CodeGenPass, TypeKind};
 use graphql_parser::query::Name;
 use graphql_parser::schema::NamedType;
 use graphql_parser::schema::*;
@@ -8,8 +8,8 @@ use quote::quote;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
-impl Output {
-    pub fn gen_query_trails(&mut self, doc: &Document) {
+impl<'doc> CodeGenPass<'doc> {
+    pub fn gen_query_trails(&mut self, doc: &'doc Document) {
         self.gen_query_trail();
 
         let fields_map = build_fields_map(doc);
@@ -156,7 +156,7 @@ impl InternalQueryTrailNode<'_> {
     }
 }
 
-fn gen_field_walk_method(field: &Field, out: &Output) -> TokenStream {
+fn gen_field_walk_method(field: &Field, out: &CodeGenPass) -> TokenStream {
     let field_type = type_name(&field.field_type);
     let (_, ty) = graphql_scalar_type_to_rust_type(&field_type, &out);
     let field_type = ident(field_type.clone().to_camel_case());
@@ -217,7 +217,7 @@ fn panic_msg_if_field_types_dont_overlap(
                 let field_type_name = type_name(&field.field_type);
 
                 if let Some((type_with_other_field, other_type)) = prev.get(&field_name) {
-                    if &field_type_name != other_type {
+                    if field_type_name != other_type {
                         // NOTE: The error is not tested, change with care
                         panic_msg.push_str("\n");
                         panic_msg.push_str("\n");
@@ -260,7 +260,7 @@ fn panic_msg_if_field_types_dont_overlap(
                     }
                 }
 
-                prev.insert(field_name, (type_.to_string(), field_type_name));
+                prev.insert(field_name, (type_.to_string(), field_type_name.to_string()));
             }
         }
     }
@@ -309,11 +309,7 @@ fn build_fields_map(doc: &Document) -> HashMap<NamedType, Vec<Field>> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::walk_ast::{
-        find_enum_variants::find_enum_variants,
-        find_interface_implementors::find_interface_implementors,
-        find_special_scalar_types::find_special_scalar_types,
-    };
+    use crate::ast_pass::AstData;
 
     #[test]
     #[should_panic]
@@ -339,13 +335,11 @@ mod test {
         "#;
 
         let doc = graphql_parser::parse_schema(&schema).unwrap();
-
-        let mut out = Output {
+        let ast_data = AstData::new(&doc);
+        let mut out = CodeGenPass {
             tokens: quote! {},
-            special_scalars: find_special_scalar_types(&doc),
-            interface_implementors: find_interface_implementors(&doc),
-            enum_variants: find_enum_variants(&doc),
             error_type: crate::parse_input::default_error_type(),
+            ast_data,
         };
 
         out.gen_query_trails(&doc);

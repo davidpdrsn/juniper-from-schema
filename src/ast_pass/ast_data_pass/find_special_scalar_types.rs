@@ -2,11 +2,11 @@ use graphql_parser::schema::*;
 use std::collections::HashSet;
 
 #[derive(Clone)]
-pub struct SpecialScalarTypesList {
-    custom_scalars: HashSet<String>,
+pub struct SpecialScalarTypesList<'doc> {
+    custom_scalars: HashSet<&'doc str>,
 }
 
-impl SpecialScalarTypesList {
+impl<'doc> SpecialScalarTypesList<'doc> {
     pub fn date_defined(&self) -> bool {
         self.is_scalar("Date")
     }
@@ -20,7 +20,7 @@ impl SpecialScalarTypesList {
     }
 }
 
-pub fn find_special_scalar_types(doc: &Document) -> SpecialScalarTypesList {
+pub fn find_special_scalar_types(doc: &Document) -> SpecialScalarTypesList<'_> {
     use graphql_parser::schema::Definition::*;
     use graphql_parser::schema::TypeDefinition::*;
 
@@ -33,7 +33,7 @@ pub fn find_special_scalar_types(doc: &Document) -> SpecialScalarTypesList {
             TypeDefinition(type_def) => match type_def {
                 Scalar(scalar_type) => {
                     let name = &*scalar_type.name;
-                    out.custom_scalars.insert(name.to_string());
+                    out.custom_scalars.insert(name);
                 }
 
                 _ => {}

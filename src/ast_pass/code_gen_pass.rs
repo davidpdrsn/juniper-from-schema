@@ -1,7 +1,8 @@
 mod directives;
+mod gen_query_trails;
 
 use self::directives::panic_if_has_directives;
-use super::{graphql_scalar_type_to_rust_type, ident, quote_ident, type_name, Output, TypeKind};
+use super::{graphql_scalar_type_to_rust_type, ident, quote_ident, type_name, AstData, TypeKind};
 use crate::nullable_type::NullableType;
 use graphql_parser::{
     query::{Name, Type},
@@ -9,15 +10,66 @@ use graphql_parser::{
 };
 use heck::{CamelCase, SnakeCase};
 use lazy_static::lazy_static;
-use proc_macro2::TokenStream;
+use proc_macro2::{TokenStream, TokenTree};
 use quote::quote;
 use regex::Regex;
+use std::iter::Extend;
 use syn::Ident;
 
-impl Output {
-    pub fn gen_juniper_code(&mut self, doc: &Document) {
+pub struct CodeGenPass<'doc> {
+    tokens: TokenStream,
+    error_type: syn::Type,
+    ast_data: AstData<'doc>,
+}
+
+impl<'doc> CodeGenPass<'doc> {
+    pub fn new(error_type: syn::Type, ast_data: AstData<'doc>) -> Self {
+        CodeGenPass {
+            tokens: quote! {},
+            error_type,
+            ast_data,
+        }
+    }
+
+    pub fn is_date_time_scalar_defined(&self) -> bool {
+        self.ast_data.special_scalars.date_time_defined()
+    }
+
+    pub fn is_date_scalar_defined(&self) -> bool {
+        self.ast_data.special_scalars.date_defined()
+    }
+
+    pub fn is_scalar(&self, name: &str) -> bool {
+        self.ast_data.special_scalars.is_scalar(name)
+    }
+
+    pub fn is_enum(&self, name: &str) -> bool {
+        self.ast_data.enum_variants.contains(name)
+    }
+
+    pub fn get_implementors_of_interface(&self, name: &String) -> Option<&Vec<&String>> {
+        self.ast_data.interface_implementors.get(name)
+    }
+}
+
+impl Extend<TokenTree> for CodeGenPass<'_> {
+    fn extend<T: IntoIterator<Item = TokenTree>>(&mut self, iter: T) {
+        self.tokens.extend(iter);
+    }
+}
+
+impl Extend<TokenStream> for CodeGenPass<'_> {
+    fn extend<T: IntoIterator<Item = TokenStream>>(&mut self, iter: T) {
+        self.tokens.extend(iter);
+    }
+}
+
+impl<'doc> CodeGenPass<'doc> {
+    pub fn gen_juniper_code(mut self, doc: &'doc Document) -> TokenStream {
+        self.gen_query_trails(doc);
         self.gen_enum_from_name();
         self.gen_doc(doc);
+        self.tokens
     }
 
     fn gen_enum_from_name(&mut self) {
@@ -294,11 +346,11 @@ impl Output {
         })
     }
 
-    fn argument_to_name_and_rust_type(
+    fn argument_to_name_and_rust_type<'a>(
         &self,
-        arg: &InputValue,
+        arg: &'a InputValue,
         context_type: &str,
-    ) -> FieldArgument {
+    ) -> FieldArgument<'a> {
         panic_if_has_directives(&arg);
 
         let default_value = arg
@@ -322,7 +374,7 @@ impl Output {
             macro_type,
             trait_type,
             default_value,
-            description: arg.description.clone(),
+            description: &arg.description,
         }
     }
 
@@ -332,7 +384,7 @@ impl Output {
         destination: &FieldTypeDestination,
         has_default_value: bool,
     ) -> (TokenStream, TypeKind) {
-        let field_type = NullableType::from_schema_type(field_type.clone());
+        let field_type = NullableType::from_schema_type(field_type);
 
         if has_default_value && !field_type.is_nullable() {
             panic!("Fields with default arguments values must be nullable");
@@ -384,7 +436,7 @@ impl Output {
             .map(|d| d.to_string())
             .unwrap_or_else(String::new);
 
-        let implementors = self.interface_implementors.get(&interface.name);
+        let implementors = self.get_implementors_of_interface(&interface.name);
 
         let implementors = if let Some(implementors) = implementors {
             implementors
@@ -478,14 +530,12 @@ impl Output {
         });
     }
 
-    fn collect_data_for_field_gen(&self, field: &Field) -> FieldTokens {
+    fn collect_data_for_field_gen<'a>(&self, field: &'a Field) -> FieldTokens<'a> {
         panic_if_has_directives(&field);
 
         let name = ident(&field.name);
 
         let inner_type = type_name(&field.field_type).to_camel_case();
-
-        let description = field.description.clone();
 
         let attributes = field
             .description
@@ -550,7 +600,7 @@ impl Output {
             field_type,
             field_method,
             params,
-            description,
+            description: &field.description,
             type_kind,
             inner_type,
         }
@@ -698,24 +748,24 @@ fn empty_token_stream() -> TokenStream {
 }
 
 #[derive(Debug, Clone)]
-struct FieldTokens {
+struct FieldTokens<'a> {
     name: Ident,
     macro_args: Vec<TokenStream>,
     trait_args: Vec<TokenStream>,
     field_type: TokenStream,
     field_method: Ident,
     params: Vec<TokenStream>,
-    description: Option<String>,
+    description: &'a Option<String>,
     type_kind: TypeKind,
     inner_type: Name,
 }
 
-struct FieldArgument {
+struct FieldArgument<'a> {
     name: Name,
     macro_type: TokenStream,
     trait_type: TokenStream,
     default_value: Option<TokenStream>,
-    description: Option<String>,
+    description: &'a Option<String>,
 }
 
 fn quote_value(value: &Value, context_type: &str, arg_name: &str) -> TokenStream {

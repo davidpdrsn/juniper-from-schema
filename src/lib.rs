@@ -907,16 +907,14 @@ extern crate proc_macro2;
 
 #[macro_use]
 mod macros;
+mod ast_pass;
 mod nullable_type;
 mod parse_input;
 mod pretty_print;
-mod walk_ast;
 
 use self::{
+    ast_pass::{AstData, CodeGenPass},
     parse_input::{default_error_type, parse_input},
-    walk_ast::{
-        find_enum_variants, find_interface_implementors, find_special_scalar_types, Output,
-    },
 };
 use graphql_parser::parse_schema;
 use proc_macro2::TokenStream;
@@ -991,23 +989,9 @@ fn parse_and_gen_schema(schema: &str, error_type: Type) -> proc_macro::TokenStre
         Err(parse_error) => panic!("{}", parse_error),
     };
 
-    // TODO: find way to not do these separate AST passes here, is there some way for Output to do
-    // that?
-    let interface_implementors = find_interface_implementors(&doc);
-    let special_scalars = find_special_scalar_types(&doc);
-    let enum_variants = find_enum_variants(&doc);
-
-    let mut output = Output::new(
-        error_type,
-        interface_implementors,
-        special_scalars,
-        enum_variants,
-    );
-
-    output.gen_query_trails(&doc);
-    output.gen_juniper_code(&doc);
-
-    let tokens = output.tokens();
+    let ast_data = AstData::new(&doc);
+    let output = CodeGenPass::new(error_type, ast_data);
+    let tokens = output.gen_juniper_code(&doc);
 
     let out: proc_macro::TokenStream = tokens.into();
 
@@ -1015,7 +999,7 @@ fn parse_and_gen_schema(schema: &str, error_type: Type) -> proc_macro::TokenStre
         self::pretty_print::code_gen_debug(out.to_string());
     }
 
-    out.into()
+    out
 }
 
 fn debugging_enabled() -> bool {

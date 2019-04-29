@@ -3,12 +3,12 @@ use std::path::PathBuf;
 use syn::Type;
 
 #[derive(Debug)]
-pub struct ParseOutput {
+pub struct ParseCodeGenPass {
     pub schema_path: PathBuf,
     pub error_type: Type,
 }
 
-pub fn parse_input(input: &str) -> Result<ParseOutput, ()> {
+pub fn parse_input(input: &str) -> Result<ParseCodeGenPass, ()> {
     let re_without_error_type = Regex::new(r#"^"(?P<file>[^"]+)"$"#).expect("invalid regex");
 
     let re_with_error_type =
@@ -49,7 +49,7 @@ pub fn parse_input(input: &str) -> Result<ParseOutput, ()> {
     let pwd = PathBuf::from(cargo_dir);
     let schema_path = pwd.join(file);
 
-    Ok(ParseOutput {
+    Ok(ParseCodeGenPass {
         schema_path,
         error_type,
     })

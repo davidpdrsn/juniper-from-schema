@@ -1,19 +1,18 @@
-use graphql_parser::query::Name;
 use graphql_parser::schema::*;
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
-pub struct EnumVariants {
-    set: HashSet<Name>,
+pub struct EnumVariants<'doc> {
+    set: HashSet<&'doc str>,
 }
 
-impl EnumVariants {
+impl<'doc> EnumVariants<'doc> {
     pub fn contains(&self, name: &str) -> bool {
         self.set.contains(name)
     }
 }
 
-pub fn find_enum_variants(doc: &Document) -> EnumVariants {
+pub fn find_enum_variants(doc: &Document) -> EnumVariants<'_> {
     use graphql_parser::schema::Definition::*;
     use graphql_parser::schema::TypeDefinition::*;
 
@@ -25,7 +24,7 @@ pub fn find_enum_variants(doc: &Document) -> EnumVariants {
         match def {
             TypeDefinition(type_def) => match type_def {
                 Enum(enum_type) => {
-                    out.set.insert(enum_type.name.clone());
+                    out.set.insert(&enum_type.name);
                 }
 
                 _ => {}

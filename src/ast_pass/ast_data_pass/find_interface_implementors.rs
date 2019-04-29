@@ -8,17 +8,17 @@ use std::collections::HashMap;
 type InterfaceName = String;
 
 #[derive(Debug, Clone)]
-pub struct InterfaceImplementors {
-    map: HashMap<InterfaceName, Vec<NamedType>>,
+pub struct InterfaceImplementors<'doc> {
+    map: HashMap<&'doc InterfaceName, Vec<&'doc NamedType>>,
 }
 
-impl InterfaceImplementors {
-    pub fn get(&self, name: &InterfaceName) -> Option<&Vec<NamedType>> {
+impl<'doc> InterfaceImplementors<'doc> {
+    pub fn get(&self, name: &InterfaceName) -> Option<&Vec<&NamedType>> {
         self.map.get(name)
     }
 }
 
-pub fn find_interface_implementors(doc: &Document) -> InterfaceImplementors {
+pub fn find_interface_implementors<'doc>(doc: &'doc Document) -> InterfaceImplementors<'doc> {
     use graphql_parser::schema::Definition::*;
     use graphql_parser::schema::TypeDefinition::*;
 
@@ -32,9 +32,9 @@ pub fn find_interface_implementors(doc: &Document) -> InterfaceImplementors {
                 Object(obj) => {
                     for interface in &obj.implements_interfaces {
                         out.map
-                            .entry(interface.clone())
-                            .and_modify(|entry| entry.push(obj.name.clone()))
-                            .or_insert(vec![obj.name.clone()]);
+                            .entry(interface)
+                            .and_modify(|entry| entry.push(&obj.name))
+                            .or_insert(vec![&obj.name]);
                     }
                 }
 
