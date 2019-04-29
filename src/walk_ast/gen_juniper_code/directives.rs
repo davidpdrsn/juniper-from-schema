@@ -19,12 +19,6 @@ macro_rules! impl_GetDirectives {
                 &self.directives
             }
         }
-
-        impl GetDirectives for $name {
-            fn directives(&self) -> &Vec<schema::Directive> {
-                &self.directives
-            }
-        }
     };
 }
 

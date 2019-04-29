@@ -299,7 +299,7 @@ impl Output {
         arg: &InputValue,
         context_type: &str,
     ) -> FieldArgument {
-        panic_if_has_directives(arg);
+        panic_if_has_directives(&arg);
 
         let default_value = arg
             .default_value
@@ -557,7 +557,7 @@ impl Output {
     }
 
     fn gen_union(&mut self, union: &UnionType) {
-        panic_if_has_directives(union);
+        panic_if_has_directives(&union);
 
         let union_name = ident(&union.name);
         let implementors = union.types.iter().map(ident).collect::<Vec<_>>();
