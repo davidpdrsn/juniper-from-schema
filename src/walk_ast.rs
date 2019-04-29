@@ -8,13 +8,8 @@ mod gen_query_trails;
 pub use self::find_enum_variants::{find_enum_variants, EnumVariants};
 pub use self::find_interface_implementors::{find_interface_implementors, InterfaceImplementors};
 pub use self::find_special_scalar_types::{find_special_scalar_types, SpecialScalarTypesList};
-// pub use self::gen_juniper_code::gen_juniper_code;
-pub use self::gen_query_trails::gen_query_trails;
 
-use graphql_parser::{
-    query::Name,
-    schema::{Document, Type},
-};
+use graphql_parser::{query::Name, schema::Type};
 use heck::CamelCase;
 use proc_macro2::{Span, TokenStream, TokenTree};
 use quote::quote;
@@ -24,67 +19,47 @@ use syn::Ident;
 
 pub struct Output {
     tokens: TokenStream,
-    doc: Document,
     error_type: syn::Type,
-    // special_scalars: SpecialScalarTypesList,
-    // interface_implementors: InterfaceImplementors,
-    // enum_variants: EnumVariants,
+    interface_implementors: InterfaceImplementors,
+    special_scalars: SpecialScalarTypesList,
+    enum_variants: EnumVariants,
 }
 
 impl Output {
-    pub fn new(doc: Document, error_type: syn::Type) -> Self {
+    pub fn new(
+        error_type: syn::Type,
+        interface_implementors: InterfaceImplementors,
+        special_scalars: SpecialScalarTypesList,
+        enum_variants: EnumVariants,
+    ) -> Self {
         Output {
             tokens: quote! {},
-            doc,
             error_type,
+            interface_implementors,
+            special_scalars,
+            enum_variants,
         }
     }
 
-    // pub fn new(
-    //     special_scalars: SpecialScalarTypesList,
-    //     interface_implementors: InterfaceImplementors,
-    //     enum_variants: EnumVariants,
-    // ) -> Self {
-    //     Output {
-    //         tokens: quote! {},
-    //         special_scalars,
-    //         interface_implementors,
-    //         enum_variants,
-    //     }
-    // }
+    pub fn tokens(self) -> TokenStream {
+        self.tokens
+    }
 
-    // pub fn tokens(self) -> TokenStream {
-    //     self.tokens
-    // }
+    fn is_date_time_scalar_defined(&self) -> bool {
+        self.special_scalars.date_time_defined()
+    }
 
-    // fn is_date_time_scalar_defined(&self) -> bool {
-    //     self.special_scalars.date_time_defined()
-    // }
+    fn is_date_scalar_defined(&self) -> bool {
+        self.special_scalars.date_defined()
+    }
 
-    // fn is_date_scalar_defined(&self) -> bool {
-    //     self.special_scalars.date_defined()
-    // }
+    fn is_scalar(&self, name: &str) -> bool {
+        self.special_scalars.is_scalar(name)
+    }
 
-    // fn is_scalar(&self, name: &str) -> bool {
-    //     self.special_scalars.is_scalar(name)
-    // }
-
-    // fn interface_implementors(&self) -> &InterfaceImplementors {
-    //     &self.interface_implementors
-    // }
-
-    // fn enum_variants(&self) -> &EnumVariants {
-    //     &self.enum_variants
-    // }
-
-    // fn clone_without_tokens(&self) -> Self {
-    //     Output {
-    //         tokens: quote! {},
-    //         special_scalars: self.special_scalars.clone(),
-    //         interface_implementors: self.interface_implementors.clone(),
-    //         enum_variants: self.enum_variants.clone(),
-    //     }
-    // }
+    fn enum_variants(&self) -> &EnumVariants {
+        &self.enum_variants
+    }
 }
 
 impl Extend<TokenTree> for Output {
@@ -113,42 +88,41 @@ pub fn type_name(type_: &Type) -> Name {
 
 // Type according to https://graphql.org/learn/schema/#scalar-types
 pub fn graphql_scalar_type_to_rust_type(name: &str, out: &Output) -> (TokenStream, TypeKind) {
-    unimplemented!()
-    // match name {
-    //     "Int" => (quote! { i32 }, TypeKind::Scalar),
-    //     "Float" => (quote! { f64 }, TypeKind::Scalar),
-    //     "String" => (quote! { String }, TypeKind::Scalar),
-    //     "Boolean" => (quote! { bool }, TypeKind::Scalar),
-    //     "ID" => (quote! { juniper::ID }, TypeKind::Scalar),
-    //     "Date" => {
-    //         if out.is_date_scalar_defined() {
-    //             (quote! { chrono::naive::NaiveDate }, TypeKind::Scalar)
-    //         } else {
-    //             panic!(
-    //                 "Fields with type `Date` is only allowed if you have defined a scalar named `Date`"
-    //             )
-    //         }
-    //     }
-    //     "DateTime" => {
-    //         if out.is_date_time_scalar_defined() {
-    //             (
-    //                 quote! { chrono::DateTime<chrono::offset::Utc> },
-    //                 TypeKind::Scalar,
-    //             )
-    //         } else {
-    //             panic!(
-    //                 "Fields with type `DateTime` is only allowed if you have defined a scalar named `DateTime`"
-    //             )
-    //         }
-    //     }
-    //     name => {
-    //         if out.is_scalar(name) || out.enum_variants().contains(name) {
-    //             (quote_ident(name.to_camel_case()), TypeKind::Scalar)
-    //         } else {
-    //             (quote_ident(name.to_camel_case()), TypeKind::Type)
-    //         }
-    //     }
-    // }
+    match name {
+        "Int" => (quote! { i32 }, TypeKind::Scalar),
+        "Float" => (quote! { f64 }, TypeKind::Scalar),
+        "String" => (quote! { String }, TypeKind::Scalar),
+        "Boolean" => (quote! { bool }, TypeKind::Scalar),
+        "ID" => (quote! { juniper::ID }, TypeKind::Scalar),
+        "Date" => {
+            if out.is_date_scalar_defined() {
+                (quote! { chrono::naive::NaiveDate }, TypeKind::Scalar)
+            } else {
+                panic!(
+                    "Fields with type `Date` is only allowed if you have defined a scalar named `Date`"
+                )
+            }
+        }
+        "DateTime" => {
+            if out.is_date_time_scalar_defined() {
+                (
+                    quote! { chrono::DateTime<chrono::offset::Utc> },
+                    TypeKind::Scalar,
+                )
+            } else {
+                panic!(
+                    "Fields with type `DateTime` is only allowed if you have defined a scalar named `DateTime`"
+                )
+            }
+        }
+        name => {
+            if out.is_scalar(name) || out.enum_variants().contains(name) {
+                (quote_ident(name.to_camel_case()), TypeKind::Scalar)
+            } else {
+                (quote_ident(name.to_camel_case()), TypeKind::Type)
+            }
+        }
+    }
 }
 
 pub fn quote_ident<T: AsRef<str>>(name: T) -> TokenStream {

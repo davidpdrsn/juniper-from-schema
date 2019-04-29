@@ -14,6 +14,12 @@ pub fn panic_if_has_directives<T: GetDirectives>(t: &T) {
 
 macro_rules! impl_GetDirectives {
     ($name:path) => {
+        impl GetDirectives for &$name {
+            fn directives(&self) -> &Vec<schema::Directive> {
+                &self.directives
+            }
+        }
+
         impl GetDirectives for $name {
             fn directives(&self) -> &Vec<schema::Directive> {
                 &self.directives
