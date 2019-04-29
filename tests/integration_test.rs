@@ -281,7 +281,6 @@ mod custom_scalar {
         fn field_field<'a>(
             &self,
             executor: &Executor<'a, Context>,
-            trail: &QueryTrail<'a, Cursor, Walked>,
             arg: Cursor,
         ) -> FieldResult<&Cursor> {
             Cursor::new("123");

@@ -51,6 +51,10 @@ impl Output {
         self.special_scalars.date_defined()
     }
 
+    fn is_scalar(&self, name: &str) -> bool {
+        self.special_scalars.is_scalar(name)
+    }
+
     fn interface_implementors(&self) -> &InterfaceImplementors {
         &self.interface_implementors
     }
@@ -123,7 +127,7 @@ pub fn graphql_scalar_type_to_rust_type(name: &str, out: &Output) -> (TokenStrea
             }
         }
         name => {
-            if out.enum_variants().contains(name) {
+            if out.is_scalar(name) || out.enum_variants().contains(name) {
                 (quote_ident(name.to_camel_case()), TypeKind::Scalar)
             } else {
                 (quote_ident(name.to_camel_case()), TypeKind::Type)

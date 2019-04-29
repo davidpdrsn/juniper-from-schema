@@ -167,12 +167,7 @@ graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_query_field<'a>(
-        &self,
-        _: &Executor<'a, Context>,
-        _: &QueryTrail<'a, Url, Walked>,
-        _: InputType,
-    ) -> FieldResult<&Url> {
+    fn field_query_field<'a>(&self, _: &Executor<'a, Context>, _: InputType) -> FieldResult<&Url> {
         unimplemented!()
     }
 
