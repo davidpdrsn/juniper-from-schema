@@ -47,7 +47,7 @@ impl<'doc> CodeGenPass<'doc> {
         self.ast_data.enum_variants.contains(name)
     }
 
-    pub fn get_implementors_of_interface(&self, name: &String) -> Option<&Vec<&String>> {
+    pub fn get_implementors_of_interface(&self, name: &str) -> Option<&Vec<&str>> {
         self.ast_data.interface_implementors.get(name)
     }
 }

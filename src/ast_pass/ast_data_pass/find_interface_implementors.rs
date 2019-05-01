@@ -5,15 +5,13 @@
 use graphql_parser::schema::*;
 use std::collections::HashMap;
 
-type InterfaceName = String;
-
 #[derive(Debug, Clone)]
 pub struct InterfaceImplementors<'doc> {
-    map: HashMap<&'doc InterfaceName, Vec<&'doc NamedType>>,
+    map: HashMap<&'doc str, Vec<&'doc str>>,
 }
 
 impl<'doc> InterfaceImplementors<'doc> {
-    pub fn get(&self, name: &InterfaceName) -> Option<&Vec<&NamedType>> {
+    pub fn get(&self, name: &str) -> Option<&Vec<&str>> {
         self.map.get(name)
     }
 }
