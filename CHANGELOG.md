@@ -8,7 +8,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Added
 
-N/A
+- Much better error messages. Basically a rip-off of Rust's compiler errors.
 
 ### Changed
 

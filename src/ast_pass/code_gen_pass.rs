@@ -1,12 +1,12 @@
-mod directives;
 mod gen_query_trails;
 
-use self::directives::panic_if_has_directives;
+use super::error::{Error, ErrorKind};
 use super::{graphql_scalar_type_to_rust_type, ident, quote_ident, type_name, AstData, TypeKind};
 use crate::nullable_type::NullableType;
 use graphql_parser::{
     query::{Name, Type},
     schema::*,
+    Pos,
 };
 use heck::{CamelCase, SnakeCase};
 use lazy_static::lazy_static;
@@ -16,18 +16,39 @@ use regex::Regex;
 use std::iter::Extend;
 use syn::Ident;
 
+type Result<T> = std::result::Result<T, ()>;
+
 pub struct CodeGenPass<'doc> {
     tokens: TokenStream,
     error_type: syn::Type,
+    errors: Vec<Error<'doc>>,
     ast_data: AstData<'doc>,
+    raw_schema: &'doc str,
 }
 
 impl<'doc> CodeGenPass<'doc> {
-    pub fn new(error_type: syn::Type, ast_data: AstData<'doc>) -> Self {
+    pub fn new(raw_schema: &'doc str, error_type: syn::Type, ast_data: AstData<'doc>) -> Self {
         CodeGenPass {
             tokens: quote! {},
             error_type,
             ast_data,
+            errors: vec![],
+            raw_schema,
+        }
+    }
+
+    pub fn gen_juniper_code(
+        mut self,
+        doc: &'doc Document,
+    ) -> std::result::Result<TokenStream, Vec<Error<'doc>>> {
+        self.gen_query_trails(doc);
+        self.gen_enum_from_name();
+        self.gen_doc(doc).ok();
+
+        if self.errors.is_empty() {
+            Ok(self.tokens)
+        } else {
+            Err(self.errors)
         }
     }
 
@@ -50,27 +71,6 @@ impl<'doc> CodeGenPass<'doc> {
     pub fn get_implementors_of_interface(&self, name: &str) -> Option<&Vec<&str>> {
         self.ast_data.interface_implementors.get(name)
     }
-}
-
-impl Extend<TokenTree> for CodeGenPass<'_> {
-    fn extend<T: IntoIterator<Item = TokenTree>>(&mut self, iter: T) {
-        self.tokens.extend(iter);
-    }
-}
-
-impl Extend<TokenStream> for CodeGenPass<'_> {
-    fn extend<T: IntoIterator<Item = TokenStream>>(&mut self, iter: T) {
-        self.tokens.extend(iter);
-    }
-}
-
-impl<'doc> CodeGenPass<'doc> {
-    pub fn gen_juniper_code(mut self, doc: &'doc Document) -> TokenStream {
-        self.gen_query_trails(doc);
-        self.gen_enum_from_name();
-        self.gen_doc(doc);
-        self.tokens
-    }
 
     fn gen_enum_from_name(&mut self) {
         self.extend(quote! {
@@ -87,33 +87,72 @@ impl<'doc> CodeGenPass<'doc> {
         });
     }
 
-    fn gen_doc(&mut self, doc: &Document) {
+    fn gen_doc(&mut self, doc: &'doc Document) -> Result<()> {
         for def in &doc.definitions {
-            self.gen_def(&def);
+            self.gen_def(&def)?;
         }
+
+        Ok(())
     }
 
-    fn gen_def(&mut self, def: &Definition) {
+    fn gen_def(&mut self, def: &'doc Definition) -> Result<()> {
         use graphql_parser::schema::Definition::*;
 
         match def {
-            DirectiveDefinition(_) => not_supported!("Directives"),
-            SchemaDefinition(schema_def) => self.gen_schema_def(schema_def),
+            DirectiveDefinition(dir) => {
+                self.emit_non_fatal_error(dir.position, ErrorKind::DirectivesNotSupported);
+            }
+            SchemaDefinition(schema_def) => self.gen_schema_def(schema_def)?,
             TypeDefinition(type_def) => self.gen_type_def(type_def),
-            TypeExtension(_) => not_supported!("Extensions"),
-        }
+            TypeExtension(ext) => {
+                use graphql_parser::schema::TypeExtension::*;
+
+                match ext {
+                    Scalar(inner) => self
+                        .emit_non_fatal_error(inner.position, ErrorKind::TypeExtensionNotSupported),
+                    Object(inner) => self
+                        .emit_non_fatal_error(inner.position, ErrorKind::TypeExtensionNotSupported),
+                    Interface(inner) => self
+                        .emit_non_fatal_error(inner.position, ErrorKind::TypeExtensionNotSupported),
+                    Union(inner) => self
+                        .emit_non_fatal_error(inner.position, ErrorKind::TypeExtensionNotSupported),
+                    Enum(inner) => self
+                        .emit_non_fatal_error(inner.position, ErrorKind::TypeExtensionNotSupported),
+                    InputObject(inner) => self
+                        .emit_non_fatal_error(inner.position, ErrorKind::TypeExtensionNotSupported),
+                };
+            }
+        };
+
+        Ok(())
     }
 
-    fn gen_schema_def(&mut self, schema_def: &SchemaDefinition) {
+    fn emit_non_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) {
+        self.errors.push(Error {
+            pos,
+            kind,
+            raw_schema: &self.raw_schema,
+        });
+    }
+
+    fn emit_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) -> Result<()> {
+        self.emit_non_fatal_error(pos, kind);
+        Err(())
+    }
+
+    fn gen_schema_def(&mut self, schema_def: &SchemaDefinition) -> Result<()> {
         if schema_def.subscription.is_some() {
-            not_supported!("Subscriptions");
+            self.emit_non_fatal_error(schema_def.position, ErrorKind::SubscriptionsNotSupported);
         }
 
-        panic_if_has_directives(&schema_def);
+        self.error_if_has_directive(&schema_def);
 
         let query = match &schema_def.query {
             Some(query) => ident(query),
-            None => panic!("Juniper requires that the schema type has a query"),
+            None => {
+                self.emit_fatal_error(schema_def.position, ErrorKind::NoQueryType)?;
+                return Err(());
+            }
         };
 
         let mutation = match &schema_def.mutation {
@@ -124,10 +163,12 @@ impl<'doc> CodeGenPass<'doc> {
         self.extend(quote! {
             /// The GraphQL schema type generated by `juniper-from-schema`.
             pub type Schema = juniper::RootNode<'static, #query, #mutation>;
-        })
+        });
+
+        Ok(())
     }
 
-    fn gen_type_def(&mut self, type_def: &TypeDefinition) {
+    fn gen_type_def(&mut self, type_def: &'doc TypeDefinition) {
         use graphql_parser::schema::TypeDefinition::*;
 
         match type_def {
@@ -140,8 +181,8 @@ impl<'doc> CodeGenPass<'doc> {
         }
     }
 
-    fn gen_obj_type(&mut self, obj_type: &ObjectType) {
-        panic_if_has_directives(&obj_type);
+    fn gen_obj_type(&mut self, obj_type: &'doc ObjectType) {
+        self.error_if_has_directive(&obj_type);
 
         let struct_name = ident(&obj_type.name);
 
@@ -224,7 +265,7 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn gen_enum_type(&mut self, enum_type: &EnumType) {
-        panic_if_has_directives(&enum_type);
+        self.error_if_has_directive(&enum_type);
 
         let name = to_enum_name(&enum_type.name);
 
@@ -243,7 +284,8 @@ impl<'doc> CodeGenPass<'doc> {
         let values = enum_type
             .values
             .iter()
-            .map(|enum_value| gen_enum_value(enum_value));
+            .map(|enum_value| self.gen_enum_value(enum_value))
+            .collect::<Vec<_>>();
 
         let description = doc_tokens(&enum_type.description);
 
@@ -268,7 +310,7 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn gen_scalar_type(&mut self, scalar_type: &ScalarType) {
-        panic_if_has_directives(&scalar_type);
+        self.error_if_has_directive(&scalar_type);
 
         match &*scalar_type.name {
             "Date" => {}
@@ -317,23 +359,27 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn gen_input_def(&mut self, input_object: &InputObjectType) {
-        panic_if_has_directives(&input_object);
+        self.error_if_has_directive(&input_object);
 
         let name = ident(&input_object.name);
 
-        let fields = input_object.fields.iter().map(|field| {
-            let arg = self.argument_to_name_and_rust_type(&field, &input_object.name);
-            let name = ident(arg.name);
-            let rust_type = arg.macro_type;
+        let fields = input_object
+            .fields
+            .iter()
+            .map(|field| {
+                let arg = self.argument_to_name_and_rust_type(&field);
+                let name = ident(arg.name);
+                let rust_type = arg.macro_type;
 
-            let description = doc_tokens(&field.description);
+                let description = doc_tokens(&field.description);
 
-            quote! {
-                #[allow(missing_docs)]
-                #description
-                #name: #rust_type
-            }
-        });
+                quote! {
+                    #[allow(missing_docs)]
+                    #description
+                    #name: #rust_type
+                }
+            })
+            .collect::<Vec<_>>();
 
         let description = doc_tokens(&input_object.description);
 
@@ -346,27 +392,28 @@ impl<'doc> CodeGenPass<'doc> {
         })
     }
 
-    fn argument_to_name_and_rust_type<'a>(
-        &self,
-        arg: &'a InputValue,
-        context_type: &str,
-    ) -> FieldArgument<'a> {
-        panic_if_has_directives(&arg);
+    fn argument_to_name_and_rust_type<'a>(&mut self, arg: &'a InputValue) -> FieldArgument<'a> {
+        self.error_if_has_directive(&arg);
 
         let default_value = arg
             .default_value
             .as_ref()
-            .map(|value| quote_value(&value, &context_type, &arg.name));
+            .and_then(|value| self.quote_value(&value, arg.position));
 
         let arg_name = arg.name.to_snake_case();
 
-        let (macro_type, _) =
-            self.gen_field_type(&arg.value_type, &FieldTypeDestination::Argument, false);
+        let (macro_type, _) = self.gen_field_type(
+            &arg.value_type,
+            &FieldTypeDestination::Argument,
+            false,
+            arg.position,
+        );
 
         let (trait_type, _) = self.gen_field_type(
             &arg.value_type,
             &FieldTypeDestination::Argument,
             default_value.is_some(),
+            arg.position,
         );
 
         FieldArgument {
@@ -379,15 +426,16 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn gen_field_type(
-        &self,
+        &mut self,
         field_type: &Type,
         destination: &FieldTypeDestination,
         has_default_value: bool,
+        pos: Pos,
     ) -> (TokenStream, TypeKind) {
         let field_type = NullableType::from_schema_type(field_type);
 
         if has_default_value && !field_type.is_nullable() {
-            panic!("Fields with default arguments values must be nullable");
+            self.emit_non_fatal_error(pos, ErrorKind::NonnullableFieldWithDefaultValue);
         }
 
         let field_type = if has_default_value {
@@ -425,8 +473,8 @@ impl<'doc> CodeGenPass<'doc> {
         }
     }
 
-    fn gen_interface(&mut self, interface: &InterfaceType) {
-        panic_if_has_directives(&interface);
+    fn gen_interface(&mut self, interface: &'doc InterfaceType) {
+        self.error_if_has_directive(&interface);
 
         let interface_name = ident(&interface.name);
 
@@ -441,7 +489,7 @@ impl<'doc> CodeGenPass<'doc> {
         let implementors = if let Some(implementors) = implementors {
             implementors
         } else {
-            panic!("There are no implementors of {}", interface.name)
+            return;
         };
 
         let implementors = implementors.iter().map(ident).collect::<Vec<_>>();
@@ -530,8 +578,8 @@ impl<'doc> CodeGenPass<'doc> {
         });
     }
 
-    fn collect_data_for_field_gen<'a>(&self, field: &'a Field) -> FieldTokens<'a> {
-        panic_if_has_directives(&field);
+    fn collect_data_for_field_gen(&mut self, field: &'doc Field) -> FieldTokens<'doc> {
+        self.error_if_has_directive(&field);
 
         let name = ident(&field.name);
 
@@ -540,13 +588,14 @@ impl<'doc> CodeGenPass<'doc> {
         let attributes = field
             .description
             .as_ref()
-            .map(|d| parse_attributes(&d))
+            .map(|d| self.parse_attributes(&d, field.position))
             .unwrap_or_else(Attributes::default);
 
         let (field_type, type_kind) = self.gen_field_type(
             &field.field_type,
             &FieldTypeDestination::Return(attributes),
             false,
+            field.position,
         );
 
         let field_method = ident(format!("field_{}", name.to_string().to_snake_case()));
@@ -554,7 +603,7 @@ impl<'doc> CodeGenPass<'doc> {
         let args_data = field
             .arguments
             .iter()
-            .map(|input_value| self.argument_to_name_and_rust_type(&input_value, &field.name))
+            .map(|input_value| self.argument_to_name_and_rust_type(&input_value))
             .collect::<Vec<_>>();
 
         let macro_args = args_data
@@ -607,7 +656,7 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn gen_union(&mut self, union: &UnionType) {
-        panic_if_has_directives(&union);
+        self.error_if_has_directive(&union);
 
         let union_name = ident(&union.name);
         let implementors = union.types.iter().map(ident).collect::<Vec<_>>();
@@ -656,25 +705,125 @@ impl<'doc> CodeGenPass<'doc> {
             });
         });
     }
+
+    fn error_if_has_directive<T: GetDirectives>(&mut self, t: &T) {
+        for directive in t.directives() {
+            self.emit_non_fatal_error(directive.position, ErrorKind::DirectivesNotSupported);
+        }
+    }
+
+    fn gen_enum_value(&mut self, enum_value: &EnumValue) -> TokenStream {
+        self.error_if_has_directive(&enum_value);
+
+        let graphql_name = &enum_value.name;
+        let name = to_enum_name(&graphql_name);
+        let description = doc_tokens(&enum_value.description);
+
+        quote! {
+            #[allow(missing_docs)]
+            #[graphql(name=#graphql_name)]
+            #description
+            #name,
+        }
+    }
+
+    fn parse_attributes(&mut self, desc: &'doc str, pos: Pos) -> Attributes {
+        let attrs = desc
+            .lines()
+            .filter_map(|line| self.parse_attributes_line(line, pos))
+            .collect();
+        Attributes { list: attrs }
+    }
+
+    fn parse_attributes_line(&mut self, line: &'doc str, pos: Pos) -> Option<Attribute> {
+        let caps = ATTRIBUTE_PATTERN.captures(line)?;
+        let key = caps.name("key")?.as_str();
+        let value = caps.name("value")?.as_str();
+
+        let attr = match key {
+            "ownership" => {
+                let value = match value {
+                    "borrowed" => Some(Ownership::Borrowed),
+                    "owned" => Some(Ownership::Owned),
+                    value => {
+                        self.emit_non_fatal_error(
+                            pos,
+                            ErrorKind::UnsupportedAttributePair(key, value),
+                        );
+                        None
+                    }
+                }?;
+                Some(Attribute::Ownership(value))
+            }
+            attr => {
+                self.emit_non_fatal_error(pos, ErrorKind::UnsupportedAttribute(attr));
+                None
+            }
+        }?;
+
+        Some(attr)
+    }
+
+    fn quote_value(&mut self, value: &Value, pos: Pos) -> Option<TokenStream> {
+        match value {
+            Value::Float(inner) => Some(quote! { #inner }),
+            Value::Int(inner) => {
+                let number = inner
+                    .as_i64()
+                    .expect("failed to convert default number argument to i64");
+                let number =
+                    i32_from_i64(number).expect("failed to convert default number argument to i64");
+                Some(quote! { #number })
+            }
+            Value::String(inner) => Some(quote! { #inner.to_string() }),
+            Value::Boolean(inner) => Some(quote! { #inner }),
+
+            Value::Enum(name) => Some(quote! { EnumFromGraphQlName::from_name(#name) }),
+
+            Value::List(list) => {
+                let mut acc = quote! { let mut vec = Vec::new(); };
+                for value in list {
+                    let value_quoted = self.quote_value(value, pos);
+                    acc.extend(quote! { vec.push(#value_quoted); });
+                }
+                acc.extend(quote! { vec });
+                Some(quote! { { #acc } })
+            }
+
+            // Object is hard because the contained BTreeMap can have values of different types.
+            // How do we quote such a map and convert it into the actual input type?
+            Value::Object(_) => {
+                self.emit_non_fatal_error(pos, ErrorKind::ObjectArgumentWithDefaultValue);
+                None
+            }
+
+            Value::Variable(_) => {
+                self.emit_non_fatal_error(pos, ErrorKind::VariableDefaultValue);
+                None
+            }
+
+            Value::Null => {
+                self.emit_non_fatal_error(pos, ErrorKind::NullDefaultValue);
+                None
+            }
+        }
+    }
+}
+
+impl Extend<TokenTree> for CodeGenPass<'_> {
+    fn extend<T: IntoIterator<Item = TokenTree>>(&mut self, iter: T) {
+        self.tokens.extend(iter);
+    }
+}
+
+impl Extend<TokenStream> for CodeGenPass<'_> {
+    fn extend<T: IntoIterator<Item = TokenStream>>(&mut self, iter: T) {
+        self.tokens.extend(iter);
+    }
 }
 
 fn to_enum_name(name: &str) -> Ident {
     ident(name.to_camel_case())
-}
-
-fn gen_enum_value(enum_value: &EnumValue) -> TokenStream {
-    panic_if_has_directives(&enum_value);
-
-    let graphql_name = &enum_value.name;
-    let name = to_enum_name(&graphql_name);
-    let description = doc_tokens(&enum_value.description);
-
-    quote! {
-        #[allow(missing_docs)]
-        #[graphql(name=#graphql_name)]
-        #description
-        #name,
-    }
 }
 
 fn trait_map_for_struct_name(struct_name: &Ident) -> Ident {
@@ -768,51 +917,6 @@ struct FieldArgument<'a> {
     description: &'a Option<String>,
 }
 
-fn quote_value(value: &Value, context_type: &str, arg_name: &str) -> TokenStream {
-    match value {
-        Value::Float(inner) => quote! { #inner },
-        Value::Int(inner) => {
-            let number = inner
-                .as_i64()
-                .expect("failed to convert default number argument to i64");
-            let number =
-                i32_from_i64(number).expect("failed to convert default number argument to i64");
-            quote! { #number }
-        }
-        Value::String(inner) => quote! { #inner.to_string() },
-        Value::Boolean(inner) => quote! { #inner },
-
-        Value::Enum(name) => {
-            quote! { EnumFromGraphQlName::from_name(#name) }
-        },
-
-        Value::List(list) => {
-            let mut acc = quote! { let mut vec = Vec::new(); };
-            for value in list {
-                let value_quoted = quote_value(value, context_type, arg_name);
-                acc.extend(quote! { vec.push(#value_quoted); });
-            }
-            acc.extend(quote! { vec });
-            quote! { { #acc } }
-        },
-
-        // Object is hard because the contained BTreeMap can have values of different types.
-        // How do we quote such a map and convert it into the actual input type?
-        Value::Object(_map) => {
-            let mut panic_msg = String::new();
-            panic_msg.push_str("\n");
-            panic_msg.push_str("\n");
-            panic_msg.push_str(&format!("Error encountered on `{}.{}`:\n", context_type, arg_name));
-            panic_msg.push_str("  Default arguments where the type is an object is currently not supported.");
-            panic_msg.push_str("\n");
-            panic!("{}", panic_msg);
-        }
-
-        Value::Variable(_name) => panic!("Default arguments cannot refer to variables."),
-        Value::Null => panic!("Having a default argument value of `null` is not supported. Use a nullable type instead."),
-    }
-}
-
 // This can also be with TryInto, but that requires 1.34
 fn i32_from_i64(i: i64) -> Option<i32> {
     if i > std::i32::MAX as i64 {
@@ -862,37 +966,9 @@ impl Attributes {
     }
 }
 
-fn parse_attributes(desc: &str) -> Attributes {
-    let attrs = desc
-        .lines()
-        .filter_map(|line| parse_attributes_line(line))
-        .collect();
-    Attributes { list: attrs }
-}
-
 lazy_static! {
     static ref ATTRIBUTE_PATTERN: Regex =
         Regex::new(r"\s*#\[(?P<key>\w+)\((?P<value>\w+)\)\]").unwrap();
-}
-
-fn parse_attributes_line(line: &str) -> Option<Attribute> {
-    let caps = ATTRIBUTE_PATTERN.captures(line)?;
-    let key = caps.name("key")?.as_str();
-    let value = caps.name("value")?.as_str();
-
-    let attr = match key {
-        "ownership" => {
-            let value = match value {
-                "borrowed" => Ownership::Borrowed,
-                "owned" => Ownership::Owned,
-                _ => panic!("Unsupported attribute value '{}' for key '{}'", value, key),
-            };
-            Attribute::Ownership(value)
-        }
-        _ => panic!("Unsupported attribute key '{}'", key),
-    };
-
-    Some(attr)
 }
 
 fn doc_tokens(doc: &Option<String>) -> TokenStream {
@@ -905,32 +981,34 @@ fn doc_tokens(doc: &Option<String>) -> TokenStream {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn parse_descriptions_for_attributes() {
-        let desc = r#"
-        Comment
-
-        #[ownership(borrowed)]
-        "#;
-        let attributes = parse_attributes(desc);
-        assert_eq!(attributes.ownership(), Ownership::Borrowed);
-
-        let desc = r#"
-        Comment
-
-        #[ownership(owned)]
-        "#;
-        let attributes = parse_attributes(desc);
-        assert_eq!(attributes.ownership(), Ownership::Owned);
-
-        let desc = r#"
-        Comment
-        "#;
-        let attributes = parse_attributes(desc);
-        assert_eq!(attributes.ownership(), Ownership::Borrowed);
-    }
+trait GetDirectives {
+    fn directives(&self) -> &Vec<Directive>;
 }
+
+macro_rules! impl_GetDirectives {
+    ($name:path) => {
+        impl GetDirectives for &$name {
+            fn directives(&self) -> &Vec<Directive> {
+                &self.directives
+            }
+        }
+    };
+}
+
+// All the schema types that have directives
+impl_GetDirectives!(EnumType);
+impl_GetDirectives!(EnumValue);
+impl_GetDirectives!(Field);
+impl_GetDirectives!(InputObjectType);
+impl_GetDirectives!(InputValue);
+impl_GetDirectives!(InterfaceType);
+impl_GetDirectives!(ObjectType);
+impl_GetDirectives!(ScalarType);
+impl_GetDirectives!(SchemaDefinition);
+impl_GetDirectives!(UnionType);
+// Not supported yet
+// impl_GetDirectives!(schema::EnumTypeExtension);
+// impl_GetDirectives!(schema::InterfaceTypeExtension);
+// impl_GetDirectives!(schema::ObjectTypeExtension);
+// impl_GetDirectives!(schema::ScalarTypeExtension);
+// impl_GetDirectives!(schema::UnionTypeExtension);

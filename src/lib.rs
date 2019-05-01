@@ -899,14 +899,13 @@
 //! [rustfmt]: https://github.com/rust-lang/rustfmt
 
 #![deny(unused_imports, dead_code, unused_variables)]
+#![deny(unused_must_use)]
 #![recursion_limit = "128"]
 #![doc(html_root_url = "https://docs.rs/juniper-from-schema/0.1.5")]
 
 extern crate proc_macro;
 extern crate proc_macro2;
 
-#[macro_use]
-mod macros;
 mod ast_pass;
 mod nullable_type;
 mod parse_input;
@@ -990,16 +989,34 @@ fn parse_and_gen_schema(schema: &str, error_type: Type) -> proc_macro::TokenStre
     };
 
     let ast_data = AstData::new(&doc);
-    let output = CodeGenPass::new(error_type, ast_data);
-    let tokens = output.gen_juniper_code(&doc);
+    let output = CodeGenPass::new(schema, error_type, ast_data);
 
-    let out: proc_macro::TokenStream = tokens.into();
+    match output.gen_juniper_code(&doc) {
+        Ok(tokens) => {
+            let out: proc_macro::TokenStream = tokens.into();
 
-    if debugging_enabled() {
-        self::pretty_print::code_gen_debug(out.to_string());
+            if debugging_enabled() {
+                self::pretty_print::code_gen_debug(out.to_string());
+            }
+
+            out
+        }
+        Err(errors) => {
+            let count = errors.len();
+
+            let out = errors
+                .into_iter()
+                .map(|error| error.to_string())
+                .collect::<Vec<_>>()
+                .join("\n\n");
+
+            if count == 1 {
+                panic!("\n\n{}\n\naborting due to previous error\n", out)
+            } else {
+                panic!("\n\n{}\n\naborting due to {} errors\n", out, count)
+            }
+        }
     }
-
-    out
 }
 
 fn debugging_enabled() -> bool {

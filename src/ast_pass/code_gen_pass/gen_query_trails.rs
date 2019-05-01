@@ -42,6 +42,7 @@ impl<'doc> CodeGenPass<'doc> {
         }
 
         if !union_errors.is_empty() {
+            // TODO: convert to Error
             panic!("{}", union_errors.join("\n"));
         }
     }
@@ -340,6 +341,8 @@ mod test {
             tokens: quote! {},
             error_type: crate::parse_input::default_error_type(),
             ast_data,
+            errors: Vec::new(),
+            raw_schema: schema,
         };
 
         out.gen_query_trails(&doc);

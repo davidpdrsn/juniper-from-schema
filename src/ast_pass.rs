@@ -1,5 +1,6 @@
 mod ast_data_pass;
 mod code_gen_pass;
+pub mod error;
 
 pub use self::ast_data_pass::AstData;
 pub use self::code_gen_pass::CodeGenPass;
@@ -35,6 +36,7 @@ pub fn graphql_scalar_type_to_rust_type(name: &str, out: &CodeGenPass) -> (Token
             if out.is_date_scalar_defined() {
                 (quote! { chrono::naive::NaiveDate }, TypeKind::Scalar)
             } else {
+                // TODO: convert to Error
                 panic!(
                     "Fields with type `Date` is only allowed if you have defined a scalar named `Date`"
                 )
@@ -47,6 +49,7 @@ pub fn graphql_scalar_type_to_rust_type(name: &str, out: &CodeGenPass) -> (Token
                     TypeKind::Scalar,
                 )
             } else {
+                // TODO: convert to Error
                 panic!(
                     "Fields with type `DateTime` is only allowed if you have defined a scalar named `DateTime`"
                 )
