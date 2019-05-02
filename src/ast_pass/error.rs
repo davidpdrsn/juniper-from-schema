@@ -1,7 +1,8 @@
+use colored::*;
 use graphql_parser::Pos;
-use std::fmt;
+use std::fmt::{self, Write};
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Error<'doc> {
     pub(super) pos: Pos,
     pub(super) kind: ErrorKind<'doc>,
@@ -18,7 +19,12 @@ impl<'a> fmt::Display for Error<'a> {
         let number_of_digits_in_line_count = number_of_digits(self.pos.line as i32);
         let indent = 4;
 
-        writeln!(f, "error: {kind}", kind = self.kind.description())?;
+        writeln!(
+            f,
+            "{error}: {kind}",
+            error = "error".bright_red(),
+            kind = self.kind.description()
+        )?;
         writeln!(
             f,
             "{indent} --> schema:{line}:{col}",
@@ -35,9 +41,10 @@ impl<'a> fmt::Display for Error<'a> {
         )?;
         writeln!(
             f,
-            "{} |{}^",
+            "{} |{}{}",
             "".indent(number_of_digits_in_line_count),
             "".indent(self.pos.column - 1 + indent),
+            "^".bright_red(),
         )?;
 
         if let Some(notes) = self.kind.notes() {
@@ -51,8 +58,10 @@ impl<'a> fmt::Display for Error<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum ErrorKind<'doc> {
+    DateTimeScalarNotDefined,
+    DateScalarNotDefined,
     DirectivesNotSupported,
     NoQueryType,
     NonnullableFieldWithDefaultValue,
@@ -60,6 +69,14 @@ pub enum ErrorKind<'doc> {
     ObjectArgumentWithDefaultValue,
     SubscriptionsNotSupported,
     TypeExtensionNotSupported,
+    UnionFieldTypeMismatch {
+        union_name: &'doc str,
+        field_name: &'doc str,
+        type_a: &'doc str,
+        field_type_a: &'doc str,
+        type_b: &'doc str,
+        field_type_b: &'doc str,
+    },
     UnsupportedAttribute(&'doc str),
     UnsupportedAttributePair(&'doc str, &'doc str),
     VariableDefaultValue,
@@ -70,6 +87,8 @@ impl<'doc> ErrorKind<'doc> {
         use ErrorKind::*;
 
         match self {
+            DateTimeScalarNotDefined => "You have to define a custom scalar called `DateTime` to use this type".to_string(),
+            DateScalarNotDefined => "You have to define a custom scalar called `Date` to use this type".to_string(),
             DirectivesNotSupported => "Directives are currently not supported".to_string(),
             SubscriptionsNotSupported => "Subscriptions are currently not supported".to_string(),
             NoQueryType => "Schema doesn't have root a Query type".to_string(),
@@ -94,9 +113,13 @@ impl<'doc> ErrorKind<'doc> {
             TypeExtensionNotSupported => {
                 "Type extentions are not supported".to_string()
             }
+            UnionFieldTypeMismatch { union_name, field_name: _, type_a: _, type_b: _, field_type_a: _, field_type_b: _ } => {
+                format!("Error while generating `QueryTrail` for union `{}`", union_name)
+            }
         }
     }
 
+    #[allow(unused_must_use)]
     fn notes(&self) -> Option<String> {
         use self::ErrorKind::*;
 
@@ -105,6 +128,23 @@ impl<'doc> ErrorKind<'doc> {
                 "Subscriptions are currently not supported by Juniper so we're unsure when\nor if we'll support them"
                     .to_string(),
             ),
+            UnionFieldTypeMismatch { union_name, field_name, type_a, type_b, field_type_a, field_type_b } => {
+                let mut f = String::new();
+
+                writeln!(f, "`{}.{}` and `{}.{}` are not the same type", type_a, field_name, type_b, field_name);
+                writeln!(f, "    `{}.{}` is of type `{}`", type_a, field_name, field_type_a);
+                writeln!(f, "    `{}.{}` is of type `{}`", type_b, field_name, field_type_b);
+                writeln!(f, "That makes it impossible to generate code for the method `QueryTrail<_, {}, _>::{}()`", union_name, field_name);
+                writeln!(f, "It would have to return `{}` if `{}` is `{},` but `{}` if it is a `{}`", field_type_a, union_name, type_a, field_type_b, type_b);
+
+                Some(f)
+            }
+            DateTimeScalarNotDefined => {
+                Some("Insert `scalar DateTime` into your schema".to_string())
+            }
+            DateScalarNotDefined => {
+                Some("Insert `scalar Date` into your schema".to_string())
+            }
             _ => None,
         }
     }

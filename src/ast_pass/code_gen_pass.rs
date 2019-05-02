@@ -1,7 +1,7 @@
 mod gen_query_trails;
 
 use super::error::{Error, ErrorKind};
-use super::{graphql_scalar_type_to_rust_type, ident, quote_ident, type_name, AstData, TypeKind};
+use super::{ident, quote_ident, type_name, AstData, TypeKind};
 use crate::nullable_type::NullableType;
 use graphql_parser::{
     query::{Name, Type},
@@ -13,7 +13,7 @@ use lazy_static::lazy_static;
 use proc_macro2::{TokenStream, TokenTree};
 use quote::quote;
 use regex::Regex;
-use std::iter::Extend;
+use std::{collections::BTreeSet, iter::Extend};
 use syn::Ident;
 
 type Result<T> = std::result::Result<T, ()>;
@@ -21,7 +21,7 @@ type Result<T> = std::result::Result<T, ()>;
 pub struct CodeGenPass<'doc> {
     tokens: TokenStream,
     error_type: syn::Type,
-    errors: Vec<Error<'doc>>,
+    errors: BTreeSet<Error<'doc>>,
     ast_data: AstData<'doc>,
     raw_schema: &'doc str,
 }
@@ -32,7 +32,7 @@ impl<'doc> CodeGenPass<'doc> {
             tokens: quote! {},
             error_type,
             ast_data,
-            errors: vec![],
+            errors: BTreeSet::new(),
             raw_schema,
         }
     }
@@ -40,7 +40,7 @@ impl<'doc> CodeGenPass<'doc> {
     pub fn gen_juniper_code(
         mut self,
         doc: &'doc Document,
-    ) -> std::result::Result<TokenStream, Vec<Error<'doc>>> {
+    ) -> std::result::Result<TokenStream, BTreeSet<Error<'doc>>> {
         self.gen_query_trails(doc);
         self.gen_enum_from_name();
         self.gen_doc(doc).ok();
@@ -128,11 +128,12 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn emit_non_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) {
-        self.errors.push(Error {
+        let error = Error {
             pos,
             kind,
             raw_schema: &self.raw_schema,
-        });
+        };
+        self.errors.insert(error);
     }
 
     fn emit_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) -> Result<()> {
@@ -444,7 +445,7 @@ impl<'doc> CodeGenPass<'doc> {
             field_type
         };
 
-        let (tokens, ty) = self.gen_nullable_field_type(field_type);
+        let (tokens, ty) = self.gen_nullable_field_type(field_type, pos);
 
         match (destination, ty) {
             (FieldTypeDestination::Return(attrs), ref ty) => match attrs.ownership() {
@@ -457,17 +458,21 @@ impl<'doc> CodeGenPass<'doc> {
         }
     }
 
-    fn gen_nullable_field_type(&self, field_type: NullableType) -> (TokenStream, TypeKind) {
+    fn gen_nullable_field_type(
+        &mut self,
+        field_type: NullableType,
+        pos: Pos,
+    ) -> (TokenStream, TypeKind) {
         use crate::nullable_type::NullableType::*;
 
         match field_type {
-            NamedType(name) => graphql_scalar_type_to_rust_type(&name, self),
+            NamedType(name) => self.graphql_scalar_type_to_rust_type(&name, pos),
             ListType(item_type) => {
-                let (item_type, ty) = self.gen_nullable_field_type(*item_type);
+                let (item_type, ty) = self.gen_nullable_field_type(*item_type, pos);
                 (quote! { Vec<#item_type> }, ty)
             }
             NullableType(item_type) => {
-                let (item_type, ty) = self.gen_nullable_field_type(*item_type);
+                let (item_type, ty) = self.gen_nullable_field_type(*item_type, pos);
                 (quote! { Option<#item_type> }, ty)
             }
         }
@@ -805,6 +810,45 @@ impl<'doc> CodeGenPass<'doc> {
             Value::Null => {
                 self.emit_non_fatal_error(pos, ErrorKind::NullDefaultValue);
                 None
+            }
+        }
+    }
+
+    // Type according to https://graphql.org/learn/schema/#scalar-types
+    pub fn graphql_scalar_type_to_rust_type(
+        &mut self,
+        name: &str,
+        pos: Pos,
+    ) -> (TokenStream, TypeKind) {
+        match name {
+            "Int" => (quote! { i32 }, TypeKind::Scalar),
+            "Float" => (quote! { f64 }, TypeKind::Scalar),
+            "String" => (quote! { String }, TypeKind::Scalar),
+            "Boolean" => (quote! { bool }, TypeKind::Scalar),
+            "ID" => (quote! { juniper::ID }, TypeKind::Scalar),
+            "Date" => {
+                if !self.is_date_scalar_defined() {
+                    self.emit_fatal_error(pos, ErrorKind::DateScalarNotDefined)
+                        .ok();
+                }
+                (quote! { chrono::naive::NaiveDate }, TypeKind::Scalar)
+            }
+            "DateTime" => {
+                if !self.is_date_time_scalar_defined() {
+                    self.emit_fatal_error(pos, ErrorKind::DateTimeScalarNotDefined)
+                        .ok();
+                }
+                (
+                    quote! { chrono::DateTime<chrono::offset::Utc> },
+                    TypeKind::Scalar,
+                )
+            }
+            name => {
+                if self.is_scalar(name) || self.is_enum(name) {
+                    (quote_ident(name.to_camel_case()), TypeKind::Scalar)
+                } else {
+                    (quote_ident(name.to_camel_case()), TypeKind::Type)
+                }
             }
         }
     }
