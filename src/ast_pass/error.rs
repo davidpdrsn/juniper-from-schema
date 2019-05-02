@@ -84,36 +84,34 @@ pub enum ErrorKind<'doc> {
 
 impl<'doc> ErrorKind<'doc> {
     fn description(&self) -> String {
-        use ErrorKind::*;
-
         match self {
-            DateTimeScalarNotDefined => "You have to define a custom scalar called `DateTime` to use this type".to_string(),
-            DateScalarNotDefined => "You have to define a custom scalar called `Date` to use this type".to_string(),
-            DirectivesNotSupported => "Directives are currently not supported".to_string(),
-            SubscriptionsNotSupported => "Subscriptions are currently not supported".to_string(),
-            NoQueryType => "Schema doesn't have root a Query type".to_string(),
-            NonnullableFieldWithDefaultValue => {
+            ErrorKind::DateTimeScalarNotDefined => "You have to define a custom scalar called `DateTime` to use this type".to_string(),
+            ErrorKind::DateScalarNotDefined => "You have to define a custom scalar called `Date` to use this type".to_string(),
+            ErrorKind::DirectivesNotSupported => "Directives are currently not supported".to_string(),
+            ErrorKind::SubscriptionsNotSupported => "Subscriptions are currently not supported".to_string(),
+            ErrorKind::NoQueryType => "Schema doesn't have root a Query type".to_string(),
+            ErrorKind::NonnullableFieldWithDefaultValue => {
                 "Fields with default arguments values must be nullable".to_string()
             },
-            UnsupportedAttribute(attr) => {
+            ErrorKind::UnsupportedAttribute(attr) => {
                 format!("The attribute {} is unsupported", attr)
             }
-            UnsupportedAttributePair(attr, value) => {
+            ErrorKind::UnsupportedAttributePair(attr, value) => {
                 format!("Unsupported attribute value '{}' for attribute '{}'", value, attr)
             }
-            ObjectArgumentWithDefaultValue => {
+            ErrorKind::ObjectArgumentWithDefaultValue => {
                 "Default arguments where the type is an object is currently not supported".to_string()
             }
-            NullDefaultValue => {
+            ErrorKind::NullDefaultValue => {
                 "Having a default argument value of `null` is not supported. Use a nullable type instead".to_string()
             }
-            VariableDefaultValue => {
+            ErrorKind::VariableDefaultValue => {
                 "Default arguments cannot refer to variables".to_string()
             }
-            TypeExtensionNotSupported => {
+            ErrorKind::TypeExtensionNotSupported => {
                 "Type extentions are not supported".to_string()
             }
-            UnionFieldTypeMismatch { union_name, field_name: _, type_a: _, type_b: _, field_type_a: _, field_type_b: _ } => {
+            ErrorKind::UnionFieldTypeMismatch { union_name, field_name: _, type_a: _, type_b: _, field_type_a: _, field_type_b: _ } => {
                 format!("Error while generating `QueryTrail` for union `{}`", union_name)
             }
         }
@@ -121,14 +119,12 @@ impl<'doc> ErrorKind<'doc> {
 
     #[allow(unused_must_use)]
     fn notes(&self) -> Option<String> {
-        use self::ErrorKind::*;
-
         match self {
-            SubscriptionsNotSupported => Some(
+            ErrorKind::SubscriptionsNotSupported => Some(
                 "Subscriptions are currently not supported by Juniper so we're unsure when\nor if we'll support them"
                     .to_string(),
             ),
-            UnionFieldTypeMismatch { union_name, field_name, type_a, type_b, field_type_a, field_type_b } => {
+            ErrorKind::UnionFieldTypeMismatch { union_name, field_name, type_a, type_b, field_type_a, field_type_b } => {
                 let mut f = String::new();
 
                 writeln!(f, "`{}.{}` and `{}.{}` are not the same type", type_a, field_name, type_b, field_name);
@@ -139,10 +135,10 @@ impl<'doc> ErrorKind<'doc> {
 
                 Some(f)
             }
-            DateTimeScalarNotDefined => {
+            ErrorKind::DateTimeScalarNotDefined => {
                 Some("Insert `scalar DateTime` into your schema".to_string())
             }
-            DateScalarNotDefined => {
+            ErrorKind::DateScalarNotDefined => {
                 Some("Insert `scalar Date` into your schema".to_string())
             }
             _ => None,
