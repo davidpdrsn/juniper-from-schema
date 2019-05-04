@@ -20,7 +20,7 @@ N/A
 
 ### Fixed
 
-N/A
+- Ensure enum variants used for default values exist. This would previously be a run time error. It is now a compile time error.
 
 ## [0.1.6] - 2019-05-04
 
