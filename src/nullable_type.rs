@@ -40,7 +40,7 @@ impl<'a> NullableType<'a> {
     }
 }
 
-fn map<'a>(type_: &'a Type) -> NullableType<'a> {
+fn map(type_: &Type) -> NullableType {
     match type_ {
         inner @ Type::NamedType(_) => map_inner(inner, false),
         Type::ListType(item_type) => {
@@ -76,7 +76,6 @@ fn map_inner(type_: &Type, inside_non_null: bool) -> NullableType {
 
 #[cfg(test)]
 mod test {
-    #[allow(unused_imports)]
     use super::*;
 
     #[test]

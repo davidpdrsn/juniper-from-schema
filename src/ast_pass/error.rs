@@ -65,8 +65,6 @@ pub enum ErrorKind<'doc> {
     DirectivesNotSupported,
     NoQueryType,
     NonnullableFieldWithDefaultValue,
-    NullDefaultValue,
-    ObjectArgumentWithDefaultValue,
     SubscriptionsNotSupported,
     TypeExtensionNotSupported,
     UnionFieldTypeMismatch {
@@ -80,39 +78,45 @@ pub enum ErrorKind<'doc> {
     UnsupportedAttribute(&'doc str),
     UnsupportedAttributePair(&'doc str, &'doc str),
     VariableDefaultValue,
+    InputTypeFieldWithDefaultValue,
 }
 
 impl<'doc> ErrorKind<'doc> {
     fn description(&self) -> String {
         match self {
-            ErrorKind::DateTimeScalarNotDefined => "You have to define a custom scalar called `DateTime` to use this type".to_string(),
-            ErrorKind::DateScalarNotDefined => "You have to define a custom scalar called `Date` to use this type".to_string(),
-            ErrorKind::DirectivesNotSupported => "Directives are currently not supported".to_string(),
-            ErrorKind::SubscriptionsNotSupported => "Subscriptions are currently not supported".to_string(),
+            ErrorKind::DateTimeScalarNotDefined => {
+                "You have to define a custom scalar called `DateTime` to use this type".to_string()
+            }
+            ErrorKind::DateScalarNotDefined => {
+                "You have to define a custom scalar called `Date` to use this type".to_string()
+            }
+            ErrorKind::DirectivesNotSupported => {
+                "Directives are currently not supported".to_string()
+            }
+            ErrorKind::SubscriptionsNotSupported => {
+                "Subscriptions are currently not supported".to_string()
+            }
             ErrorKind::NoQueryType => "Schema doesn't have root a Query type".to_string(),
             ErrorKind::NonnullableFieldWithDefaultValue => {
                 "Fields with default arguments values must be nullable".to_string()
-            },
+            }
             ErrorKind::UnsupportedAttribute(attr) => {
                 format!("The attribute {} is unsupported", attr)
             }
-            ErrorKind::UnsupportedAttributePair(attr, value) => {
-                format!("Unsupported attribute value '{}' for attribute '{}'", value, attr)
-            }
-            ErrorKind::ObjectArgumentWithDefaultValue => {
-                "Default arguments where the type is an object is currently not supported".to_string()
-            }
-            ErrorKind::NullDefaultValue => {
-                "Having a default argument value of `null` is not supported. Use a nullable type instead".to_string()
-            }
+            ErrorKind::UnsupportedAttributePair(attr, value) => format!(
+                "Unsupported attribute value '{}' for attribute '{}'",
+                value, attr
+            ),
             ErrorKind::VariableDefaultValue => {
                 "Default arguments cannot refer to variables".to_string()
             }
-            ErrorKind::TypeExtensionNotSupported => {
-                "Type extentions are not supported".to_string()
-            }
-            ErrorKind::UnionFieldTypeMismatch { union_name, field_name: _, type_a: _, type_b: _, field_type_a: _, field_type_b: _ } => {
-                format!("Error while generating `QueryTrail` for union `{}`", union_name)
+            ErrorKind::TypeExtensionNotSupported => "Type extentions are not supported".to_string(),
+            ErrorKind::UnionFieldTypeMismatch { union_name, .. } => format!(
+                "Error while generating `QueryTrail` for union `{}`",
+                union_name
+            ),
+            ErrorKind::InputTypeFieldWithDefaultValue => {
+                "Default values for input type fields are not supported".to_string()
             }
         }
     }
@@ -140,6 +144,17 @@ impl<'doc> ErrorKind<'doc> {
             }
             ErrorKind::DateScalarNotDefined => {
                 Some("Insert `scalar Date` into your schema".to_string())
+            }
+            ErrorKind::InputTypeFieldWithDefaultValue => {
+                let mut f = String::new();
+                writeln!(f, "Consider using default field arguments instead");
+                writeln!(f);
+                writeln!(f, "It is not supported because the spec isn't clear");
+                writeln!(f, "about what should happen when there are defaults");
+                writeln!(f, "in both the input type definition and field argument");
+                writeln!(f);
+                writeln!(f, "See https://github.com/webonyx/graphql-php/issues/350 for an example");
+                Some(f)
             }
             _ => None,
         }
@@ -176,7 +191,6 @@ fn number_of_digits(n: i32) -> usize {
 
 #[cfg(test)]
 mod test {
-    #[allow(unused_imports)]
     use super::*;
 
     #[test]

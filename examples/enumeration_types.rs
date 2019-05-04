@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_variables)]
+
 #[macro_use]
 extern crate juniper;
 

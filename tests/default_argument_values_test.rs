@@ -28,6 +28,48 @@ graphql_schema! {
 
         "#[ownership(owned)]"
         enumeration(arg: Unit = METER): UNIT!
+
+        "#[ownership(owned)]"
+        object(arg: CoordinateIn = { lat: 1.0, long: 2.0 }): CoordinateOut!
+
+        "#[ownership(owned)]"
+        objectNullable(arg: Pagination = { pageSize: null }): Int
+
+        "#[ownership(owned)]"
+        objectNullableSet(arg: Pagination = { pageSize: 1 }): Int
+
+        "#[ownership(owned)]"
+        objectNullablePartial(arg: A = { a: "a arg" }): [String]!
+
+        "#[ownership(owned)]"
+        objectNullableNesting(arg: B = { c: { x: 1 } }): [Int]!
+    }
+
+    input CoordinateIn {
+        lat: Float!
+        long: Float!
+    }
+
+    type CoordinateOut {
+        lat: Float!
+        long: Float!
+    }
+
+    input Pagination {
+        pageSize: Int
+    }
+
+    input A {
+        a: String
+        b: String
+    }
+
+    input B {
+        c: C
+    }
+
+    input C {
+        x: Int
     }
 
     enum Unit { METER FOOT }
@@ -65,6 +107,65 @@ impl QueryFields for Query {
         arg: Unit,
     ) -> FieldResult<Unit> {
         Ok(arg)
+    }
+
+    fn field_object(
+        &self,
+        _: &Executor<'_, Context>,
+        _: &QueryTrail<'_, CoordinateOut, Walked>,
+        arg: CoordinateIn,
+    ) -> FieldResult<CoordinateOut> {
+        Ok(CoordinateOut {
+            lat: arg.lat,
+            long: arg.long,
+        })
+    }
+
+    fn field_object_nullable(
+        &self,
+        _: &Executor<'_, Context>,
+        arg: Pagination,
+    ) -> FieldResult<Option<i32>> {
+        Ok(arg.page_size)
+    }
+
+    fn field_object_nullable_set(
+        &self,
+        _: &Executor<'_, Context>,
+        arg: Pagination,
+    ) -> FieldResult<Option<i32>> {
+        Ok(arg.page_size)
+    }
+
+    fn field_object_nullable_partial(
+        &self,
+        _: &Executor<'_, Context>,
+        arg: A,
+    ) -> FieldResult<Vec<Option<String>>> {
+        Ok(vec![arg.a, arg.b])
+    }
+
+    fn field_object_nullable_nesting(
+        &self,
+        _: &Executor<'_, Context>,
+        b: B,
+    ) -> FieldResult<Vec<Option<i32>>> {
+        Ok(vec![b.c.and_then(|c| c.x)])
+    }
+}
+
+pub struct CoordinateOut {
+    pub lat: f64,
+    pub long: f64,
+}
+
+impl CoordinateOutFields for CoordinateOut {
+    fn field_lat(&self, _: &Executor<'_, Context>) -> FieldResult<&f64> {
+        Ok(&self.lat)
+    }
+
+    fn field_long(&self, _: &Executor<'_, Context>) -> FieldResult<&f64> {
+        Ok(&self.long)
     }
 }
 
@@ -122,6 +223,82 @@ fn test_enumeration() {
 
     let value = run_query(r#"query { enumeration(arg: FOOT) }"#);
     assert_json_include!(actual: value, expected: json!({ "enumeration": "FOOT" }));
+}
+
+#[test]
+fn test_object() {
+    let value = run_query(r#"query { object { lat long } }"#);
+    assert_json_include!(
+        actual: value,
+        expected: json!({ "object": { "lat": 1.0, "long": 2.0 } })
+    );
+
+    let value = run_query(r#"query { object(arg: { lat: 10.0, long: 20.0 }) { lat long } }"#);
+    assert_json_include!(
+        actual: value,
+        expected: json!({ "object": { "lat": 10.0, "long": 20.0 } })
+    );
+}
+
+#[test]
+fn test_object_nullable() {
+    let value = run_query(r#"query { objectNullable }"#);
+    assert_json_include!(actual: value, expected: json!({ "objectNullable": null }));
+
+    let value = run_query(r#"query { objectNullable(arg: { pageSize: 1 }) }"#);
+    assert_json_include!(actual: value, expected: json!({ "objectNullable": 1 }));
+}
+
+#[test]
+fn test_object_nullable_set() {
+    let value = run_query(r#"query { objectNullableSet }"#);
+    assert_json_include!(actual: value, expected: json!({ "objectNullableSet": 1 }));
+
+    let value = run_query(r#"query { objectNullableSet(arg: { pageSize: 2 }) }"#);
+    assert_json_include!(actual: value, expected: json!({ "objectNullableSet": 2 }));
+
+    let value = run_query(r#"query { objectNullableSet(arg: { pageSize: null }) }"#);
+    assert_json_include!(
+        actual: value,
+        expected: json!({ "objectNullableSet": null })
+    );
+}
+
+#[test]
+fn test_object_partial() {
+    let value = run_query(r#"query { objectNullablePartial }"#);
+    assert_json_include!(
+        actual: value,
+        expected: json!({ "objectNullablePartial": ["a arg", null] })
+    );
+
+    let value = run_query(r#"query { objectNullablePartial(arg: { a: "a field" }) }"#);
+    assert_json_include!(
+        actual: value,
+        expected: json!({ "objectNullablePartial": ["a field", null] })
+    );
+
+    let value = run_query(r#"query { objectNullablePartial(arg: { b: "b field" }) }"#);
+    assert_json_include!(
+        actual: value,
+        expected: json!({ "objectNullablePartial": [null, "b field"] })
+    );
+
+    let value =
+        run_query(r#"query { objectNullablePartial(arg: { a: "a field", b: "b field" }) }"#);
+    assert_json_include!(
+        actual: value,
+        expected: json!({ "objectNullablePartial": ["a field", "b field"] })
+    );
+}
+
+#[test]
+fn test_object_nesting() {
+    let value = run_query(r#"query { objectNullableNesting }"#);
+    assert_json_include!(
+        actual: value,
+        expected: json!({ "objectNullableNesting": [1] })
+    );
 }
 
 fn run_query(query: &str) -> Value {

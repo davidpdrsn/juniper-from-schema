@@ -14,7 +14,7 @@ use proc_macro2::{TokenStream, TokenTree};
 use quote::quote;
 use regex::Regex;
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashSet},
     iter::Extend,
 };
 use syn::Ident;
@@ -332,6 +332,13 @@ impl<'doc> CodeGenPass<'doc> {
             .fields
             .iter()
             .map(|field| {
+                if let Some(_) = &field.default_value {
+                    self.emit_non_fatal_error(
+                        field.position,
+                        ErrorKind::InputTypeFieldWithDefaultValue,
+                    );
+                }
+
                 let arg = self.argument_to_name_and_rust_type(&field);
                 let name = ident(arg.name);
                 let rust_type = arg.macro_type;
@@ -360,10 +367,10 @@ impl<'doc> CodeGenPass<'doc> {
     fn argument_to_name_and_rust_type<'a>(&mut self, arg: &'a InputValue) -> FieldArgument<'a> {
         self.error_if_has_directive(&arg);
 
-        let default_value = arg
+        let default_value_tokens = arg
             .default_value
             .as_ref()
-            .and_then(|value| self.quote_value(&value, type_name(&arg.value_type), arg.position));
+            .map(|value| self.quote_value(&value, type_name(&arg.value_type), arg.position));
 
         let arg_name = arg.name.to_snake_case();
 
@@ -377,7 +384,7 @@ impl<'doc> CodeGenPass<'doc> {
         let (trait_type, _) = self.gen_field_type(
             &arg.value_type,
             &FieldTypeDestination::Argument,
-            default_value.is_some(),
+            default_value_tokens.is_some(),
             arg.position,
         );
 
@@ -385,7 +392,7 @@ impl<'doc> CodeGenPass<'doc> {
             name: arg_name,
             macro_type,
             trait_type,
-            default_value,
+            default_value: default_value_tokens,
             description: &arg.description,
         }
     }
@@ -733,24 +740,24 @@ impl<'doc> CodeGenPass<'doc> {
         Some(attr)
     }
 
-    fn quote_value(&mut self, value: &Value, type_name: &Name, pos: Pos) -> Option<TokenStream> {
+    fn quote_value<'a>(&mut self, value: &Value, type_name: &Name, pos: Pos) -> TokenStream {
         match value {
-            Value::Float(inner) => Some(quote! { #inner }),
+            Value::Float(inner) => quote! { #inner },
             Value::Int(inner) => {
                 let number = inner
                     .as_i64()
                     .expect("failed to convert default number argument to i64");
                 let number =
                     i32_from_i64(number).expect("failed to convert default number argument to i64");
-                Some(quote! { #number })
+                quote! { #number }
             }
-            Value::String(inner) => Some(quote! { #inner.to_string() }),
-            Value::Boolean(inner) => Some(quote! { #inner }),
+            Value::String(inner) => quote! { #inner.to_string() },
+            Value::Boolean(inner) => quote! { #inner },
 
             Value::Enum(variant_name) => {
                 let type_name = to_enum_name(type_name);
                 let variant_name = to_enum_name(variant_name);
-                Some(quote! { #type_name::#variant_name })
+                quote! { #type_name::#variant_name }
             }
 
             Value::List(list) => {
@@ -760,33 +767,84 @@ impl<'doc> CodeGenPass<'doc> {
                     acc.extend(quote! { vec.push(#value_quoted); });
                 }
                 acc.extend(quote! { vec });
-                Some(quote! { { #acc } })
+                quote! { { #acc } }
             }
 
-            // Object is hard because the contained BTreeMap can have values of different types.
-            // How do we quote such a map and convert it into the actual input type?
-            Value::Object(map) => self.quote_object_value(&map, type_name, pos),
+            Value::Object(map) => self.quote_object_value(map, type_name, pos),
 
             Value::Variable(_) => {
                 self.emit_non_fatal_error(pos, ErrorKind::VariableDefaultValue);
-                None
+                quote! {}
             }
 
-            Value::Null => {
-                self.emit_non_fatal_error(pos, ErrorKind::NullDefaultValue);
-                None
-            }
+            Value::Null => quote! { None },
         }
     }
 
     fn quote_object_value(
         &mut self,
-        _map: &BTreeMap<Name, Value>,
-        _type_name: &Name,
+        map: &BTreeMap<Name, Value>,
+        type_name: &Name,
         pos: Pos,
-    ) -> Option<TokenStream> {
-        self.emit_non_fatal_error(pos, ErrorKind::ObjectArgumentWithDefaultValue);
-        None
+    ) -> TokenStream {
+        let name = ident(&type_name);
+
+        let mut fields_seen = HashSet::new();
+
+        // Set fields given in `map`
+        let mut field_assigments = map
+            .iter()
+            .map(|(key, value)| {
+                fields_seen.insert(key);
+                let field_name = ident(key.to_snake_case());
+
+                let field_type_name = self
+                    .ast_data
+                    .input_object_field_type
+                    .field_type_name(&type_name, &key)
+                    .unwrap();
+
+                let value_quote = self.quote_value(value, field_type_name, pos);
+                match self
+                    .ast_data
+                    .input_object_field_type
+                    .is_nullable(&type_name, &key)
+                {
+                    Some(true) | None => {
+                        if value == &Value::Null {
+                            quote! { #field_name: #value_quote }
+                        } else {
+                            quote! { #field_name: Some(#value_quote) }
+                        }
+                    }
+                    Some(false) => quote! { #field_name: #value_quote },
+                }
+            })
+            .collect::<Vec<_>>();
+
+        // Set fields not given in map to `None`
+        if let Some(fields) = self
+            .ast_data
+            .input_object_field_type
+            .field_names(&type_name)
+        {
+            for field_name in fields {
+                if !fields_seen.contains(field_name) {
+                    let field_name = ident(field_name.to_snake_case());
+                    field_assigments.push(quote! {
+                        #field_name: None
+                    });
+                }
+            }
+        }
+
+        let tokens = quote! {
+            #name {
+                #(#field_assigments),*,
+            }
+        };
+
+        quote! { { #tokens } }
     }
 
     // Type according to https://graphql.org/learn/schema/#scalar-types

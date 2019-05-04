@@ -586,12 +586,8 @@
 //! - `String`
 //! - `Boolean`
 //! - Enumerations
+//! - Input objects (as field arguments, see below)
 //! - Lists containing some other supported type
-//!
-//! Input objects are currently not supported as default arguments, but might be in the future.
-//!
-//! You also cannot have `null` as the default value. In that case you might as well not have a
-//! default value.
 //!
 //! Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/master/examples/default_argument_values.rs)):
 //!
@@ -623,9 +619,17 @@
 //!         UNPUBLISHED
 //!     }
 //!
+//!     input Pagination {
+//!         pageSize: Int!
+//!         cursor: ID
+//!     }
+//!
 //!     type Query {
 //!         "#[ownership(owned)]"
-//!         allPosts(status: Status = PUBLISHED): [Post!]!
+//!         allPosts(
+//!             status: Status = PUBLISHED,
+//!             pagination: Pagination = { pageSize: 20 }
+//!         ): [Post!]!
 //!     }
 //!
 //!     type Post {
@@ -641,6 +645,7 @@
 //!         executor: &Executor<'_, Context>,
 //!         trail: &QueryTrail<'_, Post, Walked>,
 //!         status: Status,
+//!         pagination: Pagination,
 //!     ) -> FieldResult<Vec<Post>> {
 //!         // `status` will be `Status::Published` if not given in the query
 //!
@@ -651,6 +656,45 @@
 //!     }
 //! }
 //! ```
+//!
+//! ### Input object gotchas
+//!
+//! Defaults for input objects are only supported as field arguments. The following is not
+//! supported
+//!
+//! ```graphql
+//! input SomeType {
+//!   field: Int = 1
+//! }
+//! ```
+//!
+//! This isn't supported because [the spec is unclear about how to handle multiple nested
+//! defaults](https://github.com/webonyx/graphql-php/issues/350).
+//!
+//! Also, defaults are only used if no arguments are passed. So given the schema
+//!
+//! ```graphql
+//! input Input {
+//!   a: String
+//!   b: String
+//! }
+//!
+//! type Query {
+//!   field(arg: Input = { a: "a" }): Int!
+//! }
+//! ```
+//!
+//! and the query
+//!
+//! ```graphql
+//! query MyQuery {
+//!   field(arg: { b: "my b" })
+//! }
+//! ```
+//!
+//! The value of `arg` inside the resolver would be `Input { a: None, b: Some("my b") }`. Note that
+//! even though `a` has a default value in the field doesn't get used here because we set `arg` in
+//! the query.
 //!
 //! # GraphQL to Rust types
 //!

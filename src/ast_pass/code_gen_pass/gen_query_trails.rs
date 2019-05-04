@@ -102,7 +102,6 @@ impl<'doc> CodeGenPass<'doc> {
         })
     }
 
-    #[allow(unused_variables)]
     fn error_msg_if_field_types_dont_overlap(
         &mut self,
         union: &'doc UnionType,

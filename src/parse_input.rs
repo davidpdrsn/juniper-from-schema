@@ -61,7 +61,6 @@ pub fn default_error_type() -> Type {
 
 #[cfg(test)]
 mod test {
-    #[allow(unused_imports)]
     use super::*;
 
     #[test]
