@@ -8,15 +8,29 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Added
 
+N/A
+
+### Changed
+
+N/A
+
+### Removed
+
+N/A
+
+### Fixed
+
+N/A
+
+## [0.1.6] - 2019-05-04
+
+### Added
+
 - Much better error messages. Basically a rip-off of Rust's compiler errors.
 
 ### Changed
 
 - The `ID` GraphQL type now gets generated into `juniper::ID` instead of a custom newtype wrapper. This is a breaking change but should be straight forward to fix.
-
-### Removed
-
-N/A
 
 ### Fixed
 
@@ -69,6 +83,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.1.6]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.5...0.1.6
 [0.1.5]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.4...0.1.5
 [0.1.4]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.3...0.1.4
 [0.1.3]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.2...0.1.3
