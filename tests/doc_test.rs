@@ -127,6 +127,12 @@ graphql_schema! {
             queryFieldArg: InputType!
         ): Url!
 
+        "deprecatedField desc"
+        deprecatedField: ID! @deprecated
+
+        "deprecatedField2 desc"
+        deprecatedField2: ID! @deprecated(reason: "because reasons")
+
         entity: Entity!
 
         search(query: String!): [SearchResult!]!
@@ -149,15 +155,17 @@ graphql_schema! {
     "Entity desc"
     interface Entity {
         "Entity id desc"
-        id: ID!
+        id: ID! @deprecated
     }
 
     "UserType desc"
     enum UserType {
         "REAL desc"
-        REAL
+        REAL  @deprecated(reason: "because reasons")
         "BOT desc"
         BOT
+        "OTHER desc"
+        OTHER @deprecated
     }
 
     "SearchResult desc"
@@ -176,6 +184,14 @@ impl QueryFields for Query {
         _: &Executor<'a, Context>,
         _: &QueryTrail<'a, Entity, Walked>,
     ) -> FieldResult<&Entity> {
+        unimplemented!()
+    }
+
+    fn field_deprecated_field<'a>(&self, _: &Executor<'a, Context>) -> FieldResult<&ID> {
+        unimplemented!()
+    }
+
+    fn field_deprecated_field2<'a>(&self, _: &Executor<'a, Context>) -> FieldResult<&ID> {
         unimplemented!()
     }
 
@@ -220,6 +236,8 @@ fn test_docs() {
     json.sort_by_key(|key| key["name"].as_str().unwrap().to_string());
     let json = serde_json::Value::Array(json);
 
+    println!("{}", serde_json::to_string_pretty(&json).unwrap());
+
     assert_json_include!(
         actual: json,
         expected:
@@ -232,6 +250,8 @@ fn test_docs() {
                         {
                             "name": "id",
                             "description": "Entity id desc",
+                            "isDeprecated": true,
+                            "deprecationReason": null,
                         },
                     ],
                 },
@@ -253,12 +273,25 @@ fn test_docs() {
                         {
                             "name": "queryField",
                             "description": "queryField desc",
+                            "isDeprecated": false,
                             "args": [
                                 {
                                     "name": "queryFieldArg",
                                     "description": "queryFieldArg desc",
                                 },
                             ],
+                        },
+                        {
+                            "name": "deprecatedField",
+                            "description": "deprecatedField desc",
+                            "isDeprecated": true,
+                            "deprecationReason": null,
+                        },
+                        {
+                            "name": "deprecatedField2",
+                            "description": "deprecatedField2 desc",
+                            "isDeprecated": true,
+                            "deprecationReason": "because reasons",
                         },
                     ],
                 },
@@ -279,10 +312,20 @@ fn test_docs() {
                         {
                             "name": "REAL",
                             "description": "REAL desc",
+                            "deprecationReason": "because reasons",
+                            "isDeprecated": true,
                         },
                         {
                             "name": "BOT",
                             "description": "BOT desc",
+                            "deprecationReason": null,
+                            "isDeprecated": false,
+                        },
+                        {
+                            "name": "OTHER",
+                            "description": "OTHER desc",
+                            "deprecationReason": null,
+                            "isDeprecated": true,
                         },
                     ],
                 },

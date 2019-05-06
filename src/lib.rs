@@ -942,7 +942,7 @@
 //! [feature]: https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features
 //! [rustfmt]: https://github.com/rust-lang/rustfmt
 
-#![deny(unused_imports, dead_code, unused_variables, unused_must_use)]
+// #![deny(unused_imports, dead_code, unused_variables, unused_must_use)]
 #![recursion_limit = "128"]
 #![doc(html_root_url = "https://docs.rs/juniper-from-schema/0.1.6")]
 

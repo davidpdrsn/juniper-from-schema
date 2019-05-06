@@ -9,6 +9,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 ### Added
 
 - Support default values for input objects.
+- Support `deprecated` directives on fields and enum values.
 
 ### Changed
 
