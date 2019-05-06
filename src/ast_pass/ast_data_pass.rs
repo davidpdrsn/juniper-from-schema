@@ -39,6 +39,7 @@ pub struct InputObjectFieldTypes<'a> {
 }
 
 impl<'a> InputObjectFieldTypes<'a> {
+    #[allow(clippy::ptr_arg)]
     pub(super) fn is_nullable(
         &self,
         input_type_name: &'a str,
@@ -64,6 +65,7 @@ impl<'a> InputObjectFieldTypes<'a> {
         Some(out)
     }
 
+    #[allow(clippy::ptr_arg)]
     pub(super) fn field_type_name(
         &self,
         input_type_name: &'a str,
@@ -75,6 +77,7 @@ impl<'a> InputObjectFieldTypes<'a> {
     }
 }
 
+#[allow(clippy::single_match)]
 fn find_input_object_field_type(doc: &Document) -> InputObjectFieldTypes {
     use graphql_parser::schema::Definition::*;
     use graphql_parser::schema::TypeDefinition::*;

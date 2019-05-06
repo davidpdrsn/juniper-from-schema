@@ -16,7 +16,8 @@ impl<'doc> InterfaceImplementors<'doc> {
     }
 }
 
-pub fn find_interface_implementors<'doc>(doc: &'doc Document) -> InterfaceImplementors<'doc> {
+#[allow(clippy::single_match)]
+pub fn find_interface_implementors(doc: &Document) -> InterfaceImplementors {
     use graphql_parser::schema::Definition::*;
     use graphql_parser::schema::TypeDefinition::*;
 
@@ -31,8 +32,8 @@ pub fn find_interface_implementors<'doc>(doc: &'doc Document) -> InterfaceImplem
                     for interface in &obj.implements_interfaces {
                         out.map
                             .entry(interface)
-                            .and_modify(|entry| entry.push(&obj.name))
-                            .or_insert(vec![&obj.name]);
+                            .or_insert_with(Vec::new)
+                            .push(&obj.name);
                     }
                 }
 

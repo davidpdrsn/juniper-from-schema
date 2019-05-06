@@ -16,6 +16,7 @@ use regex::Regex;
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
     iter::Extend,
+    string::ToString,
 };
 use syn::Ident;
 
@@ -332,7 +333,7 @@ impl<'doc> CodeGenPass<'doc> {
             .fields
             .iter()
             .map(|field| {
-                if let Some(_) = &field.default_value {
+                if field.default_value.is_some() {
                     self.emit_non_fatal_error(
                         field.position,
                         ErrorKind::InputTypeFieldWithDefaultValue,
@@ -457,7 +458,7 @@ impl<'doc> CodeGenPass<'doc> {
         let description = &interface
             .description
             .as_ref()
-            .map(|d| d.to_string())
+            .map(ToString::to_string)
             .unwrap_or_else(String::new);
 
         let implementors = self.get_implementors_of_interface(&interface.name);
@@ -674,7 +675,7 @@ impl<'doc> CodeGenPass<'doc> {
         let description = union
             .description
             .as_ref()
-            .map(|d| d.to_string())
+            .map(ToString::to_string)
             .unwrap_or_else(String::new);
 
         self.extend(quote! {
@@ -715,7 +716,7 @@ impl<'doc> CodeGenPass<'doc> {
         }
     }
 
-    fn quote_deprecations(&self, directives: &'doc Vec<Directive>) -> TokenStream {
+    fn quote_deprecations(&self, directives: &'doc [Directive]) -> TokenStream {
         for directive in directives {
             if directive.name == "deprecated" {
                 let mut arguments = BTreeMap::new();
@@ -771,7 +772,7 @@ impl<'doc> CodeGenPass<'doc> {
         Some(attr)
     }
 
-    fn quote_value<'a>(&mut self, value: &Value, type_name: &Name, pos: Pos) -> TokenStream {
+    fn quote_value(&mut self, value: &Value, type_name: &str, pos: Pos) -> TokenStream {
         match value {
             Value::Float(inner) => quote! { #inner },
             Value::Int(inner) => {
@@ -815,7 +816,7 @@ impl<'doc> CodeGenPass<'doc> {
     fn quote_object_value(
         &mut self,
         map: &BTreeMap<Name, Value>,
-        type_name: &Name,
+        type_name: &str,
         pos: Pos,
     ) -> TokenStream {
         let name = ident(&type_name);
@@ -953,8 +954,8 @@ fn gen_field(
     let description = field
         .description
         .as_ref()
-        .map(|d| d.to_string())
-        .unwrap_or_else(|| String::new());
+        .map(ToString::to_string)
+        .unwrap_or_else(String::new);
 
     let all_args = to_field_args_list(args);
 
@@ -1030,6 +1031,7 @@ struct FieldArgument<'a> {
 }
 
 // This can also be with TryInto, but that requires 1.34
+#[allow(clippy::cast_lossless)]
 fn i32_from_i64(i: i64) -> Option<i32> {
     if i > std::i32::MAX as i64 {
         None

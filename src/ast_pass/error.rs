@@ -185,7 +185,7 @@ fn number_of_digits(n: i32) -> usize {
         return 1;
     }
 
-    let n = n as f64;
+    let n = f64::from(n);
     f64::floor(f64::log10(n)) as usize + 1
 }
 

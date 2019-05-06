@@ -12,7 +12,8 @@ impl<'doc> EnumVariants<'doc> {
     }
 }
 
-pub fn find_enum_variants(doc: &Document) -> EnumVariants<'_> {
+#[allow(clippy::single_match)]
+pub fn find_enum_variants(doc: &Document) -> EnumVariants {
     use graphql_parser::schema::Definition::*;
     use graphql_parser::schema::TypeDefinition::*;
 

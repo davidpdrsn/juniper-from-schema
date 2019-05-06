@@ -20,6 +20,7 @@ impl<'doc> SpecialScalarTypesList<'doc> {
     }
 }
 
+#[allow(clippy::single_match)]
 pub fn find_special_scalar_types(doc: &Document) -> SpecialScalarTypesList<'_> {
     use graphql_parser::schema::Definition::*;
     use graphql_parser::schema::TypeDefinition::*;
