@@ -133,7 +133,7 @@ impl<'doc> CodeGenPass<'doc> {
             self.emit_non_fatal_error(schema_def.position, ErrorKind::SubscriptionsNotSupported);
         }
 
-        self.error_if_has_directive(&schema_def);
+        self.error_if_has_unsupported_directive(&schema_def);
 
         let query = match &schema_def.query {
             Some(query) => ident(query),
@@ -170,7 +170,7 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn gen_obj_type(&mut self, obj_type: &'doc ObjectType) {
-        self.error_if_has_directive(&obj_type);
+        self.error_if_has_unsupported_directive(&obj_type);
 
         let struct_name = ident(&obj_type.name);
 
@@ -253,7 +253,7 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn gen_enum_type(&mut self, enum_type: &EnumType) {
-        self.error_if_has_directive(&enum_type);
+        self.error_if_has_unsupported_directive(&enum_type);
 
         let name = to_enum_name(&enum_type.name);
 
@@ -275,7 +275,7 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn gen_scalar_type(&mut self, scalar_type: &ScalarType) {
-        self.error_if_has_directive(&scalar_type);
+        self.error_if_has_unsupported_directive(&scalar_type);
 
         match &*scalar_type.name {
             "Date" => {}
@@ -324,7 +324,7 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn gen_input_def(&mut self, input_object: &InputObjectType) {
-        self.error_if_has_directive(&input_object);
+        self.error_if_has_unsupported_directive(&input_object);
 
         let name = ident(&input_object.name);
 
@@ -358,7 +358,7 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn argument_to_name_and_rust_type<'a>(&mut self, arg: &'a InputValue) -> FieldArgument<'a> {
-        self.error_if_has_directive(&arg);
+        self.error_if_has_unsupported_directive(&arg);
 
         let default_value = arg
             .default_value
@@ -443,7 +443,7 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn gen_interface(&mut self, interface: &'doc InterfaceType) {
-        self.error_if_has_directive(&interface);
+        self.error_if_has_unsupported_directive(&interface);
 
         let interface_name = ident(&interface.name);
 
@@ -523,8 +523,11 @@ impl<'doc> CodeGenPass<'doc> {
 
                 let error_type = &self.error_type;
 
+                let deprecation = &field.deprecation;
+
                 quote! {
                     #description
+                    #deprecation
                     field #field_name(#all_args) -> std::result::Result<#field_type, #error_type> {
                         match *self {
                             #(#arms),*
@@ -548,7 +551,9 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn collect_data_for_field_gen(&mut self, field: &'doc Field) -> FieldTokens<'doc> {
-        self.error_if_has_directive(&field);
+        self.error_if_has_unsupported_directive(&field);
+
+        let deprecation = self.quote_deprecations(&field.directives);
 
         let name = ident(&field.name);
 
@@ -621,11 +626,12 @@ impl<'doc> CodeGenPass<'doc> {
             description: &field.description,
             type_kind,
             inner_type,
+            deprecation,
         }
     }
 
     fn gen_union(&mut self, union: &UnionType) {
-        self.error_if_has_directive(&union);
+        self.error_if_has_unsupported_directive(&union);
 
         let union_name = ident(&union.name);
         let implementors = union.types.iter().map(ident).collect::<Vec<_>>();
@@ -675,25 +681,50 @@ impl<'doc> CodeGenPass<'doc> {
         });
     }
 
-    fn error_if_has_directive<T: GetDirectives>(&mut self, t: &T) {
+    fn error_if_has_unsupported_directive<T: GetDirectives>(&mut self, t: &T) {
         for directive in t.directives() {
+            if directive.name == "deprecated" && t.supports_deprecations() {
+                continue;
+            }
             self.emit_non_fatal_error(directive.position, ErrorKind::DirectivesNotSupported);
         }
     }
 
     fn gen_enum_value(&mut self, enum_value: &EnumValue) -> TokenStream {
-        self.error_if_has_directive(&enum_value);
+        self.error_if_has_unsupported_directive(&enum_value);
 
         let graphql_name = &enum_value.name;
         let name = to_enum_name(&graphql_name);
         let description = doc_tokens(&enum_value.description);
 
+        let deprecation = self.quote_deprecations(&enum_value.directives);
+
         quote! {
             #[allow(missing_docs)]
             #[graphql(name=#graphql_name)]
+            #deprecation
             #description
             #name,
         }
+    }
+
+    fn quote_deprecations(&self, directives: &'doc Vec<Directive>) -> TokenStream {
+        for directive in directives {
+            if directive.name == "deprecated" {
+                let mut arguments = BTreeMap::new();
+                for (key, value) in &directive.arguments {
+                    arguments.insert(key, value);
+                }
+
+                if let Some(Value::String(reason)) = arguments.get(&"reason".to_string()) {
+                    return quote! { #[deprecated(note = #reason)] };
+                } else {
+                    return quote! { #[deprecated] };
+                }
+            }
+        }
+
+        quote! {}
     }
 
     fn parse_attributes(&mut self, desc: &'doc str, pos: Pos) -> Attributes {
@@ -869,8 +900,11 @@ fn gen_field(
 
     let all_args = to_field_args_list(args);
 
+    let deprecation = &field.deprecation;
+
     quote! {
         #[doc = #description]
+        #deprecation
         field #field_name(#all_args) -> std::result::Result<#field_type, #error_type> {
             #body
         }
@@ -926,6 +960,7 @@ struct FieldTokens<'a> {
     description: &'a Option<String>,
     type_kind: TypeKind,
     inner_type: Name,
+    deprecation: TokenStream,
 }
 
 struct FieldArgument<'a> {
@@ -1002,9 +1037,25 @@ fn doc_tokens(doc: &Option<String>) -> TokenStream {
 
 trait GetDirectives {
     fn directives(&self) -> &Vec<Directive>;
+
+    fn supports_deprecations(&self) -> bool {
+        false
+    }
 }
 
 macro_rules! impl_GetDirectives {
+    ($name:path, supports_deprecations: $supports_deprecations:expr) => {
+        impl GetDirectives for &$name {
+            fn directives(&self) -> &Vec<Directive> {
+                &self.directives
+            }
+
+            fn supports_deprecations(&self) -> bool {
+                $supports_deprecations
+            }
+        }
+    };
+
     ($name:path) => {
         impl GetDirectives for &$name {
             fn directives(&self) -> &Vec<Directive> {
@@ -1016,8 +1067,8 @@ macro_rules! impl_GetDirectives {
 
 // All the schema types that have directives
 impl_GetDirectives!(EnumType);
-impl_GetDirectives!(EnumValue);
-impl_GetDirectives!(Field);
+impl_GetDirectives!(EnumValue, supports_deprecations: true);
+impl_GetDirectives!(Field, supports_deprecations: true);
 impl_GetDirectives!(InputObjectType);
 impl_GetDirectives!(InputValue);
 impl_GetDirectives!(InterfaceType);
