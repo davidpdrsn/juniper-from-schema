@@ -228,7 +228,7 @@ Supported:
 
 Not supported yet:
 - Subscriptions (currently not supported by Juniper so we're unsure when or if this will happen)
-- Schema directives
+- Schema directives (`@deprecated` is supported)
 - Type extensions
 
 ### The `ID` type
