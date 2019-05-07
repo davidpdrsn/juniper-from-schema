@@ -79,6 +79,7 @@ pub enum ErrorKind<'doc> {
     UnsupportedAttributePair(&'doc str, &'doc str),
     VariableDefaultValue,
     InputTypeFieldWithDefaultValue,
+    InvalidArgumentsToDeprecateDirective,
 }
 
 impl<'doc> ErrorKind<'doc> {
@@ -118,6 +119,9 @@ impl<'doc> ErrorKind<'doc> {
             ErrorKind::InputTypeFieldWithDefaultValue => {
                 "Default values for input type fields are not supported".to_string()
             }
+            ErrorKind::InvalidArgumentsToDeprecateDirective => {
+                "Invalid arguments passed to @deprecated".to_string()
+            }
         }
     }
 
@@ -155,6 +159,9 @@ impl<'doc> ErrorKind<'doc> {
                 writeln!(f);
                 writeln!(f, "See https://github.com/webonyx/graphql-php/issues/350 for an example");
                 Some(f)
+            }
+            ErrorKind::InvalidArgumentsToDeprecateDirective => {
+                Some("It takes 0 or 1 argument and the argument most be named `reason` and be of type `String`".to_string())
             }
             _ => None,
         }
