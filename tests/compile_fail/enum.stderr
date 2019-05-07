@@ -1,0 +1,22 @@
+error: proc macro panicked
+  --> $DIR/enum.rs:4:1
+   |
+4  | / graphql_schema! {
+5  | |     type Query {
+6  | |         string: String! @someDirectiveThatIsntNotSupported
+7  | |     }
+8  | |
+9  | |     schema { query: Query }
+10 | | }
+   | |_^
+   |
+   = help: message: 
+           
+           [91merror[0m: Directives are currently not supported
+            --> schema:1:32
+             |
+           1 |    type Query { string : String ! @ someDirectiveThatIsntNotSupported } schema {
+             |                                   [91m^[0m
+           
+           
+           aborting due to previous error

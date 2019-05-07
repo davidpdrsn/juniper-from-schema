@@ -1071,3 +1071,16 @@ fn debugging_enabled() -> bool {
 
     false
 }
+
+#[cfg(test)]
+mod test {
+    #[allow(unused_imports)]
+    use super::*;
+
+    #[test]
+    fn test_compile_pass() {
+        let t = trybuild::TestCases::new();
+        t.pass("tests/compile_pass/*.rs");
+        t.compile_fail("tests/compile_fail/*.rs");
+    }
+}

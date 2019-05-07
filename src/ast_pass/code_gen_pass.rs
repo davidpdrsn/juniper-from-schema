@@ -546,7 +546,7 @@ impl<'doc> CodeGenPass<'doc> {
             .collect::<Vec<_>>();
 
         self.extend(quote! {
-            graphql_interface!(#interface_name: Context |&self| {
+            juniper::graphql_interface!(#interface_name: Context |&self| {
                 description: #description
 
                 #(#field_token_streams)*
@@ -679,7 +679,7 @@ impl<'doc> CodeGenPass<'doc> {
             .unwrap_or_else(String::new);
 
         self.extend(quote! {
-            graphql_union!(#union_name: Context |&self| {
+            juniper::graphql_union!(#union_name: Context |&self| {
                 description: #description
 
                 instance_resolvers: |_| {

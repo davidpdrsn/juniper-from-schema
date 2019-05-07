@@ -22,17 +22,18 @@ regex = "1.1.0"
 lazy_static = "1.1.0"
 rustfmt-nightly = { version = "1.0.1", optional = true }
 colored = "1.8.0"
+juniper = "0.11.0"
 
 [features]
 default = []
 format-debug-output = ["rustfmt-nightly"]
 
 [dev_dependencies]
-juniper = "0.11.0"
 serde_json = "1.0.33"
 assert-json-diff = "0.2.1"
 maplit = "1.0.1"
 version-sync = "0.8"
+trybuild = "1.0.3"
 
 [lib]
 proc-macro = true
