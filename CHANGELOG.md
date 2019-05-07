@@ -13,7 +13,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Changed
 
-N/A
+- Replace the magic `#[ownership(owned)]` comment with a schema directive.
 
 ### Removed
 

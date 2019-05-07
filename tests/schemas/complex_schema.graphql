@@ -9,16 +9,13 @@ schema {
 
 "The query type, represents all of the entry points into our object graph"
 type Query {
-  "#[ownership(owned)]"
-  hero(episode: Episode): Character
-  "#[ownership(owned)]"
-  search(text: String): [SearchResult!]
+  hero(episode: Episode): Character @juniper(ownership: "owned")
+  search(text: String): [SearchResult!] @juniper(ownership: "owned")
 }
 
 "The mutation type, represents all updates we can make to our data"
 type Mutation {
-  "#[ownership(owned)]"
-  createReview(episode: Episode, review: ReviewInput!): Review
+  createReview(episode: Episode, review: ReviewInput!): Review @juniper(ownership: "owned")
 }
 
 "The episodes in the Star Wars trilogy"
@@ -35,9 +32,8 @@ enum Episode {
 interface Character {
   """
   The ID of the character
-  #[ownership(owned)]
   """
-  id: ID!
+  id: ID! @juniper(ownership: "owned")
   "The name of the character"
   name: String!
 }
@@ -46,9 +42,8 @@ interface Character {
 type Human implements Character {
   """
   The ID of the human
-  #[ownership(owned)]
   """
-  id: ID!
+  id: ID! @juniper(ownership: "owned")
   "What this human calls themselves"
   name: String!
 }
@@ -57,9 +52,8 @@ type Human implements Character {
 type Droid implements Character {
   """
   The ID of the human
-  #[ownership(owned)]
   """
-  id: ID!
+  id: ID! @juniper(ownership: "owned")
   "What this human calls themselves"
   name: String!
 }

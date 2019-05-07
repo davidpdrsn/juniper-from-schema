@@ -9,10 +9,8 @@ use graphql_parser::{
     Pos,
 };
 use heck::{CamelCase, SnakeCase};
-use lazy_static::lazy_static;
 use proc_macro2::{TokenStream, TokenTree};
 use quote::quote;
-use regex::Regex;
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
     iter::Extend,
@@ -748,50 +746,49 @@ impl<'doc> CodeGenPass<'doc> {
         quote! {}
     }
 
-    fn parse_attributes(&mut self, field: &'doc Field) -> Attributes {
-        field
-            .description
-            .as_ref()
-            .map(|desc| self.parse_attributes_from_description(&desc, field.position))
-            .unwrap_or_else(Attributes::default)
+    fn parse_attributes(&mut self, field: &Field) -> Attributes {
+        self.parse_attributes_from_directives(&field.directives)
     }
 
-    fn parse_attributes_from_description(&mut self, desc: &'doc str, pos: Pos) -> Attributes {
-        let attrs = desc
-            .lines()
-            .filter_map(|line| self.parse_attributes_line(line, pos))
-            .collect();
+    fn parse_attributes_from_directives(&mut self, directives: &[Directive]) -> Attributes {
+        let mut attrs = vec![];
+
+        for directive in directives {
+            if directive.name == "juniper" {
+                let arguments = directive_args_to_map(&directive.arguments);
+
+                let mut invalid = || {
+                    self.emit_non_fatal_error(
+                        directive.position,
+                        ErrorKind::InvalidArgumentsToJuniperDirective,
+                    );
+                };
+
+                if arguments.keys().count() > 1 {
+                    invalid();
+                }
+
+                if let Some(value) = arguments.get(&"ownership".to_string()) {
+                    if let Value::String(ownership) = value {
+                        if ownership == "owned" {
+                            attrs.push(Attribute::Ownership(Ownership::Owned))
+                        } else if ownership == "borrowed" {
+                            attrs.push(Attribute::Ownership(Ownership::Borrowed))
+                        } else {
+                            invalid();
+                        }
+                    } else {
+                        invalid();
+                    }
+                } else {
+                    invalid();
+                }
+            } else {
+                // Other directives are handled by `error_if_has_unsupported_directive`
+            }
+        }
 
         Attributes { list: attrs }
-    }
-
-    fn parse_attributes_line(&mut self, line: &'doc str, pos: Pos) -> Option<Attribute> {
-        let caps = ATTRIBUTE_PATTERN.captures(line)?;
-        let key = caps.name("key")?.as_str();
-        let value = caps.name("value")?.as_str();
-
-        let attr = match key {
-            "ownership" => {
-                let value = match value {
-                    "borrowed" => Some(Ownership::Borrowed),
-                    "owned" => Some(Ownership::Owned),
-                    value => {
-                        self.emit_non_fatal_error(
-                            pos,
-                            ErrorKind::UnsupportedAttributePair(key, value),
-                        );
-                        None
-                    }
-                }?;
-                Some(Attribute::Ownership(value))
-            }
-            attr => {
-                self.emit_non_fatal_error(pos, ErrorKind::UnsupportedAttribute(attr));
-                None
-            }
-        }?;
-
-        Some(attr)
     }
 
     fn quote_value(&mut self, value: &Value, type_name: &str, pos: Pos) -> TokenStream {
@@ -1102,11 +1099,6 @@ impl Attributes {
     }
 }
 
-lazy_static! {
-    static ref ATTRIBUTE_PATTERN: Regex =
-        Regex::new(r"\s*#\[(?P<key>\w+)\((?P<value>\w+)\)\]").unwrap();
-}
-
 fn doc_tokens(doc: &Option<String>) -> TokenStream {
     if let Some(doc) = doc {
         quote! {
@@ -1115,6 +1107,14 @@ fn doc_tokens(doc: &Option<String>) -> TokenStream {
     } else {
         quote! {}
     }
+}
+
+fn directive_args_to_map(map: &[(String, Value)]) -> BTreeMap<&String, &Value> {
+    let mut out = BTreeMap::new();
+    for (key, value) in map {
+        out.insert(key, value);
+    }
+    out
 }
 
 trait GetDirectives {
@@ -1152,7 +1152,7 @@ macro_rules! impl_GetDirectives {
 // All the schema types that have directives
 impl_GetDirectives!(EnumType);
 impl_GetDirectives!(EnumValue, supported_directives: ["deprecated"]);
-impl_GetDirectives!(Field, supported_directives: ["deprecated"]);
+impl_GetDirectives!(Field, supported_directives: ["deprecated", "juniper"]);
 impl_GetDirectives!(InputObjectType);
 impl_GetDirectives!(InputValue);
 impl_GetDirectives!(InterfaceType);

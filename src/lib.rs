@@ -34,10 +34,9 @@
 //! }
 //!
 //! type Query {
-//!   // this makes the return value `FieldResult<String>`
+//!   // The directive makes the return value `FieldResult<String>`
 //!   // rather than the default `FieldResult<&String>`
-//!   "#[ownership(owned)]"
-//!   helloWorld(name: String!): String!
+//!   helloWorld(name: String!): String! @juniper(ownership: "owned")
 //! }
 //!
 //! type Mutation {
@@ -206,7 +205,7 @@
 //! returned owned values.
 //!
 //! However if you need to return owned values (such as values queried from a database) you have to
-//! annotate the field in the schema with `#[ownership(owned)]`.
+//! add the directive `@juniper(ownership: "owned")` to the field in the schema.
 //!
 //! All field arguments will be owned.
 //!
@@ -301,8 +300,7 @@
 //!     }
 //!
 //!     type Query {
-//!         "#[ownership(owned)]"
-//!         search(query: String!): [SearchResult!]!
+//!         search(query: String!): [SearchResult!]! @juniper(ownership: "owned")
 //!     }
 //!
 //!     interface SearchResult {
@@ -389,8 +387,7 @@
 //!     }
 //!
 //!     type Query {
-//!         "#[ownership(owned)]"
-//!         search(query: String!): [SearchResult!]!
+//!         search(query: String!): [SearchResult!]! @juniper(ownership: "owned")
 //!     }
 //!
 //!     union SearchResult = Article | Tweet
@@ -473,8 +470,7 @@
 //!     }
 //!
 //!     type Mutation {
-//!         "#[ownership(owned)]"
-//!         createPost(input: CreatePost!): Post
+//!         createPost(input: CreatePost!): Post @juniper(ownership: "owned")
 //!     }
 //!
 //!     input CreatePost {
@@ -549,8 +545,7 @@
 //!     }
 //!
 //!     type Query {
-//!         "#[ownership(owned)]"
-//!         allPosts(status: Status!): [Post!]!
+//!         allPosts(status: Status!): [Post!]! @juniper(ownership: "owned")
 //!     }
 //!
 //!     type Post {
@@ -625,11 +620,10 @@
 //!     }
 //!
 //!     type Query {
-//!         "#[ownership(owned)]"
 //!         allPosts(
 //!             status: Status = PUBLISHED,
 //!             pagination: Pagination = { pageSize: 20 }
-//!         ): [Post!]!
+//!         ): [Post!]! @juniper(ownership: "owned")
 //!     }
 //!
 //!     type Post {
@@ -742,8 +736,7 @@
 //!     }
 //!
 //!     type Query {
-//!         "#[ownership(owned)]"
-//!         allPosts: [Post!]!
+//!         allPosts: [Post!]! @juniper(ownership: "owned")
 //!     }
 //!
 //!     type Post {
@@ -1002,8 +995,7 @@ pub fn graphql_schema_from_file(input: proc_macro::TokenStream) -> proc_macro::T
 ///     }
 ///
 ///     type Query {
-///         "#[ownership(owned)]"
-///         helloWorld: String!
+///         helloWorld: String! @juniper(ownership: "owned")
 ///     }
 /// }
 ///

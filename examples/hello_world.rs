@@ -14,10 +14,9 @@ graphql_schema! {
     }
 
     type Query {
-      // this makes the return value `FieldResult<String>`
+      // The directive makes the return value `FieldResult<String>`
       // rather than the default `FieldResult<&String>`
-      "#[ownership(owned)]"
-      helloWorld(name: String!): String!
+      helloWorld(name: String!): String! @juniper(ownership: "owned")
     }
 
     type Mutation {

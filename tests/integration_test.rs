@@ -480,39 +480,30 @@ mod query_trail_methods_for_interfaces {
 
     graphql_schema! {
         type Query {
-          "#[ownership(owned)]"
-          posts: [Post!]!
+          posts: [Post!]! @juniper(ownership: "owned")
         }
 
         type Post {
-          "#[ownership(owned)]"
-          comments: [Comment!]!
+          comments: [Comment!]! @juniper(ownership: "owned")
         }
 
         interface Entity {
-          "#[ownership(owned)]"
-          id: Int!
-          "#[ownership(owned)]"
-          country: Country!
+          id: Int! @juniper(ownership: "owned")
+          country: Country! @juniper(ownership: "owned")
         }
 
         type User implements Entity {
-          "#[ownership(owned)]"
-          country: Country!
-          "#[ownership(owned)]"
-          id: Int!
+          country: Country! @juniper(ownership: "owned")
+          id: Int! @juniper(ownership: "owned")
         }
 
         type Country {
-          "#[ownership(owned)]"
-          id: Int!
+          id: Int! @juniper(ownership: "owned")
         }
 
         type Comment {
-          "#[ownership(owned)]"
-          author: Entity!
-          "#[ownership(owned)]"
-          id: Int!
+          author: Entity! @juniper(ownership: "owned")
+          id: Int! @juniper(ownership: "owned")
         }
 
         schema {
@@ -606,43 +597,33 @@ mod query_trail_methods_for_union_types {
 
     graphql_schema! {
         type Query {
-          "#[ownership(owned)]"
-          posts: [Post!]!
+          posts: [Post!]! @juniper(ownership: "owned")
         }
 
         type Post {
-          "#[ownership(owned)]"
-          comments: [Comment!]!
+          comments: [Comment!]! @juniper(ownership: "owned")
         }
 
         union Entity = User | Company
 
         type User {
-          "#[ownership(owned)]"
-          country: Country!
-          "#[ownership(owned)]"
-          id: Int!
+          country: Country! @juniper(ownership: "owned")
+          id: Int! @juniper(ownership: "owned")
         }
 
         type Company {
-          "#[ownership(owned)]"
-          country_of_operation: Country!
-          "#[ownership(owned)]"
-          id: Int!
-          "#[ownership(owned)]"
-          name: String!
+          country_of_operation: Country! @juniper(ownership: "owned")
+          id: Int! @juniper(ownership: "owned")
+          name: String! @juniper(ownership: "owned")
         }
 
         type Country {
-          "#[ownership(owned)]"
-          id: Int!
+          id: Int! @juniper(ownership: "owned")
         }
 
         type Comment {
-          "#[ownership(owned)]"
-          author: Entity!
-          "#[ownership(owned)]"
-          id: Int!
+          author: Entity! @juniper(ownership: "owned")
+          id: Int! @juniper(ownership: "owned")
         }
 
         schema {
@@ -808,5 +789,25 @@ mod empty_mutations {
             &Context,
         )
         .unwrap();
+    }
+}
+
+mod ownership_with_directives {
+    use super::*;
+
+    graphql_schema! {
+        type Query {
+            string: String! @juniper(ownership: "owned")
+        }
+
+        schema { query: Query }
+    }
+
+    pub struct Query;
+
+    impl QueryFields for Query {
+        fn field_string<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<String> {
+            unimplemented!()
+        }
     }
 }

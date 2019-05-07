@@ -1,17 +1,14 @@
 type Query {
-  "#[ownership(owned)]"
-  userNonNull(id: Int!): User!
+  userNonNull(id: Int!): User! @juniper(ownership: "owned")
 
-  "#[ownership(owned)]"
-  userNullable(id: Int!): User
+  userNullable(id: Int!): User @juniper(ownership: "owned")
 }
 
 type User {
   id: Int!
   nameNonNull: String!
 
-  "#[ownership(owned)]"
-  nameNullable: String
+  nameNullable: String @juniper(ownership: "owned")
 }
 
 schema {

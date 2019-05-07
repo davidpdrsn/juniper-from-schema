@@ -13,8 +13,7 @@ graphql_schema! {
     }
 
     type Mutation {
-        "#[ownership(owned)]"
-        createPost(input: CreatePost!): Post
+        createPost(input: CreatePost!): Post @juniper(ownership: "owned")
     }
 
     input CreatePost {

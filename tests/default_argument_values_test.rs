@@ -11,38 +11,27 @@ use std::collections::HashMap;
 
 graphql_schema! {
     type Query {
-        "#[ownership(owned)]"
-        int(arg: Int = 1): Int!
+        int(arg: Int = 1): Int! @juniper(ownership: "owned")
 
-        "#[ownership(owned)]"
-        float(arg: Float = 1.5): Float!
+        float(arg: Float = 1.5): Float! @juniper(ownership: "owned")
 
-        "#[ownership(owned)]"
-        string(arg: String = "foo"): String!
+        string(arg: String = "foo"): String! @juniper(ownership: "owned")
 
-        "#[ownership(owned)]"
-        boolean(arg: Boolean = true): Boolean!
+        boolean(arg: Boolean = true): Boolean! @juniper(ownership: "owned")
 
-        "#[ownership(owned)]"
-        list(arg: [Int!] = [1, 2, 3]): [Int!]!
+        list(arg: [Int!] = [1, 2, 3]): [Int!]! @juniper(ownership: "owned")
 
-        "#[ownership(owned)]"
-        enumeration(arg: Unit = METER): UNIT!
+        enumeration(arg: Unit = METER): UNIT! @juniper(ownership: "owned")
 
-        "#[ownership(owned)]"
-        object(arg: CoordinateIn = { lat: 1.0, long: 2.0 }): CoordinateOut!
+        object(arg: CoordinateIn = { lat: 1.0, long: 2.0 }): CoordinateOut! @juniper(ownership: "owned")
 
-        "#[ownership(owned)]"
-        objectNullable(arg: Pagination = { pageSize: null }): Int
+        objectNullable(arg: Pagination = { pageSize: null }): Int @juniper(ownership: "owned")
 
-        "#[ownership(owned)]"
-        objectNullableSet(arg: Pagination = { pageSize: 1 }): Int
+        objectNullableSet(arg: Pagination = { pageSize: 1 }): Int @juniper(ownership: "owned")
 
-        "#[ownership(owned)]"
-        objectNullablePartial(arg: A = { a: "a arg" }): [String]!
+        objectNullablePartial(arg: A = { a: "a arg" }): [String]! @juniper(ownership: "owned")
 
-        "#[ownership(owned)]"
-        objectNullableNesting(arg: B = { c: { x: 1 } }): [Int]!
+        objectNullableNesting(arg: B = { c: { x: 1 } }): [Int]! @juniper(ownership: "owned")
     }
 
     input CoordinateIn {

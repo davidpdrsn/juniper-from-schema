@@ -36,10 +36,9 @@ schema {
 }
 
 type Query {
-  // this makes the return value `FieldResult<String>`
+  // The directive makes the return value `FieldResult<String>`
   // rather than the default `FieldResult<&String>`
-  "#[ownership(owned)]"
-  helloWorld(name: String!): String!
+  helloWorld(name: String!): String! @juniper(ownership: "owned")
 }
 
 type Mutation {
@@ -208,7 +207,7 @@ returning data owned by `self` and avoids needless `.clone()` calls you would ne
 returned owned values.
 
 However if you need to return owned values (such as values queried from a database) you have to
-annotate the field in the schema with `#[ownership(owned)]`.
+add the directive `@juniper(ownership: "owned")` to the field in the schema.
 
 All field arguments will be owned.
 
@@ -274,8 +273,7 @@ graphql_schema! {
     }
 
     type Query {
-        "#[ownership(owned)]"
-        search(query: String!): [SearchResult!]!
+        search(query: String!): [SearchResult!]! @juniper(ownership: "owned")
     }
 
     interface SearchResult {
@@ -333,8 +331,7 @@ graphql_schema! {
     }
 
     type Query {
-        "#[ownership(owned)]"
-        search(query: String!): [SearchResult!]!
+        search(query: String!): [SearchResult!]! @juniper(ownership: "owned")
     }
 
     union SearchResult = Article | Tweet
@@ -386,8 +383,7 @@ graphql_schema! {
     }
 
     type Mutation {
-        "#[ownership(owned)]"
-        createPost(input: CreatePost!): Post
+        createPost(input: CreatePost!): Post @juniper(ownership: "owned")
     }
 
     input CreatePost {
@@ -446,8 +442,7 @@ graphql_schema! {
     }
 
     type Query {
-        "#[ownership(owned)]"
-        allPosts(status: Status!): [Post!]!
+        allPosts(status: Status!): [Post!]! @juniper(ownership: "owned")
     }
 
     type Post {
@@ -506,11 +501,10 @@ graphql_schema! {
     }
 
     type Query {
-        "#[ownership(owned)]"
         allPosts(
             status: Status = PUBLISHED,
             pagination: Pagination = { pageSize: 20 }
-        ): [Post!]!
+        ): [Post!]! @juniper(ownership: "owned")
     }
 
     type Post {
@@ -616,8 +610,7 @@ graphql_schema! {
     }
 
     type Query {
-        "#[ownership(owned)]"
-        allPosts: [Post!]!
+        allPosts: [Post!]! @juniper(ownership: "owned")
     }
 
     type Post {
