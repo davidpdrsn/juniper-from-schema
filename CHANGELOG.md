@@ -8,8 +8,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Added
 
-- Support default values for input objects.
-- Support `deprecated` directives on fields and enum values.
+N/A
 
 ### Changed
 
@@ -18,6 +17,17 @@ N/A
 ### Removed
 
 N/A
+
+### Fixed
+
+N/A
+
+## [0.1.7] - 2019-05-07
+
+### Added
+
+- Support default values for input objects.
+- Support `deprecated` directives on fields and enum values.
 
 ### Fixed
 
@@ -84,6 +94,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.1.7]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.6...0.1.7
 [0.1.6]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.5...0.1.6
 [0.1.5]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.4...0.1.5
 [0.1.4]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.3...0.1.4

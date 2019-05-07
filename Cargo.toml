@@ -1,5 +1,5 @@
 [package]
-version = "0.1.6"
+version = "0.1.7"
 authors = ["David Pedersen <david.pdrsn@gmail.com>"]
 categories = ["web-programming"]
 description = "Generate Juniper code from you GraphQL schema"
