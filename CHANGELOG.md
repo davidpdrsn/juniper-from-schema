@@ -12,7 +12,7 @@ N/A
 
 ### Changed
 
-- Replace the magic `#[ownership(owned)]` comment with a schema directive.
+N/A
 
 ### Removed
 
@@ -21,6 +21,12 @@ N/A
 ### Fixed
 
 N/A
+
+## [0.2.0] - 2019-05-08
+
+### Changed
+
+- Replace the magic `#[ownership(owned)]` comment with a schema directive.
 
 ## [0.1.7] - 2019-05-07
 
@@ -94,6 +100,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.2.0]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.7...0.2.0
 [0.1.7]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.6...0.1.7
 [0.1.6]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.5...0.1.6
 [0.1.5]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.4...0.1.5
