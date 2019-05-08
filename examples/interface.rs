@@ -12,8 +12,7 @@ graphql_schema! {
     }
 
     type Query {
-        "#[ownership(owned)]"
-        search(query: String!): [SearchResult!]!
+        search(query: String!): [SearchResult!]! @juniper(ownership: "owned")
     }
 
     interface SearchResult {

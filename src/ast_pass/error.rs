@@ -75,10 +75,10 @@ pub enum ErrorKind<'doc> {
         type_b: &'doc str,
         field_type_b: &'doc str,
     },
-    UnsupportedAttribute(&'doc str),
-    UnsupportedAttributePair(&'doc str, &'doc str),
     VariableDefaultValue,
     InputTypeFieldWithDefaultValue,
+    InvalidArgumentsToDeprecateDirective,
+    InvalidArgumentsToJuniperDirective,
 }
 
 impl<'doc> ErrorKind<'doc> {
@@ -100,13 +100,6 @@ impl<'doc> ErrorKind<'doc> {
             ErrorKind::NonnullableFieldWithDefaultValue => {
                 "Fields with default arguments values must be nullable".to_string()
             }
-            ErrorKind::UnsupportedAttribute(attr) => {
-                format!("The attribute {} is unsupported", attr)
-            }
-            ErrorKind::UnsupportedAttributePair(attr, value) => format!(
-                "Unsupported attribute value '{}' for attribute '{}'",
-                value, attr
-            ),
             ErrorKind::VariableDefaultValue => {
                 "Default arguments cannot refer to variables".to_string()
             }
@@ -117,6 +110,12 @@ impl<'doc> ErrorKind<'doc> {
             ),
             ErrorKind::InputTypeFieldWithDefaultValue => {
                 "Default values for input type fields are not supported".to_string()
+            }
+            ErrorKind::InvalidArgumentsToDeprecateDirective => {
+                "Invalid arguments passed to @deprecated".to_string()
+            }
+            ErrorKind::InvalidArgumentsToJuniperDirective => {
+                "Invalid arguments passed to @juniper".to_string()
             }
         }
     }
@@ -154,6 +153,15 @@ impl<'doc> ErrorKind<'doc> {
                 writeln!(f, "in both the input type definition and field argument");
                 writeln!(f);
                 writeln!(f, "See https://github.com/webonyx/graphql-php/issues/350 for an example");
+                Some(f)
+            }
+            ErrorKind::InvalidArgumentsToDeprecateDirective => {
+                Some("It takes 0 or 1 argument and the argument most be named `reason` and be of type `String`".to_string())
+            }
+            ErrorKind::InvalidArgumentsToJuniperDirective => {
+                let mut f = String::new();
+                writeln!(f, "It takes exactly 1 argument and the argument most be named `ownership`");
+                writeln!(f, "and be either \"owned\" or \"borrowed\"");
                 Some(f)
             }
             _ => None,

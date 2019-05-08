@@ -12,7 +12,7 @@ N/A
 
 ### Changed
 
-N/A
+- Replace the magic `#[ownership(owned)]` comment with a schema directive.
 
 ### Removed
 

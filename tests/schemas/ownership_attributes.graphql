@@ -1,17 +1,13 @@
 type Query {
   """
   Some other comment
-
-  #[ownership(borrowed)]
   """
-  borrowed_string: String!
+  borrowed_string: String! @juniper(ownership: "borrowed")
 
   """
   Some other comment
-
-  #[ownership(owned)]
   """
-  owned_string: String!
+  owned_string: String! @juniper(ownership: "owned")
 }
 
 schema {

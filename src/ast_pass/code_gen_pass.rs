@@ -9,10 +9,8 @@ use graphql_parser::{
     Pos,
 };
 use heck::{CamelCase, SnakeCase};
-use lazy_static::lazy_static;
 use proc_macro2::{TokenStream, TokenTree};
 use quote::quote;
-use regex::Regex;
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
     iter::Extend,
@@ -567,11 +565,7 @@ impl<'doc> CodeGenPass<'doc> {
 
         let inner_type = type_name(&field.field_type).to_camel_case();
 
-        let attributes = field
-            .description
-            .as_ref()
-            .map(|d| self.parse_attributes(&d, field.position))
-            .unwrap_or_else(Attributes::default);
+        let attributes = self.parse_attributes(&field);
 
         let (field_type, type_kind) = self.gen_field_type(
             &field.field_type,
@@ -691,7 +685,7 @@ impl<'doc> CodeGenPass<'doc> {
 
     fn error_if_has_unsupported_directive<T: GetDirectives>(&mut self, t: &T) {
         for directive in t.directives() {
-            if directive.name == "deprecated" && t.supports_deprecations() {
+            if t.supports_directive(&directive.name) {
                 continue;
             }
             self.emit_non_fatal_error(directive.position, ErrorKind::DirectivesNotSupported);
@@ -716,7 +710,7 @@ impl<'doc> CodeGenPass<'doc> {
         }
     }
 
-    fn quote_deprecations(&self, directives: &'doc [Directive]) -> TokenStream {
+    fn quote_deprecations(&mut self, directives: &[Directive]) -> TokenStream {
         for directive in directives {
             if directive.name == "deprecated" {
                 let mut arguments = BTreeMap::new();
@@ -724,8 +718,25 @@ impl<'doc> CodeGenPass<'doc> {
                     arguments.insert(key, value);
                 }
 
-                if let Some(Value::String(reason)) = arguments.get(&"reason".to_string()) {
-                    return quote! { #[deprecated(note = #reason)] };
+                if arguments.keys().count() > 1 {
+                    self.emit_non_fatal_error(
+                        directive.position,
+                        ErrorKind::InvalidArgumentsToDeprecateDirective,
+                    );
+                }
+
+                if let Some(value) = arguments.get(&"reason".to_string()) {
+                    let tokens = match value {
+                        Value::String(reason) => quote! { #[deprecated(note = #reason)] },
+                        _ => {
+                            self.emit_non_fatal_error(
+                                directive.position,
+                                ErrorKind::InvalidArgumentsToDeprecateDirective,
+                            );
+                            quote! { #[deprecated] }
+                        }
+                    };
+                    return tokens;
                 } else {
                     return quote! { #[deprecated] };
                 }
@@ -735,41 +746,49 @@ impl<'doc> CodeGenPass<'doc> {
         quote! {}
     }
 
-    fn parse_attributes(&mut self, desc: &'doc str, pos: Pos) -> Attributes {
-        let attrs = desc
-            .lines()
-            .filter_map(|line| self.parse_attributes_line(line, pos))
-            .collect();
-        Attributes { list: attrs }
+    fn parse_attributes(&mut self, field: &Field) -> Attributes {
+        self.parse_attributes_from_directives(&field.directives)
     }
 
-    fn parse_attributes_line(&mut self, line: &'doc str, pos: Pos) -> Option<Attribute> {
-        let caps = ATTRIBUTE_PATTERN.captures(line)?;
-        let key = caps.name("key")?.as_str();
-        let value = caps.name("value")?.as_str();
+    fn parse_attributes_from_directives(&mut self, directives: &[Directive]) -> Attributes {
+        let mut attrs = vec![];
 
-        let attr = match key {
-            "ownership" => {
-                let value = match value {
-                    "borrowed" => Some(Ownership::Borrowed),
-                    "owned" => Some(Ownership::Owned),
-                    value => {
-                        self.emit_non_fatal_error(
-                            pos,
-                            ErrorKind::UnsupportedAttributePair(key, value),
-                        );
-                        None
+        for directive in directives {
+            if directive.name == "juniper" {
+                let arguments = directive_args_to_map(&directive.arguments);
+
+                let mut invalid = || {
+                    self.emit_non_fatal_error(
+                        directive.position,
+                        ErrorKind::InvalidArgumentsToJuniperDirective,
+                    );
+                };
+
+                if arguments.keys().count() > 1 {
+                    invalid();
+                }
+
+                if let Some(value) = arguments.get(&"ownership".to_string()) {
+                    if let Value::String(ownership) = value {
+                        if ownership == "owned" {
+                            attrs.push(Attribute::Ownership(Ownership::Owned))
+                        } else if ownership == "borrowed" {
+                            attrs.push(Attribute::Ownership(Ownership::Borrowed))
+                        } else {
+                            invalid();
+                        }
+                    } else {
+                        invalid();
                     }
-                }?;
-                Some(Attribute::Ownership(value))
+                } else {
+                    invalid();
+                }
+            } else {
+                // Other directives are handled by `error_if_has_unsupported_directive`
             }
-            attr => {
-                self.emit_non_fatal_error(pos, ErrorKind::UnsupportedAttribute(attr));
-                None
-            }
-        }?;
+        }
 
-        Some(attr)
+        Attributes { list: attrs }
     }
 
     fn quote_value(&mut self, value: &Value, type_name: &str, pos: Pos) -> TokenStream {
@@ -1080,11 +1099,6 @@ impl Attributes {
     }
 }
 
-lazy_static! {
-    static ref ATTRIBUTE_PATTERN: Regex =
-        Regex::new(r"\s*#\[(?P<key>\w+)\((?P<value>\w+)\)\]").unwrap();
-}
-
 fn doc_tokens(doc: &Option<String>) -> TokenStream {
     if let Some(doc) = doc {
         quote! {
@@ -1095,23 +1109,29 @@ fn doc_tokens(doc: &Option<String>) -> TokenStream {
     }
 }
 
+fn directive_args_to_map(map: &[(String, Value)]) -> BTreeMap<&String, &Value> {
+    let mut out = BTreeMap::new();
+    for (key, value) in map {
+        out.insert(key, value);
+    }
+    out
+}
+
 trait GetDirectives {
     fn directives(&self) -> &Vec<Directive>;
 
-    fn supports_deprecations(&self) -> bool {
-        false
-    }
+    fn supports_directive(&self, name: &str) -> bool;
 }
 
 macro_rules! impl_GetDirectives {
-    ($name:path, supports_deprecations: $supports_deprecations:expr) => {
+    ($name:path, supported_directives: $supported_directives:expr) => {
         impl GetDirectives for &$name {
             fn directives(&self) -> &Vec<Directive> {
                 &self.directives
             }
 
-            fn supports_deprecations(&self) -> bool {
-                $supports_deprecations
+            fn supports_directive(&self, name: &str) -> bool {
+                $supported_directives.contains(&name)
             }
         }
     };
@@ -1121,14 +1141,18 @@ macro_rules! impl_GetDirectives {
             fn directives(&self) -> &Vec<Directive> {
                 &self.directives
             }
+
+            fn supports_directive(&self, _: &str) -> bool {
+                false
+            }
         }
     };
 }
 
 // All the schema types that have directives
 impl_GetDirectives!(EnumType);
-impl_GetDirectives!(EnumValue, supports_deprecations: true);
-impl_GetDirectives!(Field, supports_deprecations: true);
+impl_GetDirectives!(EnumValue, supported_directives: ["deprecated"]);
+impl_GetDirectives!(Field, supported_directives: ["deprecated", "juniper"]);
 impl_GetDirectives!(InputObjectType);
 impl_GetDirectives!(InputValue);
 impl_GetDirectives!(InterfaceType);

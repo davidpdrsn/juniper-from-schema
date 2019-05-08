@@ -3,43 +3,33 @@ include!("../setup.rs");
 
 graphql_schema! {
     type Query {
-      "#[ownership(owned)]"
-      posts: [Post!]!
+      posts: [Post!]! @juniper(ownership: "owned")
     }
 
     type Post {
-      "#[ownership(owned)]"
-      comments: [Comment!]!
+      comments: [Comment!]! @juniper(ownership: "owned")
     }
 
     union Entity = User | Company
 
     type User {
-      "#[ownership(owned)]"
-      country: Country!
-      "#[ownership(owned)]"
-      id: Int!
+      country: Country! @juniper(ownership: "owned")
+      id: Int! @juniper(ownership: "owned")
     }
 
     type Company {
-      "#[ownership(owned)]"
-      country_of_operation: Country!
-      "#[ownership(owned)]"
-      id: Int!
-      "#[ownership(owned)]"
-      name: String!
+      country_of_operation: Country! @juniper(ownership: "owned")
+      id: Int! @juniper(ownership: "owned")
+      name: String! @juniper(ownership: "owned")
     }
 
     type Country {
-      "#[ownership(owned)]"
-      id: Int!
+      id: Int! @juniper(ownership: "owned")
     }
 
     type Comment {
-      "#[ownership(owned)]"
-      author: Entity!
-      "#[ownership(owned)]"
-      id: Int!
+      author: Entity! @juniper(ownership: "owned")
+      id: Int! @juniper(ownership: "owned")
     }
 
     schema {

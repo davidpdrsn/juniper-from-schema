@@ -4,8 +4,7 @@ schema {
 }
 
 type Query {
-  "#[ownership(owned)]"
-  helloWorld(name: String!): String!
+  helloWorld(name: String!): String! @juniper(ownership: "owned")
 }
 
 type Mutation {

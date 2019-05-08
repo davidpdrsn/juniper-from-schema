@@ -17,8 +17,7 @@ graphql_schema! {
     }
 
     type Query {
-        "#[ownership(owned)]"
-        allPosts(status: Status = PUBLISHED): [Post!]!
+        allPosts(status: Status = PUBLISHED): [Post!]! @juniper(ownership: "owned")
     }
 
     type Post {
