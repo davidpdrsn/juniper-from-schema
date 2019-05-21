@@ -8,7 +8,3 @@ removes most of the boilerplate involved in using Juniper.
 [macro calls]: https://graphql-rust.github.io/types/objects/complex_fields.html
 
 See the [crate documentation](https://docs.rs/juniper-from-schema/) for a usage examples and more info.
-
----
-
-License: MIT

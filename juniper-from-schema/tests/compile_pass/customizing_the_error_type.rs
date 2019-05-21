@@ -2,8 +2,8 @@
 include!("../setup.rs");
 
 graphql_schema_from_file!(
-    "../../../tests/schemas/very_simple_schema.graphql",
-    error_type: MyError,
+    "../../../juniper-from-schema/tests/schemas/very_simple_schema.graphql",
+    error_type: MyError
 );
 
 pub enum MyError {

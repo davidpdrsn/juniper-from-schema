@@ -12,7 +12,7 @@ N/A
 
 ### Changed
 
-N/A
+- Break crate into two: One that exposes shared types, one that does the code generation. Should not be a breaking change.
 
 ### Removed
 

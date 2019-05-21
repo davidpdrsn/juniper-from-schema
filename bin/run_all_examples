@@ -1,5 +1,12 @@
 #!/bin/bash
-
 set -e
 
-find examples -name "*.rs" | while read f; do cargo run --example "`echo $f | sed "s/examples\///g" | sed "s/\.rs//g"`"; done
+main() {
+    cd juniper-from-schema
+    find examples -name "*.rs" |
+        while read f; do cargo run --example "`echo $f |
+            sed "s/examples\///g" |
+            sed "s/\.rs//g"`"; done
+}
+
+main

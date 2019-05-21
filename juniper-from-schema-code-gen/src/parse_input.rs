@@ -12,7 +12,7 @@ pub fn parse_input(input: &str) -> Result<ParseCodeGenPass, ()> {
     let re_without_error_type = Regex::new(r#"^"(?P<file>[^"]+)"$"#).expect("invalid regex");
 
     let re_with_error_type =
-        Regex::new(r#"^"(?P<file>[^"]+)" *, *error_type *: *(?P<error_type>[^,]+),?$"#)
+        Regex::new(r#"^"(?P<file>[^"]+)"\s*,\s*error_type\s*:\s*(?P<error_type>[^,]+)(\s*,)?$"#)
             .expect("invalid regex");
 
     let file;

@@ -1,7 +1,9 @@
 #![allow(dead_code, unused_variables, unused_must_use, unused_imports)]
 include!("../setup.rs");
 
-graphql_schema_from_file!("../../../tests/schemas/returning_references.graphql");
+graphql_schema_from_file!(
+    "../../../juniper-from-schema/tests/schemas/returning_references.graphql"
+);
 
 pub struct Query;
 
