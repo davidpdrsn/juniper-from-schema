@@ -12,7 +12,7 @@ N/A
 
 ### Changed
 
-- Break crate into two: One that exposes shared types, one that does the code generation. Should not be a breaking change.
+N/A
 
 ### Removed
 
@@ -21,6 +21,12 @@ N/A
 ### Fixed
 
 N/A
+
+## [0.2.1] - 2019-05-24
+
+### Changed
+
+- Break crate into two: One that exposes shared types, one that does the code generation. Should not be a breaking change.
 
 ## [0.2.0] - 2019-05-08
 
@@ -100,6 +106,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.2.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.0...0.2.1
 [0.2.0]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.7...0.2.0
 [0.1.7]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.6...0.1.7
 [0.1.6]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.5...0.1.6
