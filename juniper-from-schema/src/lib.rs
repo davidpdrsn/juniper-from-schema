@@ -204,8 +204,16 @@
 //! returning data owned by `self` and avoids needless `.clone()` calls you would need if fields
 //! returned owned values.
 //!
-//! However if you need to return owned values (such as values queried from a database) you have to
-//! add the directive `@juniper(ownership: "owned")` to the field in the schema.
+//! However if you need to change the ownership you have to add the directive
+//! `@juniper(ownership:)` to the field in the schema.
+//!
+//! It takes the following arguments:
+//!
+//! - `@juniper(ownership: "borrowed")`: The return type will be borrowed from `self`
+//! (`FieldResult<&T>`).
+//! - `@juniper(ownership: "owned")`: The return type will be owned (`FieldResult<T>`).
+//! - `@juniper(ownership: "as_ref")`: Only applicable for `Option` and `Vec` return types. Changes
+//! the inner type to be borrowed (`FieldResult<Option<&T>>` or `FieldResult<Vec<&T>>`).
 //!
 //! All field arguments will be owned.
 //!
