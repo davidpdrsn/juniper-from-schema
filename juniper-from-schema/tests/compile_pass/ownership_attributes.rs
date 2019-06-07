@@ -1,9 +1,17 @@
 #![allow(dead_code, unused_variables, unused_must_use, unused_imports)]
 include!("../setup.rs");
 
-graphql_schema_from_file!(
-    "../../../juniper-from-schema/tests/schemas/ownership_attributes.graphql"
-);
+graphql_schema! {
+    type Query {
+      borrowed_string: String! @juniper(ownership: "borrowed")
+      owned_string: String! @juniper(ownership: "owned")
+      as_ref_string: String @juniper(ownership: "as_ref")
+    }
+
+    schema {
+      query: Query
+    }
+}
 
 pub struct Query;
 

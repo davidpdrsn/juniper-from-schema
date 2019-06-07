@@ -1,0 +1,22 @@
+error: proc macro panicked
+  --> $DIR/invalid_as_ref_type.rs:4:1
+   |
+4  | / graphql_schema! {
+5  | |     type Query {
+6  | |       as_ref_string: String! @juniper(ownership: "as_ref")
+7  | |     }
+...  |
+11 | |     }
+12 | | }
+   | |_^
+   |
+   = help: message: 
+           
+           [91merror[0m: @juniper(ownership: "as_ref") is only supported on `Option` and `Vec` types
+            --> schema:1:14
+             |
+           1 |    type Query { as_ref_string : String ! @ juniper ( ownership : "as_ref" ) }
+             |                 [91m^[0m
+           
+           
+           aborting due to previous error

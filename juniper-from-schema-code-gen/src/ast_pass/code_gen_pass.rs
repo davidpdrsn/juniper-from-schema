@@ -448,7 +448,13 @@ impl<'doc> CodeGenPass<'doc> {
         use crate::nullable_type::NullableType::*;
 
         match field_type {
-            NamedType(name) => self.graphql_scalar_type_to_rust_type(&name, pos),
+            NamedType(name) => {
+                if as_ref {
+                    self.emit_non_fatal_error(pos, ErrorKind::AsRefOwnershipForNamedType);
+                }
+
+                self.graphql_scalar_type_to_rust_type(&name, pos)
+            }
             ListType(item_type) => {
                 let (item_type, ty) = self.gen_nullable_field_type(*item_type, false, pos);
                 let tokens = if as_ref {

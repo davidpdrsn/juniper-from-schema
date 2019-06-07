@@ -79,6 +79,7 @@ pub enum ErrorKind<'doc> {
     InputTypeFieldWithDefaultValue,
     InvalidArgumentsToDeprecateDirective,
     InvalidArgumentsToJuniperDirective,
+    AsRefOwnershipForNamedType,
 }
 
 impl<'doc> ErrorKind<'doc> {
@@ -116,6 +117,10 @@ impl<'doc> ErrorKind<'doc> {
             }
             ErrorKind::InvalidArgumentsToJuniperDirective => {
                 "Invalid arguments passed to @juniper".to_string()
+            }
+            ErrorKind::AsRefOwnershipForNamedType => {
+                "@juniper(ownership: \"as_ref\") is only supported on `Option` and `Vec` types"
+                    .to_string()
             }
         }
     }
