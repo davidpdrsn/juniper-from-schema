@@ -8,7 +8,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Added
 
-N/A
+- Add support for "as_ref" ownership types such as `FieldResult<Option<&T>>`.
 
 ### Changed
 
