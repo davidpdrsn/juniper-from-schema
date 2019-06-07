@@ -161,7 +161,7 @@ impl<'doc> ErrorKind<'doc> {
             ErrorKind::InvalidArgumentsToJuniperDirective => {
                 let mut f = String::new();
                 writeln!(f, "It takes exactly 1 argument and the argument most be named `ownership`");
-                writeln!(f, "and be either \"owned\" or \"borrowed\"");
+                writeln!(f, "and be either \"owned\", \"borrowed\", or \"as_ref\"");
                 Some(f)
             }
             _ => None,

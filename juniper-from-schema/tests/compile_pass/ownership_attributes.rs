@@ -15,4 +15,11 @@ impl QueryFields for Query {
     fn field_owned_string<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<String> {
         unimplemented!()
     }
+
+    fn field_as_ref_string<'a>(
+        &self,
+        executor: &Executor<'a, Context>,
+    ) -> FieldResult<Option<&String>> {
+        unimplemented!()
+    }
 }

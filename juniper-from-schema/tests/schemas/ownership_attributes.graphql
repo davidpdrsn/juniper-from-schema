@@ -8,6 +8,8 @@ type Query {
   Some other comment
   """
   owned_string: String! @juniper(ownership: "owned")
+
+  as_ref_string: String @juniper(ownership: "as_ref")
 }
 
 schema {

@@ -417,11 +417,20 @@ impl<'doc> CodeGenPass<'doc> {
             field_type
         };
 
-        let (tokens, ty) = self.gen_nullable_field_type(field_type, pos);
+        let as_ref = match destination {
+            FieldTypeDestination::Return(attrs) => match attrs.ownership() {
+                Ownership::AsRef => true,
+                Ownership::Borrowed => false,
+                Ownership::Owned => false,
+            },
+            FieldTypeDestination::Argument => false,
+        };
+
+        let (tokens, ty) = self.gen_nullable_field_type(field_type, as_ref, pos);
 
         match (destination, ty) {
             (FieldTypeDestination::Return(attrs), ref ty) => match attrs.ownership() {
-                Ownership::Owned => (tokens, *ty),
+                Ownership::Owned | Ownership::AsRef => (tokens, *ty),
                 Ownership::Borrowed => (quote! { &#tokens }, *ty),
             },
 
@@ -433,6 +442,7 @@ impl<'doc> CodeGenPass<'doc> {
     fn gen_nullable_field_type(
         &mut self,
         field_type: NullableType,
+        as_ref: bool,
         pos: Pos,
     ) -> (TokenStream, TypeKind) {
         use crate::nullable_type::NullableType::*;
@@ -440,12 +450,22 @@ impl<'doc> CodeGenPass<'doc> {
         match field_type {
             NamedType(name) => self.graphql_scalar_type_to_rust_type(&name, pos),
             ListType(item_type) => {
-                let (item_type, ty) = self.gen_nullable_field_type(*item_type, pos);
-                (quote! { Vec<#item_type> }, ty)
+                let (item_type, ty) = self.gen_nullable_field_type(*item_type, false, pos);
+                let tokens = if as_ref {
+                    quote! { Vec<&#item_type> }
+                } else {
+                    quote! { Vec<#item_type> }
+                };
+                (tokens, ty)
             }
             NullableType(item_type) => {
-                let (item_type, ty) = self.gen_nullable_field_type(*item_type, pos);
-                (quote! { Option<#item_type> }, ty)
+                let (item_type, ty) = self.gen_nullable_field_type(*item_type, false, pos);
+                let tokens = if as_ref {
+                    quote! { Option<&#item_type> }
+                } else {
+                    quote! { Option<#item_type> }
+                };
+                (tokens, ty)
             }
         }
     }
@@ -776,6 +796,8 @@ impl<'doc> CodeGenPass<'doc> {
                             attrs.push(Attribute::Ownership(Ownership::Owned))
                         } else if ownership == "borrowed" {
                             attrs.push(Attribute::Ownership(Ownership::Borrowed))
+                        } else if ownership == "as_ref" {
+                            attrs.push(Attribute::Ownership(Ownership::AsRef))
                         } else {
                             invalid();
                         }
@@ -1075,6 +1097,7 @@ enum Attribute {
 enum Ownership {
     Borrowed,
     Owned,
+    AsRef,
 }
 
 #[derive(Debug, Eq, PartialEq)]
