@@ -8,7 +8,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Added
 
-- Add support for "as_ref" ownership types such as `FieldResult<Option<&T>>`.
+N/A
 
 ### Changed
 
@@ -21,6 +21,12 @@ N/A
 ### Fixed
 
 N/A
+
+## [0.2.2] - 2019-06-10
+
+### Added
+
+- Add support for "as_ref" ownership types such as `FieldResult<Option<&T>>`.
 
 ## [0.2.1] - 2019-05-24
 
@@ -106,6 +112,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.2.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.1...0.2.2
 [0.2.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.0...0.2.1
 [0.2.0]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.7...0.2.0
 [0.1.7]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.6...0.1.7
