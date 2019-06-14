@@ -1,7 +1,7 @@
 use super::{ident, type_name, CodeGenPass, TypeKind};
 use crate::ast_pass::error::ErrorKind;
 use graphql_parser::schema::*;
-use heck::{CamelCase, SnakeCase, MixedCase};
+use heck::{CamelCase, MixedCase, SnakeCase};
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::collections::{HashMap, HashSet};
