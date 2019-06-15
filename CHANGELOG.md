@@ -20,7 +20,7 @@ N/A
 
 ### Fixed
 
-N/A
+- Fix `QueryTrail` walk methods always returning `false` for fields defined using snake_case in the schema. [#46](https://github.com/davidpdrsn/juniper-from-schema/pull/46)
 
 ## [0.2.2] - 2019-06-10
 
