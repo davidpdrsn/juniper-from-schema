@@ -20,6 +20,12 @@ N/A
 
 ### Fixed
 
+N/A
+
+## [0.2.3] - 2019-06-15
+
+### Fixed
+
 - Fix `QueryTrail` walk methods always returning `false` for fields defined using snake_case in the schema. [#46](https://github.com/davidpdrsn/juniper-from-schema/pull/46)
 
 ## [0.2.2] - 2019-06-10
@@ -112,6 +118,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.2.3]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.2...0.2.3
 [0.2.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.1...0.2.2
 [0.2.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.0...0.2.1
 [0.2.0]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.1.7...0.2.0
