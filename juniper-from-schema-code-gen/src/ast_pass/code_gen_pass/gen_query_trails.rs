@@ -1,7 +1,7 @@
 use super::{ident, type_name, CodeGenPass, TypeKind};
 use crate::ast_pass::error::ErrorKind;
 use graphql_parser::schema::*;
-use heck::{CamelCase, SnakeCase};
+use heck::{CamelCase, MixedCase, SnakeCase};
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::collections::{HashMap, HashSet};
@@ -138,7 +138,7 @@ impl<'doc> CodeGenPass<'doc> {
         match ty {
             TypeKind::Scalar => {
                 let name = ident(&field.name.to_snake_case());
-                let string_name = &field.name;
+                let string_name = &field.name.to_mixed_case();
 
                 quote! {
                     /// Check if a scalar leaf node is queried for
@@ -155,7 +155,7 @@ impl<'doc> CodeGenPass<'doc> {
             }
             TypeKind::Type => {
                 let name = ident(&field.name.to_snake_case());
-                let string_name = &field.name;
+                let string_name = &field.name.to_mixed_case();
 
                 quote! {
                     /// Walk the trail into a field.
