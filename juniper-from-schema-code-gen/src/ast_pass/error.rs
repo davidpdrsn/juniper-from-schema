@@ -2,7 +2,7 @@ use colored::*;
 use graphql_parser::Pos;
 use std::fmt::{self, Write};
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Error<'doc> {
     pub(super) pos: Pos,
     pub(super) kind: ErrorKind<'doc>,
@@ -58,7 +58,7 @@ impl<'a> fmt::Display for Error<'a> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum ErrorKind<'doc> {
     DateTimeScalarNotDefined,
     DateScalarNotDefined,
@@ -80,6 +80,7 @@ pub enum ErrorKind<'doc> {
     InvalidArgumentsToDeprecateDirective,
     InvalidArgumentsToJuniperDirective,
     AsRefOwnershipForNamedType,
+    FieldNameInSnakeCase,
 }
 
 impl<'doc> ErrorKind<'doc> {
@@ -121,6 +122,9 @@ impl<'doc> ErrorKind<'doc> {
             ErrorKind::AsRefOwnershipForNamedType => {
                 "@juniper(ownership: \"as_ref\") is only supported on `Option` and `Vec` types"
                     .to_string()
+            }
+            ErrorKind::FieldNameInSnakeCase => {
+                "Field names must be camelCase, not snake_case".to_string()
             }
         }
     }
@@ -168,6 +172,9 @@ impl<'doc> ErrorKind<'doc> {
                 writeln!(f, "It takes exactly 1 argument and the argument most be named `ownership`");
                 writeln!(f, "and be either \"owned\", \"borrowed\", or \"as_ref\"");
                 Some(f)
+            }
+            ErrorKind::FieldNameInSnakeCase => {
+                Some("This is because Juniper always converts all field names to camelCase".to_string())
             }
             _ => None,
         }

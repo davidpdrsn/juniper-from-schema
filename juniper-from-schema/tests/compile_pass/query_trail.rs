@@ -9,7 +9,7 @@ graphql_schema! {
     type User {
         id: Int!
         club: Club
-        club_2: Club!
+        club2: Club!
     }
 
     type Club {
@@ -28,8 +28,8 @@ impl QueryFields for Query {
         trail: &QueryTrail<'a, User, Walked>,
     ) -> FieldResult<&User> {
         trail.club().walk();
-        trail.club_2().walk();
-        trail.club_2().id() == true;
+        trail.club2().walk();
+        trail.club2().id() == true;
 
         unimplemented!()
     }
@@ -52,7 +52,7 @@ impl UserFields for User {
         unimplemented!()
     }
 
-    fn field_club_2<'a>(
+    fn field_club2<'a>(
         &self,
         executor: &Executor<'a, Context>,
         trail: &QueryTrail<'a, Club, Walked>,

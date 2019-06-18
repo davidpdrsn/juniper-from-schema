@@ -18,7 +18,7 @@ graphql_schema! {
     }
 
     type Company {
-      country_of_operation: Country! @juniper(ownership: "owned")
+      countryOfOperation: Country! @juniper(ownership: "owned")
       id: Int! @juniper(ownership: "owned")
       name: String! @juniper(ownership: "owned")
     }
