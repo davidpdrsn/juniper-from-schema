@@ -12,7 +12,7 @@ N/A
 
 ### Changed
 
-- Will now fail to compile if you schema contains field names in snake_case. [#47](https://github.com/davidpdrsn/juniper-from-schema/issues/47)
+N/A
 
 ### Removed
 
@@ -21,6 +21,10 @@ N/A
 ### Fixed
 
 N/A
+
+## [0.3.0] - 2019-06-18
+
+- Will now fail to compile if you schema contains field names in snake_case. [#47](https://github.com/davidpdrsn/juniper-from-schema/issues/47)
 
 ## [0.2.3] - 2019-06-15
 
@@ -118,6 +122,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.3.0]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.3...0.3.0
 [0.2.3]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.2...0.2.3
 [0.2.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.1...0.2.2
 [0.2.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.0...0.2.1
