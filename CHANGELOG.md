@@ -12,7 +12,7 @@ N/A
 
 ### Changed
 
-N/A
+- Will now fail to compile if you schema contains field names in snake_case. [#47](https://github.com/davidpdrsn/juniper-from-schema/issues/47)
 
 ### Removed
 

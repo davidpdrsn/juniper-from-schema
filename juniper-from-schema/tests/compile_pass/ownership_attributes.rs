@@ -3,9 +3,9 @@ include!("../setup.rs");
 
 graphql_schema! {
     type Query {
-      borrowed_string: String! @juniper(ownership: "borrowed")
-      owned_string: String! @juniper(ownership: "owned")
-      as_ref_string: String @juniper(ownership: "as_ref")
+      borrowedString: String! @juniper(ownership: "borrowed")
+      ownedString: String! @juniper(ownership: "owned")
+      asRefString: String @juniper(ownership: "as_ref")
     }
 
     schema {

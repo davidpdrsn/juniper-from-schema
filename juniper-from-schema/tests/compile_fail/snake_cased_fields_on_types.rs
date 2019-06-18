@@ -3,21 +3,16 @@ include!("../setup.rs");
 
 graphql_schema! {
     type Query {
-      asRefString: String! @juniper(ownership: "as_ref")
+        snake_cased: String!
     }
 
-    schema {
-      query: Query
-    }
+    schema { query: Query }
 }
 
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_as_ref_string<'a>(
-        &self,
-        executor: &Executor<'a, Context>,
-    ) -> FieldResult<String> {
+    fn field_snake_cased<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&String> {
         unimplemented!()
     }
 }
