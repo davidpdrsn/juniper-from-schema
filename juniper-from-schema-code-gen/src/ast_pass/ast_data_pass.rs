@@ -1,10 +1,4 @@
-mod find_enum_variants;
-mod find_interface_implementors;
-mod find_special_scalar_types;
-
-use self::find_enum_variants::{find_enum_variants, EnumVariants};
-use self::find_interface_implementors::{find_interface_implementors, InterfaceImplementors};
-use self::find_special_scalar_types::{find_special_scalar_types, SpecialScalarTypesList};
+use crate::ast_pass::schema_visitor::SchemaVisitor;
 use crate::ast_pass::type_name;
 use graphql_parser::schema::Document;
 use graphql_parser::schema::*;
@@ -17,12 +11,12 @@ pub struct AstData<'doc> {
     pub(super) input_object_field_type: InputObjectFieldTypes<'doc>,
 }
 
-impl<'doc> AstData<'doc> {
-    pub fn new(doc: &'doc Document) -> Self {
-        let interface_implementors = find_interface_implementors(doc);
-        let special_scalars = find_special_scalar_types(&doc);
-        let enum_variants = find_enum_variants(&doc);
-        let input_object_field_type = find_input_object_field_type(&doc);
+impl<'doc> From<&'doc Document> for AstData<'doc> {
+    fn from(doc: &'doc Document) -> Self {
+        let interface_implementors = InterfaceImplementors::from(doc);
+        let special_scalars = SpecialScalarTypesList::from(doc);
+        let enum_variants = EnumVariants::from(doc);
+        let input_object_field_type = InputObjectFieldTypes::from(doc);
 
         Self {
             interface_implementors,
@@ -39,6 +33,12 @@ pub struct InputObjectFieldTypes<'a> {
 }
 
 impl<'a> InputObjectFieldTypes<'a> {
+    fn new() -> Self {
+        InputObjectFieldTypes {
+            types: HashMap::new(),
+        }
+    }
+
     #[allow(clippy::ptr_arg)]
     pub(super) fn is_nullable(
         &self,
@@ -77,32 +77,128 @@ impl<'a> InputObjectFieldTypes<'a> {
     }
 }
 
-#[allow(clippy::single_match)]
-fn find_input_object_field_type(doc: &Document) -> InputObjectFieldTypes {
-    use graphql_parser::schema::Definition::*;
-    use graphql_parser::schema::TypeDefinition::*;
+impl<'doc> SchemaVisitor<'doc> for InputObjectFieldTypes<'doc> {
+    fn visit_input_object_type(&mut self, input_type: &'doc InputObjectType) {
+        for field in &input_type.fields {
+            self.types
+                .entry(&input_type.name)
+                .or_insert_with(HashMap::new)
+                .insert(&field.name, &field.value_type);
+        }
+    }
+}
 
-    let mut out = InputObjectFieldTypes {
-        types: HashMap::new(),
-    };
+impl<'doc> From<&'doc Document> for InputObjectFieldTypes<'doc> {
+    fn from(doc: &'doc Document) -> Self {
+        let mut i = InputObjectFieldTypes::new();
+        i.visit_document(doc);
+        i
+    }
+}
 
-    for def in &doc.definitions {
-        match def {
-            TypeDefinition(type_def) => match type_def {
-                InputObject(input_type) => {
-                    for field in &input_type.fields {
-                        out.types
-                            .entry(&input_type.name)
-                            .or_insert_with(HashMap::new)
-                            .insert(&field.name, &field.value_type);
-                    }
-                }
+#[derive(Debug, Clone)]
+pub struct InterfaceImplementors<'doc> {
+    map: HashMap<&'doc str, Vec<&'doc str>>,
+}
 
-                _ => {}
-            },
-            _ => {}
+impl InterfaceImplementors<'_> {
+    fn new() -> Self {
+        Self {
+            map: HashMap::new(),
         }
     }
 
-    out
+    pub fn get(&self, name: &str) -> Option<&Vec<&str>> {
+        self.map.get(name)
+    }
+}
+
+impl<'doc> SchemaVisitor<'doc> for InterfaceImplementors<'doc> {
+    fn visit_object_type(&mut self, obj: &'doc ObjectType) {
+        for interface in &obj.implements_interfaces {
+            self.map
+                .entry(interface)
+                .or_insert_with(Vec::new)
+                .push(&obj.name);
+        }
+    }
+}
+
+impl<'doc> From<&'doc Document> for InterfaceImplementors<'doc> {
+    fn from(doc: &'doc Document) -> Self {
+        let mut i = InterfaceImplementors::new();
+        i.visit_document(doc);
+        i
+    }
+}
+
+#[derive(Clone)]
+pub struct SpecialScalarTypesList<'doc> {
+    custom_scalars: HashSet<&'doc str>,
+}
+
+impl<'doc> SpecialScalarTypesList<'doc> {
+    fn new() -> Self {
+        Self {
+            custom_scalars: HashSet::new(),
+        }
+    }
+
+    pub fn date_defined(&self) -> bool {
+        self.is_scalar("Date")
+    }
+
+    pub fn date_time_defined(&self) -> bool {
+        self.is_scalar("DateTime")
+    }
+
+    pub fn is_scalar(&self, name: &str) -> bool {
+        self.custom_scalars.contains(name)
+    }
+}
+
+impl<'doc> SchemaVisitor<'doc> for SpecialScalarTypesList<'doc> {
+    fn visit_scalar_type(&mut self, scalar: &'doc ScalarType) {
+        let name = &*scalar.name;
+        self.custom_scalars.insert(name);
+    }
+}
+
+impl<'doc> From<&'doc Document> for SpecialScalarTypesList<'doc> {
+    fn from(doc: &'doc Document) -> Self {
+        let mut i = SpecialScalarTypesList::new();
+        i.visit_document(doc);
+        i
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct EnumVariants<'doc> {
+    set: HashSet<&'doc str>,
+}
+
+impl<'doc> EnumVariants<'doc> {
+    fn new() -> Self {
+        Self {
+            set: HashSet::new(),
+        }
+    }
+
+    pub fn contains(&self, name: &str) -> bool {
+        self.set.contains(name)
+    }
+}
+
+impl<'doc> SchemaVisitor<'doc> for EnumVariants<'doc> {
+    fn visit_enum_type(&mut self, enum_type: &'doc EnumType) {
+        self.set.insert(&enum_type.name);
+    }
+}
+
+impl<'doc> From<&'doc Document> for EnumVariants<'doc> {
+    fn from(doc: &'doc Document) -> Self {
+        let mut i = EnumVariants::new();
+        i.visit_document(doc);
+        i
+    }
 }

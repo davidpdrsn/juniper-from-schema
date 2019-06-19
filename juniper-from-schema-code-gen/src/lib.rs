@@ -80,7 +80,7 @@ fn parse_and_gen_schema(schema: &str, error_type: Type) -> proc_macro::TokenStre
         Err(parse_error) => panic!("{}", parse_error),
     };
 
-    let ast_data = AstData::new(&doc);
+    let ast_data = AstData::from(&doc);
     let output = CodeGenPass::new(schema, error_type, ast_data);
 
     match output.gen_juniper_code(&doc) {

@@ -284,7 +284,7 @@ mod test {
         "#;
 
         let doc = graphql_parser::parse_schema(&schema).unwrap();
-        let ast_data = AstData::new(&doc);
+        let ast_data = AstData::from(&doc);
         let mut out = CodeGenPass {
             tokens: quote! {},
             error_type: crate::parse_input::default_error_type(),
