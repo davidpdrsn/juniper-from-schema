@@ -12,7 +12,7 @@ use graphql_parser::{
 use heck::{CamelCase, SnakeCase};
 use proc_macro2::{TokenStream, TokenTree};
 use quote::quote;
-use schema_visitor::{visit_document_mut, SchemaVisitorMut};
+use schema_visitor::{SchemaVisitor};
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
     iter::Extend,
@@ -57,7 +57,7 @@ impl<'doc> CodeGenPass<'doc> {
 
     fn validate_doc(&mut self, doc: &'doc Document) {
         let mut case_validator = FieldNameCaseValidator::new(self);
-        visit_document_mut(&mut case_validator, doc);
+        case_validator.visit_document(doc);
     }
 
     fn check_for_errors(&self) -> Result<(), BTreeSet<Error<'doc>>> {
@@ -1209,7 +1209,7 @@ impl<'pass, 'doc> FieldNameCaseValidator<'pass, 'doc> {
     }
 }
 
-impl<'pass, 'doc> SchemaVisitorMut for FieldNameCaseValidator<'pass, 'doc> {
+impl<'pass, 'doc> SchemaVisitor for FieldNameCaseValidator<'pass, 'doc> {
     fn visit_object_type(&mut self, ty: &schema::ObjectType) {
         for field in &ty.fields {
             if is_snake_case(&field.name) {
