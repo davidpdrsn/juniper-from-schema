@@ -12,7 +12,7 @@ use graphql_parser::{
 use heck::{CamelCase, SnakeCase};
 use proc_macro2::{TokenStream, TokenTree};
 use quote::quote;
-use schema_visitor::{SchemaVisitor};
+use schema_visitor::SchemaVisitor;
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
     iter::Extend,
@@ -1211,29 +1211,31 @@ impl<'pass, 'doc> FieldNameCaseValidator<'pass, 'doc> {
 
 impl<'pass, 'doc> SchemaVisitor for FieldNameCaseValidator<'pass, 'doc> {
     fn visit_object_type(&mut self, ty: &schema::ObjectType) {
-        for field in &ty.fields {
-            if is_snake_case(&field.name) {
-                self.pass
-                    .emit_non_fatal_error(field.position, ErrorKind::FieldNameInSnakeCase);
-            }
-        }
+        self.validate_fields(&ty.fields);
     }
 
     fn visit_interface_type(&mut self, ty: &schema::InterfaceType) {
-        for field in &ty.fields {
-            if is_snake_case(&field.name) {
-                self.pass
-                    .emit_non_fatal_error(field.position, ErrorKind::FieldNameInSnakeCase);
-            }
-        }
+        self.validate_fields(&ty.fields);
     }
 
     fn visit_input_object_type(&mut self, ty: &schema::InputObjectType) {
         for field in &ty.fields {
-            if is_snake_case(&field.name) {
-                self.pass
-                    .emit_non_fatal_error(field.position, ErrorKind::FieldNameInSnakeCase);
-            }
+            self.validate_field(&field.name, field.position);
+        }
+    }
+}
+
+impl FieldNameCaseValidator<'_, '_> {
+    fn validate_fields(&mut self, fields: &[Field]) {
+        for field in fields {
+            self.validate_field(&field.name, field.position);
+        }
+    }
+
+    fn validate_field(&mut self, name: &str, pos: Pos) {
+        if is_snake_case(name) {
+            self.pass
+                .emit_non_fatal_error(pos, ErrorKind::FieldNameInSnakeCase);
         }
     }
 }
