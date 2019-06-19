@@ -1,6 +1,7 @@
 mod ast_data_pass;
 mod code_gen_pass;
 pub mod error;
+mod schema_visitor;
 
 pub use self::ast_data_pass::AstData;
 pub use self::code_gen_pass::CodeGenPass;

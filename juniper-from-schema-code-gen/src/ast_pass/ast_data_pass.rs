@@ -19,7 +19,7 @@ pub struct AstData<'doc> {
 
 impl<'doc> AstData<'doc> {
     pub fn new(doc: &'doc Document) -> Self {
-        let interface_implementors = find_interface_implementors(&doc);
+        let interface_implementors = find_interface_implementors(doc);
         let special_scalars = find_special_scalar_types(&doc);
         let enum_variants = find_enum_variants(&doc);
         let input_object_field_type = find_input_object_field_type(&doc);

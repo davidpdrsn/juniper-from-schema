@@ -1,8 +1,8 @@
 mod gen_query_trails;
-mod schema_visitor;
 
 use super::error::{Error, ErrorKind};
 use super::{ident, quote_ident, type_name, AstData, TypeKind};
+use crate::ast_pass::schema_visitor::SchemaVisitor;
 use crate::nullable_type::NullableType;
 use graphql_parser::{
     query::{Name, Type},
@@ -12,7 +12,6 @@ use graphql_parser::{
 use heck::{CamelCase, SnakeCase};
 use proc_macro2::{TokenStream, TokenTree};
 use quote::quote;
-use schema_visitor::SchemaVisitor;
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
     iter::Extend,
@@ -1209,16 +1208,16 @@ impl<'pass, 'doc> FieldNameCaseValidator<'pass, 'doc> {
     }
 }
 
-impl<'pass, 'doc> SchemaVisitor for FieldNameCaseValidator<'pass, 'doc> {
-    fn visit_object_type(&mut self, ty: &schema::ObjectType) {
+impl<'pass, 'doc> SchemaVisitor<'doc> for FieldNameCaseValidator<'pass, 'doc> {
+    fn visit_object_type(&mut self, ty: &'doc schema::ObjectType) {
         self.validate_fields(&ty.fields);
     }
 
-    fn visit_interface_type(&mut self, ty: &schema::InterfaceType) {
+    fn visit_interface_type(&mut self, ty: &'doc schema::InterfaceType) {
         self.validate_fields(&ty.fields);
     }
 
-    fn visit_input_object_type(&mut self, ty: &schema::InputObjectType) {
+    fn visit_input_object_type(&mut self, ty: &'doc schema::InputObjectType) {
         for field in &ty.fields {
             self.validate_field(&field.name, field.position);
         }
