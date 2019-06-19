@@ -68,23 +68,23 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     pub fn is_date_time_scalar_defined(&self) -> bool {
-        self.ast_data.special_scalars.date_time_defined()
+        self.ast_data.date_time_scalar_defined()
     }
 
     pub fn is_date_scalar_defined(&self) -> bool {
-        self.ast_data.special_scalars.date_defined()
+        self.ast_data.date_scalar_defined()
     }
 
     pub fn is_scalar(&self, name: &str) -> bool {
-        self.ast_data.special_scalars.is_scalar(name)
+        self.ast_data.is_scalar(name)
     }
 
     pub fn is_enum(&self, name: &str) -> bool {
-        self.ast_data.enum_variants.contains(name)
+        self.ast_data.is_enum_variant(name)
     }
 
     pub fn get_implementors_of_interface(&self, name: &str) -> Option<&Vec<&str>> {
-        self.ast_data.interface_implementors.get(name)
+        self.ast_data.get_interface_implementor(name)
     }
 
     fn gen_doc(&mut self, doc: &'doc Document) -> Result<()> {
@@ -899,15 +899,13 @@ impl<'doc> CodeGenPass<'doc> {
 
                 let field_type_name = self
                     .ast_data
-                    .input_object_field_type
-                    .field_type_name(&type_name, &key)
+                    .input_object_field_type_name(&type_name, &key)
                     .unwrap();
 
                 let value_quote = self.quote_value(value, field_type_name, pos);
                 match self
                     .ast_data
-                    .input_object_field_type
-                    .is_nullable(&type_name, &key)
+                    .input_object_field_is_nullable(&type_name, &key)
                 {
                     Some(true) | None => {
                         if value == &Value::Null {
@@ -922,11 +920,7 @@ impl<'doc> CodeGenPass<'doc> {
             .collect::<Vec<_>>();
 
         // Set fields not given in map to `None`
-        if let Some(fields) = self
-            .ast_data
-            .input_object_field_type
-            .field_names(&type_name)
-        {
+        if let Some(fields) = self.ast_data.input_object_field_names(&type_name) {
             for field_name in fields {
                 if !fields_seen.contains(field_name) {
                     let field_name = ident(field_name.to_snake_case());
