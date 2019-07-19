@@ -14,6 +14,7 @@ N/A
 
 - Internal refactoring of input parsing. Shouldn't be a breaking change but should provide better error messages.
 - Internal refactoring of code generation. Use visitor trait for `CodeGenPass`.
+- Implement common traits for generated scalar types.
 
 ### Removed
 
