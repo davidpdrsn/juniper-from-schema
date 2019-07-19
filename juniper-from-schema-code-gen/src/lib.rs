@@ -14,7 +14,7 @@ mod pretty_print;
 
 use self::{
     ast_pass::{AstData, CodeGenPass},
-    parse_input::{default_error_type, parse_input},
+    parse_input::{default_error_type, GraphqlSchemaFromFileInput},
 };
 use graphql_parser::parse_schema;
 use proc_macro2::TokenStream;
@@ -25,10 +25,10 @@ use syn::Type;
 /// See [the crate level docs](index.html) for an example.
 #[proc_macro]
 pub fn graphql_schema_from_file(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input: TokenStream = input.into();
-
-    let parsed =
-        parse_input(&input.to_string()).expect("Failed to parse input to graphql_schema_from_file");
+    let parsed = match syn::parse::<GraphqlSchemaFromFileInput>(input) {
+        Ok(p) => p,
+        Err(e) => return e.to_compile_error().into(),
+    };
 
     match std::fs::read_to_string(&parsed.schema_path) {
         Ok(schema) => parse_and_gen_schema(&schema, parsed.error_type),
