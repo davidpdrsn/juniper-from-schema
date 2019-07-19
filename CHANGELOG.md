@@ -12,7 +12,7 @@ N/A
 
 ### Changed
 
-N/A
+- Internal refactoring of input parsing. Shouldn't be a breaking change but should provide better error messages.
 
 ### Removed
 
