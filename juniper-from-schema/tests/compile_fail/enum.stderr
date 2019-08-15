@@ -15,7 +15,7 @@ error: proc macro panicked
            [91merror[0m: Directives are currently not supported
             --> schema:1:32
              |
-           1 |    type Query { string : String ! @ someDirectiveThatIsntNotSupported } schema {
+           1 |    type Query { string : String ! @ someDirectiveThatIsntNotSupported } schema
              |                                   [91m^[0m
            
            

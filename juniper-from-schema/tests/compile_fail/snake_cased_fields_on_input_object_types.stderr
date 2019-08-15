@@ -13,10 +13,10 @@ error: proc macro panicked
    = help: message: 
            
            [91merror[0m: Field names must be camelCase, not snake_case
-            --> schema:2:1
+            --> schema:2:3
              |
-           2 |    snake_cased : String ! }
-             |    [91m^[0m
+           2 |    { snake_cased : String ! }
+             |      [91m^[0m
            
            This is because Juniper always converts all field names to camelCase
            
