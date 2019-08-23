@@ -24,16 +24,16 @@ type Result<T, E = ()> = std::result::Result<T, E>;
 pub struct CodeGenPass<'doc> {
     tokens: TokenStream,
     error_type: syn::Type,
-    with_idents: Option<Vec<Ident>>,
+    with_idents: Option<BTreeMap<String, bool>>,
     errors: BTreeSet<Error<'doc>>,
     ast_data: AstData<'doc>,
     raw_schema: &'doc str,
 }
 
 impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
-    fn is_with_ident(&self, def: &'doc schema::Definition) -> bool {
+    fn check_with_ident(&mut self, def: &'doc schema::Definition) -> bool {
         use schema::Definition::*;
-        if let Some(with_idents) = &self.with_idents {
+        if let Some(with_idents) = &mut self.with_idents {
             let name: &str = match def {
                 TypeDefinition(inner) => {
                     use schema::TypeDefinition::*;
@@ -60,8 +60,14 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                 DirectiveDefinition(inner) => &inner.name,
                 SchemaDefinition(inner) => "schema",
             };
-            let ident = with_idents.iter().find(|t| t.to_string() == name);
-            ident.is_some()
+
+            let entry = with_idents.get_mut(&*name);
+            if let Some(entry) = entry {
+                *entry = true;
+                true
+            } else {
+                false
+            }
         } else {
             true
         }
@@ -455,7 +461,7 @@ impl<'doc> CodeGenPass<'doc> {
     pub fn new(
         raw_schema: &'doc str,
         error_type: syn::Type,
-        with_idents: Option<Vec<Ident>>,
+        with_idents: Option<BTreeMap<String, bool>>,
         ast_data: AstData<'doc>,
     ) -> Self {
         CodeGenPass {
@@ -477,6 +483,17 @@ impl<'doc> CodeGenPass<'doc> {
 
         self.gen_query_trails(doc);
         self.visit_document(doc);
+
+        let _self = &self as *const Self as *mut Self;
+        if let Some(with_idents) = self.with_idents.as_ref() {
+            for (ident, visited) in with_idents.iter() {
+                if !visited {
+                    unsafe {
+                        (*_self).emit_non_schema_error(ErrorKind::IdentNotInSchema(ident.clone()));
+                    }
+                }
+            }
+        }
 
         self.check_for_errors()?;
         Ok(self.tokens)
@@ -517,7 +534,7 @@ impl<'doc> CodeGenPass<'doc> {
 
     fn emit_non_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) {
         let error = Error {
-            pos,
+            pos: Some(pos),
             kind,
             raw_schema: &self.raw_schema,
         };
@@ -527,6 +544,15 @@ impl<'doc> CodeGenPass<'doc> {
     fn emit_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) -> Result<()> {
         self.emit_non_fatal_error(pos, kind);
         Err(())
+    }
+
+    fn emit_non_schema_error(&mut self, kind: ErrorKind<'doc>) {
+        let error = Error {
+            pos: None,
+            kind,
+            raw_schema: &self.raw_schema,
+        };
+        self.errors.insert(error);
     }
 
     fn gen_scalar_type_with_data(&mut self, name: &Ident, description: &TokenStream) {
@@ -1237,6 +1263,9 @@ impl<'pass, 'doc> FieldNameCaseValidator<'pass, 'doc> {
 }
 
 impl<'pass, 'doc> SchemaVisitor<'doc> for FieldNameCaseValidator<'pass, 'doc> {
+    fn check_with_ident(&mut self, def: &'doc schema::Definition) -> bool {
+        self.pass.check_with_ident(def)
+    }
     fn visit_object_type(&mut self, ty: &'doc schema::ObjectType) {
         self.validate_fields(&ty.fields);
     }

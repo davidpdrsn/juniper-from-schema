@@ -1,0 +1,18 @@
+error: proc macro panicked
+  --> $DIR/wrong_with_ident_value.rs:6:1
+   |
+6  | / graphql_schema_from_file!(
+7  | |     "../../../juniper-from-schema/tests/schemas/complex_schema.graphql",
+8  | |     error_type: MyError,
+9  | |     with_idents: [WrongIdent]
+10 | | );
+   | |__^
+   |
+   = help: message: 
+           
+           [91merror[0m: Identity `WrongIdent` is not found in schema
+           
+           Each value in `with_ident` must be in the schema.
+           
+           
+           aborting due to previous error

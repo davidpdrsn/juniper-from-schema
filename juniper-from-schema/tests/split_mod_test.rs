@@ -134,7 +134,6 @@ mod review {
             Ok(&self.favorite_color)
         }
     }
-
 }
 
 mod query {
@@ -198,8 +197,8 @@ mod query {
 mod mutation {
     use super::*;
     use episode::Episode;
-    use review::Review;
     use input::ReviewInput;
+    use review::Review;
 
     graphql_schema_from_file!(
         "tests/schemas/complex_schema.graphql",
@@ -231,8 +230,8 @@ mod mutation {
     }
 }
 
-use query::Query;
 use mutation::Mutation;
+use query::Query;
 
 graphql_schema_from_file!(
     "tests/schemas/complex_schema.graphql",

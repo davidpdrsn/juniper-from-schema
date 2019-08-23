@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use syn::{
     self, bracketed,
@@ -6,21 +7,32 @@ use syn::{
     Ident, Token, Type,
 };
 
-struct VecIdent(Vec<Ident>);
+struct IdentMap(BTreeMap<String, bool>);
 
-impl Parse for VecIdent {
+impl Parse for IdentMap {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let content;
         let b = bracketed!(content in input);
         let punc = Punctuated::<Ident, Token![,]>::parse_terminated(&content)?;
-        let vec: Vec<Ident> = punc.into_iter().map(|t| t).collect();
-        if vec.len() == 0 {
+        let mut map = BTreeMap::<String, bool>::new();
+        for ident in punc.into_iter() {
+            let key = ident.to_string();
+            if map.contains_key(&key) {
+                return Err(syn::parse::Error::new(
+                    b.span,
+                    format!("argument `with_idents` has duplicated element `{}`", key),
+                ));
+            } else {
+                map.insert(key, false);
+            }
+        }
+        if map.len() == 0 {
             Err(syn::parse::Error::new(
                 b.span,
                 "argument `with_idents` should have at least one element",
             ))
         } else {
-            Ok(VecIdent(vec))
+            Ok(IdentMap(map))
         }
     }
 }
@@ -29,7 +41,7 @@ impl Parse for VecIdent {
 pub struct GraphqlSchemaFromFileInput {
     pub schema_path: PathBuf,
     pub error_type: Type,
-    pub with_idents: Option<Vec<Ident>>,
+    pub with_idents: Option<BTreeMap<String, bool>>,
 }
 
 impl Parse for GraphqlSchemaFromFileInput {
@@ -41,7 +53,7 @@ impl Parse for GraphqlSchemaFromFileInput {
         let schema_path = pwd.join(file);
 
         let mut error_type: Option<Type> = None;
-        let mut with_idents: Option<VecIdent> = None;
+        let mut with_idents: Option<IdentMap> = None;
 
         while input.peek(Token![,]) {
             input.parse::<Token![,]>()?;

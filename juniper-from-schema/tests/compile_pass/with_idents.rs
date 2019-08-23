@@ -5,8 +5,8 @@ use juniper::ID;
 
 graphql_schema_from_file!(
     "../../../juniper-from-schema/tests/schemas/complex_schema.graphql",
+    with_idents: [Character, Droid, Human],
     error_type: MyError,
-    with_idents: [Character, Droid, Human]
 );
 
 pub enum MyError {

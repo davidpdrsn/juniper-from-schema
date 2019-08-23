@@ -18,7 +18,8 @@ use self::{
 };
 use graphql_parser::parse_schema;
 use proc_macro2::TokenStream;
-use syn::{Ident, Type};
+use std::collections::BTreeMap;
+use syn::Type;
 
 /// Read a GraphQL schema file and generate corresponding Juniper macro calls.
 ///
@@ -77,7 +78,7 @@ pub fn graphql_schema(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 fn parse_and_gen_schema(
     schema: &str,
     error_type: Type,
-    with_idents: Option<Vec<Ident>>,
+    with_idents: Option<BTreeMap<String, bool>>,
 ) -> proc_macro::TokenStream {
     let doc = match parse_schema(&schema) {
         Ok(doc) => doc,
@@ -90,7 +91,6 @@ fn parse_and_gen_schema(
     match output.gen_juniper_code(&doc) {
         Ok(tokens) => {
             let out: proc_macro::TokenStream = tokens.into();
-
             if debugging_enabled() {
                 self::pretty_print::code_gen_debug(out.to_string());
             }

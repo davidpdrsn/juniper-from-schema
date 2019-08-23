@@ -4,7 +4,7 @@ use std::fmt::{self, Write};
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Error<'doc> {
-    pub(super) pos: Pos,
+    pub(super) pos: Option<Pos>,
     pub(super) kind: ErrorKind<'doc>,
     pub(super) raw_schema: &'doc str,
 }
@@ -14,38 +14,39 @@ impl<'a> fmt::Display for Error<'a> {
         // TODO: Handle lines that are really long and cause wrapping (screenshot on desktop)
         // TODO: Seems to be issues with multiline comments (screenshot on desktop)
 
-        let schema_lines = self.raw_schema.lines().collect::<Vec<_>>();
-
-        let number_of_digits_in_line_count = number_of_digits(self.pos.line as i32);
-        let indent = 4;
-
         writeln!(
             f,
             "{error}: {kind}",
             error = "error".bright_red(),
             kind = self.kind.description()
         )?;
-        writeln!(
-            f,
-            "{indent} --> schema:{line}:{col}",
-            indent = "".indent(number_of_digits_in_line_count - 1),
-            line = self.pos.line,
-            col = self.pos.column
-        )?;
-        writeln!(f, "{} |", "".indent(number_of_digits_in_line_count))?;
-        writeln!(
-            f,
-            "{} |{}",
-            self.pos.line,
-            schema_lines[self.pos.line - 1].indent(indent),
-        )?;
-        writeln!(
-            f,
-            "{} |{}{}",
-            "".indent(number_of_digits_in_line_count),
-            "".indent(self.pos.column - 1 + indent),
-            "^".bright_red(),
-        )?;
+
+        if let Some(pos) = self.pos {
+            let schema_lines = self.raw_schema.lines().collect::<Vec<_>>();
+            let indent = 4;
+            let number_of_digits_in_line_count = number_of_digits(pos.line as i32);
+            writeln!(
+                f,
+                "{indent} --> schema:{line}:{col}",
+                indent = "".indent(number_of_digits_in_line_count - 1),
+                line = pos.line,
+                col = pos.column
+            )?;
+            writeln!(f, "{} |", "".indent(number_of_digits_in_line_count))?;
+            writeln!(
+                f,
+                "{} |{}",
+                pos.line,
+                schema_lines[pos.line - 1].indent(indent),
+            )?;
+            writeln!(
+                f,
+                "{} |{}{}",
+                "".indent(number_of_digits_in_line_count),
+                "".indent(pos.column - 1 + indent),
+                "^".bright_red(),
+            )?;
+        }
 
         if let Some(notes) = self.kind.notes() {
             writeln!(f)?;
@@ -81,6 +82,7 @@ pub enum ErrorKind<'doc> {
     InvalidArgumentsToJuniperDirective,
     AsRefOwnershipForNamedType,
     FieldNameInSnakeCase,
+    IdentNotInSchema(String),
 }
 
 impl<'doc> ErrorKind<'doc> {
@@ -125,6 +127,12 @@ impl<'doc> ErrorKind<'doc> {
             }
             ErrorKind::FieldNameInSnakeCase => {
                 "Field names must be camelCase, not snake_case".to_string()
+            }
+            ErrorKind::FieldNameInSnakeCase => {
+                "Field names must be camelCase, not snake_case".to_string()
+            }
+            ErrorKind::IdentNotInSchema(ident_name) => {
+                format!("Identity `{}` is not found in schema", ident_name)
             }
         }
     }
@@ -175,6 +183,9 @@ impl<'doc> ErrorKind<'doc> {
             }
             ErrorKind::FieldNameInSnakeCase => {
                 Some("This is because Juniper always converts all field names to camelCase".to_string())
+            }
+            ErrorKind::IdentNotInSchema(_) => {
+                Some("Each value in `with_ident` must be in the schema.".to_string())
             }
             _ => None,
         }

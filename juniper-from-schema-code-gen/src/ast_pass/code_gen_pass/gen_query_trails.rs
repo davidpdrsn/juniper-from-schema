@@ -14,7 +14,7 @@ impl<'doc> CodeGenPass<'doc> {
         let fields_map = build_fields_map(doc);
 
         for def in &doc.definitions {
-            if self.is_with_ident(def) {
+            if self.check_with_ident(def) {
                 if let Definition::TypeDefinition(type_def) = def {
                     match type_def {
                         TypeDefinition::Object(obj) => {

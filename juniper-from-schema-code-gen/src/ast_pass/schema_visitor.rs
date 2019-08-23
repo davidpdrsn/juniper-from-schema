@@ -1,7 +1,7 @@
 use graphql_parser::schema;
 
 pub trait SchemaVisitor<'doc> {
-    fn is_with_ident(&self, def: &'doc schema::Definition) -> bool {
+    fn check_with_ident(&mut self, def: &'doc schema::Definition) -> bool {
         true
     }
 
@@ -9,7 +9,7 @@ pub trait SchemaVisitor<'doc> {
         use graphql_parser::schema::Definition::*;
 
         for def in &doc.definitions {
-            if self.is_with_ident(def) {
+            if self.check_with_ident(def) {
                 match def {
                     SchemaDefinition(inner) => self.visit_schema_definition(inner),
                     TypeDefinition(inner) => self.visit_type_definition(inner),
