@@ -1,15 +1,21 @@
 use graphql_parser::schema;
 
 pub trait SchemaVisitor<'doc> {
+    fn is_with_ident(&self, def: &'doc schema::Definition) -> bool {
+        true
+    }
+
     fn visit_document(&mut self, doc: &'doc schema::Document) {
         use graphql_parser::schema::Definition::*;
 
         for def in &doc.definitions {
-            match def {
-                SchemaDefinition(inner) => self.visit_schema_definition(inner),
-                TypeDefinition(inner) => self.visit_type_definition(inner),
-                TypeExtension(inner) => self.visit_type_extension(inner),
-                DirectiveDefinition(inner) => self.visit_directive_definition(inner),
+            if self.is_with_ident(def) {
+                match def {
+                    SchemaDefinition(inner) => self.visit_schema_definition(inner),
+                    TypeDefinition(inner) => self.visit_type_definition(inner),
+                    TypeExtension(inner) => self.visit_type_extension(inner),
+                    DirectiveDefinition(inner) => self.visit_directive_definition(inner),
+                }
             }
         }
     }

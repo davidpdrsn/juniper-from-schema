@@ -18,7 +18,7 @@ use self::{
 };
 use graphql_parser::parse_schema;
 use proc_macro2::TokenStream;
-use syn::Type;
+use syn::{Ident, Type};
 
 /// Read a GraphQL schema file and generate corresponding Juniper macro calls.
 ///
@@ -31,7 +31,7 @@ pub fn graphql_schema_from_file(input: proc_macro::TokenStream) -> proc_macro::T
     };
 
     match std::fs::read_to_string(&parsed.schema_path) {
-        Ok(schema) => parse_and_gen_schema(&schema, parsed.error_type),
+        Ok(schema) => parse_and_gen_schema(&schema, parsed.error_type, parsed.with_idents),
         Err(err) => panic!("{}", err),
     }
 }
@@ -71,17 +71,21 @@ pub fn graphql_schema_from_file(input: proc_macro::TokenStream) -> proc_macro::T
 pub fn graphql_schema(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input: TokenStream = input.into();
     let schema = input.to_string();
-    parse_and_gen_schema(&schema, default_error_type())
+    parse_and_gen_schema(&schema, default_error_type(), None)
 }
 
-fn parse_and_gen_schema(schema: &str, error_type: Type) -> proc_macro::TokenStream {
+fn parse_and_gen_schema(
+    schema: &str,
+    error_type: Type,
+    with_idents: Option<Vec<Ident>>,
+) -> proc_macro::TokenStream {
     let doc = match parse_schema(&schema) {
         Ok(doc) => doc,
         Err(parse_error) => panic!("{}", parse_error),
     };
 
     let ast_data = AstData::from(&doc);
-    let output = CodeGenPass::new(schema, error_type, ast_data);
+    let output = CodeGenPass::new(schema, error_type, with_idents, ast_data);
 
     match output.gen_juniper_code(&doc) {
         Ok(tokens) => {

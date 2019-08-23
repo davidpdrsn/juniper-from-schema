@@ -1,5 +1,5 @@
 use super::{ident, type_name, CodeGenPass, TypeKind};
-use crate::ast_pass::error::ErrorKind;
+use crate::ast_pass::{error::ErrorKind, schema_visitor::SchemaVisitor};
 use graphql_parser::schema::*;
 use heck::{CamelCase, MixedCase, SnakeCase};
 use proc_macro2::TokenStream;
@@ -14,23 +14,24 @@ impl<'doc> CodeGenPass<'doc> {
         let fields_map = build_fields_map(doc);
 
         for def in &doc.definitions {
-            if let Definition::TypeDefinition(type_def) = def {
-                match type_def {
-                    TypeDefinition::Object(obj) => {
-                        self.gen_field_walk_methods(InternalQueryTrailNode::Object(obj))
-                    }
-                    TypeDefinition::Interface(interface) => {
-                        self.gen_field_walk_methods(InternalQueryTrailNode::Interface(interface))
-                    }
-                    TypeDefinition::Union(union) => {
-                        self.error_msg_if_field_types_dont_overlap(union, &fields_map);
+            if self.is_with_ident(def) {
+                if let Definition::TypeDefinition(type_def) = def {
+                    match type_def {
+                        TypeDefinition::Object(obj) => {
+                            self.gen_field_walk_methods(InternalQueryTrailNode::Object(obj))
+                        }
+                        TypeDefinition::Interface(interface) => self
+                            .gen_field_walk_methods(InternalQueryTrailNode::Interface(interface)),
+                        TypeDefinition::Union(union) => {
+                            self.error_msg_if_field_types_dont_overlap(union, &fields_map);
 
-                        self.gen_field_walk_methods(InternalQueryTrailNode::Union(
-                            union,
-                            build_union_fields_set(union, &fields_map),
-                        ))
+                            self.gen_field_walk_methods(InternalQueryTrailNode::Union(
+                                union,
+                                build_union_fields_set(union, &fields_map),
+                            ))
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
         }
@@ -288,6 +289,7 @@ mod test {
         let mut out = CodeGenPass {
             tokens: quote! {},
             error_type: crate::parse_input::default_error_type(),
+            with_idents: None,
             ast_data,
             errors: std::collections::BTreeSet::new(),
             raw_schema: schema,

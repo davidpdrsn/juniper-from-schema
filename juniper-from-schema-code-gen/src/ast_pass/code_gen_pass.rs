@@ -24,12 +24,48 @@ type Result<T, E = ()> = std::result::Result<T, E>;
 pub struct CodeGenPass<'doc> {
     tokens: TokenStream,
     error_type: syn::Type,
+    with_idents: Option<Vec<Ident>>,
     errors: BTreeSet<Error<'doc>>,
     ast_data: AstData<'doc>,
     raw_schema: &'doc str,
 }
 
 impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
+    fn is_with_ident(&self, def: &'doc schema::Definition) -> bool {
+        use schema::Definition::*;
+        if let Some(with_idents) = &self.with_idents {
+            let name: &str = match def {
+                TypeDefinition(inner) => {
+                    use schema::TypeDefinition::*;
+                    match inner {
+                        Object(t) => &t.name,
+                        InputObject(t) => &t.name,
+                        Interface(t) => &t.name,
+                        Union(t) => &t.name,
+                        Enum(t) => &t.name,
+                        _ => return true,
+                    }
+                }
+                TypeExtension(inner) => {
+                    use schema::TypeExtension::*;
+                    match inner {
+                        Object(t) => &t.name,
+                        InputObject(t) => &t.name,
+                        Interface(t) => &t.name,
+                        Union(t) => &t.name,
+                        Enum(t) => &t.name,
+                        _ => return true,
+                    }
+                }
+                DirectiveDefinition(inner) => &inner.name,
+                SchemaDefinition(inner) => "schema",
+            };
+            let ident = with_idents.iter().find(|t| t.to_string() == name);
+            ident.is_some()
+        } else {
+            true
+        }
+    }
     fn visit_schema_definition(&mut self, schema_def: &'doc schema::SchemaDefinition) {
         if schema_def.subscription.is_some() {
             self.emit_non_fatal_error(schema_def.position, ErrorKind::SubscriptionsNotSupported);
@@ -416,10 +452,16 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
 }
 
 impl<'doc> CodeGenPass<'doc> {
-    pub fn new(raw_schema: &'doc str, error_type: syn::Type, ast_data: AstData<'doc>) -> Self {
+    pub fn new(
+        raw_schema: &'doc str,
+        error_type: syn::Type,
+        with_idents: Option<Vec<Ident>>,
+        ast_data: AstData<'doc>,
+    ) -> Self {
         CodeGenPass {
             tokens: quote! {},
             error_type,
+            with_idents,
             ast_data,
             errors: BTreeSet::new(),
             raw_schema,
