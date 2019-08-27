@@ -194,8 +194,11 @@
 //! You can find an example of how to use this library together with [Rocket] and [Diesel] to make a
 //! GraphQL web app at <https://github.com/davidpdrsn/graphql-app-example>
 //!
+//! or an example of how to use this library with [Actix] and [Diesel] at <https://github.com/husseinraoouf/graphql-actix-example>
+//!
 //! [Rocket]: https://rocket.rs
 //! [Diesel]: http://diesel.rs
+//! [Actix]: https://actix.rs/
 //!
 //! # Customizing ownership
 //!
