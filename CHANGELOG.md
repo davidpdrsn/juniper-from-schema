@@ -8,7 +8,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Added
 
-N/A
+- Support converting `QueryTrail`s for interfaces or unions into `QueryTrail`s for implementors of those interfaces or unions. This makes it possible to use [juniper-eager-loading](https://crates.io/crates/juniper-eager-loading) with interface or union types. [#63](https://github.com/davidpdrsn/juniper-from-schema/pull/63)
 
 ### Changed
 

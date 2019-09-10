@@ -876,6 +876,131 @@
 //! You can always run `cargo doc` and inspect all the methods on `QueryTrail` and in which
 //! contexts you can call them.
 //!
+//! ## Downcasting for interface and union `QueryTrail`s
+//!
+//! _This section is mostly relevant if you're using
+//! [juniper-eager-loading](https://crates.io/crates/juniper-eager-loading) however it isn't
+//! specific to that library._
+//!
+//! If you have a `QueryTrail<'a, T, Walked>` where `T` is an interface or union type you can use
+//! `.into()` to convert that `QueryTrail` into one of the implementors of the interface or union.
+//!
+//! Example:
+//!
+//! ```
+//! # #[macro_use]
+//! # extern crate juniper;
+//! # use juniper::*;
+//! # use juniper_from_schema::graphql_schema;
+//! # fn main() {}
+//! # pub struct Context;
+//! # impl juniper::Context for Context {}
+//! # pub struct Article { id: ID }
+//! # impl ArticleFields for Article {
+//! #     fn field_id(
+//! #         &self,
+//! #         executor: &Executor<'_, Context>,
+//! #     ) -> FieldResult<&ID> { unimplemented!() }
+//! # }
+//! # pub struct Tweet { id: ID, text: String }
+//! # impl TweetFields for Tweet {
+//! #     fn field_id(
+//! #         &self,
+//! #         executor: &Executor<'_, Context>,
+//! #     ) -> FieldResult<&ID> { unimplemented!() }
+//! # }
+//! #
+//! graphql_schema! {
+//!     schema {
+//!         query: Query
+//!     }
+//!
+//!     type Query {
+//!         search(query: String!): [SearchResult!]!
+//!     }
+//!
+//!     interface SearchResult {
+//!         id: ID!
+//!     }
+//!
+//!     type Article implements SearchResult {
+//!         id: ID!
+//!     }
+//!
+//!     type Tweet implements SearchResult {
+//!         id: ID!
+//!     }
+//! }
+//!
+//! pub struct Query;
+//!
+//! impl QueryFields for Query {
+//!     fn field_search(
+//!         &self,
+//!         executor: &Executor<'_, Context>,
+//!         trail: &QueryTrail<'_, SearchResult, juniper_from_schema::Walked>,
+//!         query: String,
+//!     ) -> FieldResult<&Vec<SearchResult>> {
+//!         let article_trail: QueryTrail<'_, Article, Walked> = trail.into();
+//!         let tweet_trail: QueryTrail<'_, Tweet, Walked> = trail.into();
+//!
+//!         // ...
+//!         # unimplemented!()
+//!     }
+//! }
+//! ```
+//!
+//! ### Why is this useful?
+//!
+//! If you were do perform some kind of preloading of data you might have a function that inspects
+//! a `QueryTrail` and load the necessary data from a database. Such a function could look like
+//! this:
+//!
+//! ```ignore
+//! fn preload_users(
+//!     mut users: Vec<User>,
+//!     query_trail: &QueryTrail<'_, User, Walked>,
+//!     db: &Database,
+//! ) -> Vec<User> {
+//!     // ...
+//! }
+//! ```
+//!
+//! This function works well when we have field that returns `[User!]!`. That field is going to get
+//! a `QueryTrail<'a, User, Walked>` which is exactly what `preload_users` needs.
+//!
+//! However, now imagine you have a schema like this:
+//!
+//! ```graphql
+//! type Query {
+//!     search(query: String!): [SearchResult!]!
+//! }
+//!
+//! union SearchResult = User | City | Country
+//!
+//! type User {
+//!     id: ID!
+//!     city: City!
+//! }
+//!
+//! type City {
+//!     id: ID!
+//!     country: Country!
+//! }
+//!
+//! type Country {
+//!     id: ID!
+//! }
+//! ```
+//!
+//! The method `QueryFields::field_seach` will receive a `QueryTrail<'a, SearchResult, Walked>`.
+//! That type doesn't work with `preload_users`. So we have to convert our `QueryTrail<'a,
+//! SearchResult, Walked>` into `QueryTrail<'a, User, Walked>`.
+//!
+//! This can be done [`std::convert::Into`](https://doc.rust-lang.org/std/convert/trait.Into.html)
+//! which automatically gets implemented for interface and union query trails. See above for an
+//! example.
+//!
 //! # Customizing the error type
 //!
 //! By default the return type of the generated field methods will be [`juniper::FieldResult<T>`].

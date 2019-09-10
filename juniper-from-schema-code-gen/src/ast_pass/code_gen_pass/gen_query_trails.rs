@@ -8,6 +8,7 @@ use std::{
     collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
 };
+use syn::Ident;
 
 impl<'doc> CodeGenPass<'doc> {
     pub fn gen_query_trails(&mut self, doc: &'doc Document) {
@@ -95,7 +96,49 @@ impl<'doc> CodeGenPass<'doc> {
             impl<'a, K> QueryTrail<'a, #name, K> {
                 #(#methods)*
             }
-        })
+        });
+
+        self.gen_conversion_methods(name, obj);
+    }
+
+    fn gen_conversion_methods(
+        &mut self,
+        original_type_name: Ident,
+        obj: InternalQueryTrailNode<'_>,
+    ) {
+        let mut destination_types = vec![];
+
+        match obj {
+            InternalQueryTrailNode::Object(_) => {}
+            InternalQueryTrailNode::Interface(i) => {
+                if let Some(i) = &self.ast_data.get_implementors_of_interface(&i.name) {
+                    for interface_implementor_name in *i {
+                        let ident = ident(interface_implementor_name);
+                        destination_types.push(ident);
+                    }
+                }
+            }
+            InternalQueryTrailNode::Union(u, _) => {
+                for type_ in &u.types {
+                    let ident = ident(type_);
+                    destination_types.push(ident);
+                }
+            }
+        }
+
+        for type_ in destination_types {
+            self.extend(quote! {
+                impl<'a> Into<QueryTrail<'a, #type_, Walked>> for &QueryTrail<'a, #original_type_name, Walked> {
+                    fn into(self) -> QueryTrail<'a, #type_, Walked> {
+                        QueryTrail {
+                            look_ahead: self.look_ahead,
+                            node_type: std::marker::PhantomData,
+                            walked: juniper_from_schema::Walked,
+                        }
+                    }
+                }
+            });
+        }
     }
 
     fn error_msg_if_field_types_dont_overlap(

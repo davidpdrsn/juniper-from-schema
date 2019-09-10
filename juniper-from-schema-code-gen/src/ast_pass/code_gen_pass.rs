@@ -29,6 +29,7 @@ use syn::Ident;
 
 type Result<T, E = ()> = std::result::Result<T, E>;
 
+#[derive(Debug)]
 pub struct CodeGenPass<'doc> {
     tokens: TokenStream,
     error_type: syn::Type,

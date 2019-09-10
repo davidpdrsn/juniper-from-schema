@@ -10,6 +10,7 @@ use graphql_parser::{
 };
 use std::collections::{BTreeSet, HashMap, HashSet};
 
+#[derive(Debug)]
 pub struct AstData<'doc> {
     interface_implementors: HashMap<&'doc str, Vec<&'doc str>>,
     user_scalars: HashSet<&'doc str>,
