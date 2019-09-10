@@ -14,7 +14,7 @@ repository = "https://github.com/davidpdrsn/juniper-from-schema.git"
 
 [dependencies]
 juniper-from-schema-code-gen = { version = "0.3.0", path = "../juniper-from-schema-code-gen" }
-juniper = "0.11.0"
+juniper = "0.13.1"
 
 [dev_dependencies]
 serde_json = "1.0.33"
@@ -22,3 +22,4 @@ assert-json-diff = "0.2.1"
 maplit = "1.0.1"
 version-sync = "0.8"
 trybuild = "1.0.3"
+rustversion = "0.1"
