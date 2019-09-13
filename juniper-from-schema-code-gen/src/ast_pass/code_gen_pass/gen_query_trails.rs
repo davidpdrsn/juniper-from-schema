@@ -288,6 +288,7 @@ mod test {
         let mut out = CodeGenPass {
             tokens: quote! {},
             error_type: crate::parse_input::default_error_type(),
+            context_type: crate::parse_input::default_context_type(),
             ast_data,
             errors: std::collections::BTreeSet::new(),
             raw_schema: schema,
