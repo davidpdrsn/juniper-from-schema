@@ -21,6 +21,7 @@
 //! - [GraphQL to Rust types](#graphql-to-rust-types)
 //! - [Query trails](#query-trails)
 //! - [Customizing the error type](#customizing-the-error-type)
+//! - [Customizing the context type](#customizing-the-context-type)
 //! - [Inspecting the generated code](#inspecting-the-generated-code)
 //!
 //! # Example
@@ -916,6 +917,48 @@
 //! [`juniper::IntoFieldError`]: https://docs.rs/juniper/0.11.1/juniper/trait.IntoFieldError.html
 //! [`juniper::FieldError`]: https://docs.rs/juniper/0.11.1/juniper/struct.FieldError.html
 //! [`juniper::FieldResult<T>`]: https://docs.rs/juniper/0.11.1/juniper/type.FieldResult.html
+//!
+//! # Customizing the context type
+//!
+//! By default the generate code will assume your context type is called `Context`. If that is not
+//! the case you can customize it by calling [`graphql_schema_from_file!`] with `context_type: NewName`.
+//!
+//! Example:
+//!
+//! ```
+//! # #[macro_use]
+//! # extern crate juniper;
+//! # use juniper::*;
+//! # use juniper_from_schema::graphql_schema_from_file;
+//! # fn main() {}
+//! # pub struct Mutation;
+//! # impl MutationFields for Mutation {
+//! #     fn field_noop(&self, executor: &Executor<'_, MyContext>) -> juniper::FieldResult<&bool> {
+//! #         Ok(&true)
+//! #     }
+//! # }
+//! graphql_schema_from_file!("tests/schemas/doc_schema.graphql", context_type: MyContext);
+//!
+//! pub struct MyContext;
+//! impl juniper::Context for MyContext {}
+//!
+//! pub struct Query;
+//!
+//! impl QueryFields for Query {
+//!     fn field_hello_world(
+//!         &self,
+//!         executor: &Executor<'_, MyContext>,
+//!         name: String,
+//!     ) -> juniper::FieldResult<String> {
+//!         Ok(format!("Hello, {}!", name))
+//!     }
+//! }
+//! ```
+//!
+//! [`graphql_schema!`] does not support changing the context type.
+//!
+//! [`graphql_schema!`]: macro.graphql_schema.html
+//! [`graphql_schema_from_file!`]: macro.graphql_schema_from_file.html
 //!
 //! # Inspecting the generated code
 //!
