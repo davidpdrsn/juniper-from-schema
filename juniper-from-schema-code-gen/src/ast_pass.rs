@@ -3,14 +3,12 @@ mod code_gen_pass;
 pub mod error;
 mod schema_visitor;
 
-pub use self::ast_data_pass::AstData;
-pub use self::code_gen_pass::CodeGenPass;
+pub use self::{ast_data_pass::AstData, code_gen_pass::CodeGenPass};
 
 use graphql_parser::{query::Name, schema::Type};
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn;
-use syn::Ident;
+use syn::{self, Ident};
 
 pub fn ident<T: AsRef<str>>(name: T) -> Ident {
     Ident::new(name.as_ref(), Span::call_site())

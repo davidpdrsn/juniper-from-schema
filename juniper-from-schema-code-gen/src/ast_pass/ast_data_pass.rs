@@ -1,7 +1,5 @@
-use crate::ast_pass::schema_visitor::SchemaVisitor;
-use crate::ast_pass::type_name;
-use graphql_parser::schema::Document;
-use graphql_parser::schema::*;
+use crate::ast_pass::{schema_visitor::SchemaVisitor, type_name};
+use graphql_parser::schema::{Document, *};
 use std::collections::{HashMap, HashSet};
 
 pub struct AstData<'doc> {

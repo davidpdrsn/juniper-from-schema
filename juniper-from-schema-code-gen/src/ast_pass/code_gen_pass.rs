@@ -1,9 +1,10 @@
 mod gen_query_trails;
 
-use super::error::{Error, ErrorKind};
-use super::{ident, quote_ident, type_name, AstData, TypeKind};
-use crate::ast_pass::schema_visitor::SchemaVisitor;
-use crate::nullable_type::NullableType;
+use super::{
+    error::{Error, ErrorKind},
+    ident, quote_ident, type_name, AstData, TypeKind,
+};
+use crate::{ast_pass::schema_visitor::SchemaVisitor, nullable_type::NullableType};
 use graphql_parser::{
     query::{Name, Type},
     schema::{self, *},

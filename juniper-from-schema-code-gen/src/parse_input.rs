@@ -1,7 +1,5 @@
 use proc_macro2::Span;
-use std::collections::HashMap;
-use std::fmt::Write;
-use std::path::PathBuf;
+use std::{collections::HashMap, fmt::Write, path::PathBuf};
 use syn::{
     self,
     parse::{Parse, ParseStream},

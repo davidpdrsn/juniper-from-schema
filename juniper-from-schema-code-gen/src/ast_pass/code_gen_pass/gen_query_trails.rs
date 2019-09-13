@@ -4,8 +4,10 @@ use graphql_parser::schema::*;
 use heck::{CamelCase, MixedCase, SnakeCase};
 use proc_macro2::TokenStream;
 use quote::quote;
-use std::collections::{HashMap, HashSet};
-use std::hash::{Hash, Hasher};
+use std::{
+    collections::{HashMap, HashSet},
+    hash::{Hash, Hasher},
+};
 
 impl<'doc> CodeGenPass<'doc> {
     pub fn gen_query_trails(&mut self, doc: &'doc Document) {
