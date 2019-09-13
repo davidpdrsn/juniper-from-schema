@@ -22,3 +22,6 @@ error: proc macro panicked
            
            
            aborting due to previous error
+           
+
+error: Could not compile `juniper-from-schema-tests`.
