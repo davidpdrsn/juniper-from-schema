@@ -67,6 +67,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         match &*scalar_type.name {
             "Date" => {}
             "DateTime" => {}
+            "Uuid" => {}
             name => {
                 let name = ident(name);
                 let description = &scalar_type
@@ -480,6 +481,10 @@ impl<'doc> CodeGenPass<'doc> {
 
     pub fn is_date_scalar_defined(&self) -> bool {
         self.ast_data.date_scalar_defined()
+    }
+
+    pub fn is_uuid_scalar_defined(&self) -> bool {
+        self.ast_data.uuid_scalar_defined()
     }
 
     pub fn is_scalar(&self, name: &str) -> bool {
@@ -979,6 +984,16 @@ impl<'doc> CodeGenPass<'doc> {
                 }
                 (
                     quote! { chrono::DateTime<chrono::offset::Utc> },
+                    TypeKind::Scalar,
+                )
+            }
+            "Uuid" => {
+                if !self.is_uuid_scalar_defined() {
+                    self.emit_fatal_error(pos, ErrorKind::UuidScalarNotDefined)
+                        .ok();
+                }
+                (
+                    quote! { uuid::Uuid },
                     TypeKind::Scalar,
                 )
             }

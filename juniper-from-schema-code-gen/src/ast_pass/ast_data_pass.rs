@@ -68,6 +68,10 @@ impl<'doc> AstData<'doc> {
         self.is_scalar("DateTime")
     }
 
+    pub fn uuid_scalar_defined(&self) -> bool {
+        self.is_scalar("Uuid")
+    }
+
     pub fn is_scalar(&self, name: &str) -> bool {
         self.special_scalars.contains(name)
     }

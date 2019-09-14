@@ -62,6 +62,7 @@ impl<'a> fmt::Display for Error<'a> {
 pub enum ErrorKind<'doc> {
     DateTimeScalarNotDefined,
     DateScalarNotDefined,
+    UuidScalarNotDefined,
     DirectivesNotSupported,
     NoQueryType,
     NonnullableFieldWithDefaultValue,
@@ -91,6 +92,9 @@ impl<'doc> ErrorKind<'doc> {
             }
             ErrorKind::DateScalarNotDefined => {
                 "You have to define a custom scalar called `Date` to use this type".to_string()
+            }
+            ErrorKind::UuidScalarNotDefined => {
+                "You have to define a custom scalar called `Uuid` to use this type".to_string()
             }
             ErrorKind::DirectivesNotSupported => {
                 "Directives are currently not supported".to_string()
