@@ -63,6 +63,8 @@ pub enum ErrorKind<'doc> {
     DateTimeScalarNotDefined,
     DateScalarNotDefined,
     UuidScalarNotDefined,
+    UrlScalarNotDefined,
+    SpecialCaseScalarWithDescription,
     DirectivesNotSupported,
     NoQueryType,
     NonnullableFieldWithDefaultValue,
@@ -95,6 +97,12 @@ impl<'doc> ErrorKind<'doc> {
             }
             ErrorKind::UuidScalarNotDefined => {
                 "You have to define a custom scalar called `Uuid` to use this type".to_string()
+            }
+            ErrorKind::UrlScalarNotDefined => {
+                "You have to define a custom scalar called `Url` to use this type".to_string()
+            }
+            ErrorKind::SpecialCaseScalarWithDescription => {
+                "Special case scalars don't support having descriptions because the Rust types are defined in external crates".to_string()
             }
             ErrorKind::DirectivesNotSupported => {
                 "Directives are currently not supported".to_string()

@@ -65,9 +65,14 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         self.error_if_has_unsupported_directive(&scalar_type);
 
         match &*scalar_type.name {
-            "Date" => {}
-            "DateTime" => {}
-            "Uuid" => {}
+            "Date" | "DateTime" | "Uuid" | "Url" => {
+                if scalar_type.description.is_some() {
+                    self.emit_non_fatal_error(
+                        scalar_type.position,
+                        ErrorKind::SpecialCaseScalarWithDescription,
+                    );
+                }
+            }
             name => {
                 let name = ident(name);
                 let description = &scalar_type
@@ -485,6 +490,10 @@ impl<'doc> CodeGenPass<'doc> {
 
     pub fn is_uuid_scalar_defined(&self) -> bool {
         self.ast_data.uuid_scalar_defined()
+    }
+
+    pub fn is_url_scalar_defined(&self) -> bool {
+        self.ast_data.url_scalar_defined()
     }
 
     pub fn is_scalar(&self, name: &str) -> bool {
@@ -992,10 +1001,14 @@ impl<'doc> CodeGenPass<'doc> {
                     self.emit_fatal_error(pos, ErrorKind::UuidScalarNotDefined)
                         .ok();
                 }
-                (
-                    quote! { uuid::Uuid },
-                    TypeKind::Scalar,
-                )
+                (quote! { uuid::Uuid }, TypeKind::Scalar)
+            }
+            "Url" => {
+                if !self.is_url_scalar_defined() {
+                    self.emit_fatal_error(pos, ErrorKind::UrlScalarNotDefined)
+                        .ok();
+                }
+                (quote! { url::Url }, TypeKind::Scalar)
             }
             name => {
                 if self.is_scalar(name) || self.is_enum(name) {

@@ -125,7 +125,7 @@ graphql_schema! {
         queryField(
             "queryFieldArg desc"
             queryFieldArg: InputType!
-        ): Url!
+        ): SomeScalar!
 
         "deprecatedField desc"
         deprecatedField: ID! @deprecated
@@ -138,8 +138,8 @@ graphql_schema! {
         search(query: String!): [SearchResult!]!
     }
 
-    "Url scalar desc"
-    scalar Url
+    "SomeScalar scalar desc"
+    scalar SomeScalar
 
     "InputType desc"
     input InputType {
@@ -175,7 +175,11 @@ graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_query_field<'a>(&self, _: &Executor<'a, Context>, _: InputType) -> FieldResult<&Url> {
+    fn field_query_field<'a>(
+        &self,
+        _: &Executor<'a, Context>,
+        _: InputType,
+    ) -> FieldResult<&SomeScalar> {
         unimplemented!()
     }
 
@@ -299,11 +303,11 @@ fn test_docs() {
                     "name": "SearchResult",
                     "description": "SearchResult desc",
                 },
-                { "name": "String" },
                 {
-                    "name": "Url",
-                    "description": "Url scalar desc",
+                    "name": "SomeScalar",
+                    "description": "SomeScalar scalar desc",
                 },
+                { "name": "String" },
                 { "name": "User" },
                 {
                     "name": "UserType",

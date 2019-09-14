@@ -1,0 +1,46 @@
+error: proc macro panicked
+  --> $DIR/docs_on_special_case_scalars.rs:6:1
+   |
+6  | / graphql_schema! {
+7  | |     schema {
+8  | |         query: Query
+9  | |     }
+...  |
+25 | |     scalar Uuid
+26 | | }
+   | |_^
+   |
+   = help: message: 
+           
+           [91merror[0m: Special case scalars don't support having descriptions because the Rust types are defined in external crates
+            --> schema:2:63
+             |
+           2 |    { foo : String ! @ juniper (ownership : "owned") } "Url docs" scalar Url
+             |                                                                  [91m^[0m
+           
+           
+           [91merror[0m: Special case scalars don't support having descriptions because the Rust types are defined in external crates
+            --> schema:3:17
+             |
+           3 |    "DateTime docs" scalar DateTime "Date docs" scalar Date "Uuid docs" scalar
+             |                    [91m^[0m
+           
+           
+           [91merror[0m: Special case scalars don't support having descriptions because the Rust types are defined in external crates
+            --> schema:3:45
+             |
+           3 |    "DateTime docs" scalar DateTime "Date docs" scalar Date "Uuid docs" scalar
+             |                                                [91m^[0m
+           
+           
+           [91merror[0m: Special case scalars don't support having descriptions because the Rust types are defined in external crates
+            --> schema:3:69
+             |
+           3 |    "DateTime docs" scalar DateTime "Date docs" scalar Date "Uuid docs" scalar
+             |                                                                        [91m^[0m
+           
+           
+           aborting due to 4 errors
+           
+
+error: Could not compile `juniper-from-schema-tests`.

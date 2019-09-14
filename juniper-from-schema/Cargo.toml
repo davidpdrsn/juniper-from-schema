@@ -23,4 +23,5 @@ maplit = "1.0.1"
 version-sync = "0.8"
 trybuild = "1.0.3"
 rustversion = "0.1"
-uuid = { version = "0.7.4", features = ["v4"] }
+uuid = { version = "^0.7.4", features = ["v4"] }
+url = "^1.5.1"
