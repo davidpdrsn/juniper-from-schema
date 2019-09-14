@@ -13,6 +13,7 @@
 //! - [GraphQL features](#graphql-features)
 //!     - [The `ID` type](#the-id-type)
 //!     - [Custom scalar types](#custom-scalar-types)
+//!     - [Special case scalars](#special-case-scalars)
 //!     - [Interfaces](#interfaces)
 //!     - [Union types](#union-types)
 //!     - [Input objects](#input-objects)
@@ -260,10 +261,22 @@
 //! pub struct Cursor(pub String);
 //! ```
 //!
-//! `Date` and `DateTime` are the two exceptions to this. `Date` gets converted into
-//! [`chrono::naive::NaiveDate`](https://docs.rs/chrono/0.4.6/chrono/naive/struct.NaiveDate.html)
-//! and `DateTime` into
+//! ## Special case scalars
+//!
+//! A couple of scalar names have special meaning. Those are:
+//!
+//! - `Url` becomes
+//! [`url::Url`](https://docs.rs/url/2.1.0/url/struct.Url.html).
+//! - `Uuid` becomes
+//! [`uuid::Uuid`](https://docs.rs/uuid/0.7.4/uuid/struct.Uuid.html).
+//! - `DateTime` becomes
 //! [`chrono::DateTime<chrono::offset::Utc>`](https://docs.rs/chrono/0.4.6/chrono/struct.DateTime.html).
+//! - `Date` becomes
+//! [`chrono::naive::NaiveDate`](https://docs.rs/chrono/0.4.6/chrono/naive/struct.NaiveDate.html).
+//!
+//! Juniper doesn't support [`chrono::Date`](https://docs.rs/chrono/0.4.9/chrono/struct.Date.html)
+//! so therefore this library cannot support that either. You can read about Juniper's supported
+//! integrations [here](https://docs.rs/juniper/0.13.1/juniper/integrations/index.html).
 //!
 //! ## Interfaces
 //!

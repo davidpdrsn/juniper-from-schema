@@ -9,6 +9,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 ### Added
 
 - Support customizing the name of the context type. [#66](https://github.com/davidpdrsn/juniper-from-schema/pull/66)
+- Improve documentation of special case scalar types.
 
 ### Changed
 
