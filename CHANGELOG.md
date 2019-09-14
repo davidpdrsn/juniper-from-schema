@@ -15,6 +15,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 - Internal refactoring of input parsing. Shouldn't be a breaking change but should provide better error messages.
 - Internal refactoring of code generation. Use visitor trait for `CodeGenPass`.
 - Implement common traits for generated scalar types.
+- Special case scalars `Date`, `DateTime`, `Uuid`, and `Url` no longer support descriptions in the GraphQL schema. See [#69](https://github.com/davidpdrsn/juniper-from-schema/pull/69) for more details.
 
 ### Removed
 
@@ -22,7 +23,7 @@ N/A
 
 ### Fixed
 
-N/A
+- Fix support for special case [`Uuid`](https://crates.io/crates/uuid) and [`Url`](https://crates.io/crates/url) scalars. [#69](https://github.com/davidpdrsn/juniper-from-schema/pull/69)
 
 ## [0.3.0] - 2019-06-18
 
