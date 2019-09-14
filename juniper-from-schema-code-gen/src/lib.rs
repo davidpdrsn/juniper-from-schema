@@ -1,6 +1,12 @@
 //! See the docs for "juniper-from-schema" for more info about this.
 
-// #![deny(unused_imports, dead_code, unused_variables, unused_must_use)]
+#![deny(
+    unused_imports,
+    mutable_borrow_reservation_conflict,
+    dead_code,
+    unused_variables,
+    unused_must_use
+)]
 #![recursion_limit = "128"]
 #![doc(html_root_url = "https://docs.rs/juniper-from-schema-code-gen/0.3.0")]
 

@@ -163,13 +163,14 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
 
         let context_type = &self.context_type;
 
-        self.extend(quote! {
+        let code = quote! {
             juniper::graphql_object!(#struct_name: #context_type |&self| {
                 #description
                 #(#fields)*
                 #interfaces
             });
-        })
+        };
+        self.extend(code)
     }
 
     fn visit_interface_type(&mut self, interface: &'doc schema::InterfaceType) {
@@ -269,7 +270,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
 
         let context_type = &self.context_type;
 
-        self.extend(quote! {
+        let code = quote! {
             juniper::graphql_interface!(#interface_name: #context_type |&self| {
                 description: #description
 
@@ -279,7 +280,8 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                     #(#instance_resolvers),*
                 }
             });
-        });
+        };
+        self.extend(code);
     }
 
     fn visit_union_type(&mut self, union: &'doc schema::UnionType) {
@@ -324,7 +326,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
 
         let context_type = &self.context_type;
 
-        self.extend(quote! {
+        let code = quote! {
             juniper::graphql_union!(#union_name: #context_type |&self| {
                 description: #description
 
@@ -332,7 +334,8 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                     #(#instance_resolvers),*
                 }
             });
-        });
+        };
+        self.extend(code);
     }
 
     fn visit_enum_type(&mut self, enum_type: &'doc schema::EnumType) {
