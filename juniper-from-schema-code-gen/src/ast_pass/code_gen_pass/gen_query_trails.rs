@@ -1,4 +1,4 @@
-use super::{ident, type_name, CodeGenPass, TypeKind};
+use super::{ident, type_name, CodeGenPass, EmitError, TypeKind};
 use crate::ast_pass::error::ErrorKind;
 use graphql_parser::schema::*;
 use heck::{CamelCase, MixedCase, SnakeCase};
@@ -261,7 +261,7 @@ fn build_fields_map(doc: &Document) -> HashMap<&String, Vec<&Field>> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::ast_pass::AstData;
+    use crate::ast_pass::ast_data_pass::AstData;
 
     #[test]
     fn test_fails_to_generate_query_trail_for_unions_where_fields_dont_overlap() {
@@ -286,7 +286,7 @@ mod test {
         "#;
 
         let doc = graphql_parser::parse_schema(&schema).unwrap();
-        let ast_data = AstData::from(&doc);
+        let ast_data = AstData::new_from_schema_and_doc(&schema, &doc).unwrap();
         let mut out = CodeGenPass {
             tokens: quote! {},
             error_type: crate::parse_input::default_error_type(),

@@ -1,9 +1,11 @@
-mod ast_data_pass;
-mod code_gen_pass;
+pub mod ast_data_pass;
+pub mod code_gen_pass;
+pub mod directive_parsing;
 pub mod error;
-mod schema_visitor;
+pub mod schema_visitor;
 
-pub use self::{ast_data_pass::AstData, code_gen_pass::CodeGenPass};
+pub use self::{code_gen_pass::CodeGenPass, error::ErrorKind};
+use graphql_parser::Pos;
 
 use graphql_parser::{query::Name, schema::Type};
 use proc_macro2::{Span, TokenStream};
@@ -31,4 +33,8 @@ pub fn quote_ident<T: AsRef<str>>(name: T) -> TokenStream {
 pub enum TypeKind {
     Scalar,
     Type,
+}
+
+pub trait EmitError<'doc> {
+    fn emit_non_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>);
 }

@@ -14,17 +14,17 @@ extern crate proc_macro;
 extern crate proc_macro2;
 
 mod ast_pass;
-mod from_directive;
 mod nullable_type;
 mod parse_input;
 mod pretty_print;
 
 use self::{
-    ast_pass::{AstData, CodeGenPass},
+    ast_pass::{ast_data_pass::AstData, error::Error, CodeGenPass},
     parse_input::{default_context_type, default_error_type, GraphqlSchemaFromFileInput},
 };
 use graphql_parser::parse_schema;
 use proc_macro2::TokenStream;
+use std::collections::BTreeSet;
 use syn::Type;
 
 /// Read a GraphQL schema file and generate corresponding Juniper macro calls.
@@ -91,7 +91,11 @@ fn parse_and_gen_schema(
         Err(parse_error) => panic!("{}", parse_error),
     };
 
-    let ast_data = AstData::from(&doc);
+    let ast_data = match AstData::new_from_schema_and_doc(schema, &doc) {
+        Ok(x) => x,
+        Err(errors) => print_and_panic_if_errors(errors),
+    };
+
     let output = CodeGenPass::new(schema, error_type, context_type, ast_data);
 
     match output.gen_juniper_code(&doc) {
@@ -104,21 +108,23 @@ fn parse_and_gen_schema(
 
             out
         }
-        Err(errors) => {
-            let count = errors.len();
+        Err(errors) => print_and_panic_if_errors(errors),
+    }
+}
 
-            let out = errors
-                .into_iter()
-                .map(|error| error.to_string())
-                .collect::<Vec<_>>()
-                .join("\n\n");
+fn print_and_panic_if_errors<T>(errors: BTreeSet<Error>) -> T {
+    let count = errors.len();
 
-            if count == 1 {
-                panic!("\n\n{}\n\naborting due to previous error\n", out)
-            } else {
-                panic!("\n\n{}\n\naborting due to {} errors\n", out, count)
-            }
-        }
+    let out = errors
+        .into_iter()
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    if count == 1 {
+        panic!("\n\n{}\n\naborting due to previous error\n", out)
+    } else {
+        panic!("\n\n{}\n\naborting due to {} errors\n", out, count)
     }
 }
 

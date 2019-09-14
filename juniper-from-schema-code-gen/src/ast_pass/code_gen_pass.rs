@@ -2,11 +2,14 @@ mod gen_query_trails;
 
 use super::{
     error::{Error, ErrorKind},
-    ident, quote_ident, type_name, AstData, TypeKind,
+    ident, quote_ident, type_name, EmitError, TypeKind,
 };
 use crate::{
-    ast_pass::schema_visitor::SchemaVisitor,
-    from_directive::{Deprecation, FieldArguments, FromDirective, JuniperDirective, Ownership},
+    ast_pass::{
+        ast_data_pass::{AstData, DateTimeScalarDefinition},
+        directive_parsing::{Deprecation, FieldArguments, Ownership, ParseDirective},
+        schema_visitor::SchemaVisitor,
+    },
     nullable_type::NullableType,
 };
 use graphql_parser::{
@@ -66,10 +69,21 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
     }
 
     fn visit_scalar_type(&mut self, scalar_type: &'doc ScalarType) {
-        self.parse_directives(scalar_type);
-
         match &*scalar_type.name {
-            "Date" | "DateTime" | "Uuid" | "Url" => {
+            "DateTime" => {
+                // We don't need to parse and check the directives here because that is done by
+                // `AstData::visit_scalar_type`
+
+                if scalar_type.description.is_some() {
+                    self.emit_non_fatal_error(
+                        scalar_type.position,
+                        ErrorKind::SpecialCaseScalarWithDescription,
+                    );
+                }
+            }
+            "Date" | "Uuid" | "Url" => {
+                self.parse_directives(scalar_type);
+
                 if scalar_type.description.is_some() {
                     self.emit_non_fatal_error(
                         scalar_type.position,
@@ -78,6 +92,8 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                 }
             }
             name => {
+                self.parse_directives(scalar_type);
+
                 let name = ident(name);
                 let description = &scalar_type
                     .description
@@ -194,7 +210,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
             .map(ToString::to_string)
             .unwrap_or_else(String::new);
 
-        let implementors = self.get_implementors_of_interface(&interface.name);
+        let implementors = self.ast_data.get_implementors_of_interface(&interface.name);
 
         let implementors = if let Some(implementors) = implementors {
             implementors
@@ -484,44 +500,7 @@ impl<'doc> CodeGenPass<'doc> {
         }
     }
 
-    pub fn is_date_time_scalar_defined(&self) -> bool {
-        self.ast_data.date_time_scalar_defined()
-    }
-
-    pub fn is_date_scalar_defined(&self) -> bool {
-        self.ast_data.date_scalar_defined()
-    }
-
-    pub fn is_uuid_scalar_defined(&self) -> bool {
-        self.ast_data.uuid_scalar_defined()
-    }
-
-    pub fn is_url_scalar_defined(&self) -> bool {
-        self.ast_data.url_scalar_defined()
-    }
-
-    pub fn is_scalar(&self, name: &str) -> bool {
-        self.ast_data.is_scalar(name)
-    }
-
-    pub fn is_enum(&self, name: &str) -> bool {
-        self.ast_data.is_enum_variant(name)
-    }
-
-    pub fn get_implementors_of_interface(&self, name: &str) -> Option<&Vec<&str>> {
-        self.ast_data.get_interface_implementor(name)
-    }
-
-    fn emit_non_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) {
-        let error = Error {
-            pos,
-            kind,
-            raw_schema: &self.raw_schema,
-        };
-        self.errors.insert(error);
-    }
-
-    fn emit_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) -> Result<()> {
+    pub fn emit_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) -> Result<()> {
         self.emit_non_fatal_error(pos, kind);
         Err(())
     }
@@ -907,38 +886,45 @@ impl<'doc> CodeGenPass<'doc> {
             "Boolean" => (quote! { bool }, TypeKind::Scalar),
             "ID" => (quote! { juniper::ID }, TypeKind::Scalar),
             "Date" => {
-                if !self.is_date_scalar_defined() {
+                if !self.ast_data.date_scalar_defined() {
                     self.emit_fatal_error(pos, ErrorKind::DateScalarNotDefined)
                         .ok();
                 }
                 (quote! { chrono::naive::NaiveDate }, TypeKind::Scalar)
             }
             "DateTime" => {
-                if !self.is_date_time_scalar_defined() {
-                    self.emit_fatal_error(pos, ErrorKind::DateTimeScalarNotDefined)
-                        .ok();
-                }
-                (
-                    quote! { chrono::DateTime<chrono::offset::Utc> },
-                    TypeKind::Scalar,
-                )
+                let tokens = match self.ast_data.date_time_scalar_definition() {
+                    Some(DateTimeScalarDefinition::WithTimeZone) => {
+                        quote! { chrono::DateTime<chrono::offset::Utc> }
+                    }
+                    Some(DateTimeScalarDefinition::WithoutTimeZone) => {
+                        quote! { chrono::naive::NaiveDateTime }
+                    }
+                    None => {
+                        self.emit_fatal_error(pos, ErrorKind::DateTimeScalarNotDefined)
+                            .ok();
+                        quote! { chrono::DateTime<chrono::offset::Utc> }
+                    }
+                };
+
+                (tokens, TypeKind::Scalar)
             }
             "Uuid" => {
-                if !self.is_uuid_scalar_defined() {
+                if !self.ast_data.uuid_scalar_defined() {
                     self.emit_fatal_error(pos, ErrorKind::UuidScalarNotDefined)
                         .ok();
                 }
                 (quote! { uuid::Uuid }, TypeKind::Scalar)
             }
             "Url" => {
-                if !self.is_url_scalar_defined() {
+                if !self.ast_data.url_scalar_defined() {
                     self.emit_fatal_error(pos, ErrorKind::UrlScalarNotDefined)
                         .ok();
                 }
                 (quote! { url::Url }, TypeKind::Scalar)
             }
             name => {
-                if self.is_scalar(name) || self.is_enum(name) {
+                if self.ast_data.is_scalar(name) || self.ast_data.is_enum_variant(name) {
                     (quote_ident(name.to_camel_case()), TypeKind::Scalar)
                 } else {
                     (quote_ident(name.to_camel_case()), TypeKind::Type)
@@ -1141,98 +1127,16 @@ fn is_snake_case(s: &str) -> bool {
     s.contains('_') && s.to_snake_case() == s
 }
 
-trait ParseDirective<'doc, T> {
-    type Output;
-
-    fn parse_directives(&mut self, input: &'doc T) -> Self::Output;
-}
-
-impl<'doc> ParseDirective<'doc, Field> for CodeGenPass<'doc> {
-    type Output = FieldArguments;
-
-    fn parse_directives(&mut self, input: &'doc Field) -> Self::Output {
-        let mut ownership = Ownership::default();
-        let mut deprecated = None::<Deprecation>;
-
-        for dir in &input.directives {
-            match JuniperDirective::<Ownership>::from_directive(dir) {
-                Ok(x) => {
-                    ownership = x.args;
-                    continue;
-                }
-                Err(_) => {}
-            }
-
-            match Deprecation::from_directive(dir) {
-                Ok(x) => {
-                    deprecated = Some(x);
-                    continue;
-                }
-                Err(_) => {}
-            }
-
-            self.emit_non_fatal_error(
-                dir.position,
-                ErrorKind::UnknownDirective(vec![
-                    "`@deprecated`",
-                    "`@juniper(ownership: \"owned\")`",
-                ]),
-            );
-        }
-
-        FieldArguments {
-            ownership,
-            deprecated,
-        }
+impl<'doc> EmitError<'doc> for CodeGenPass<'doc> {
+    fn emit_non_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) {
+        let error = Error {
+            pos,
+            kind,
+            raw_schema: &self.raw_schema,
+        };
+        self.errors.insert(error);
     }
 }
-
-impl<'doc> ParseDirective<'doc, EnumValue> for CodeGenPass<'doc> {
-    type Output = Deprecation;
-
-    fn parse_directives(&mut self, input: &'doc EnumValue) -> Self::Output {
-        let mut deprecated = Deprecation::default();
-
-        for dir in &input.directives {
-            match Deprecation::from_directive(dir) {
-                Ok(x) => {
-                    deprecated = x;
-                }
-                Err(err) => {
-                    self.emit_non_fatal_error(dir.position, err);
-                }
-            }
-        }
-
-        deprecated
-    }
-}
-
-macro_rules! supports_no_directives {
-    ($ty:ty) => {
-        impl<'doc> ParseDirective<'doc, $ty> for CodeGenPass<'doc> {
-            type Output = ();
-
-            fn parse_directives(&mut self, input: &'doc $ty) -> Self::Output {
-                for directive in &input.directives {
-                    self.emit_non_fatal_error(
-                        directive.position,
-                        ErrorKind::UnknownDirective(vec![]),
-                    );
-                }
-            }
-        }
-    };
-}
-
-supports_no_directives!(SchemaDefinition);
-supports_no_directives!(ScalarType);
-supports_no_directives!(ObjectType);
-supports_no_directives!(InterfaceType);
-supports_no_directives!(UnionType);
-supports_no_directives!(EnumType);
-supports_no_directives!(InputObjectType);
-supports_no_directives!(InputValue);
 
 #[cfg(test)]
 mod test {

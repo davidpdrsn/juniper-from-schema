@@ -1,0 +1,27 @@
+error: proc macro panicked
+  --> $DIR/invalid_date_time_scalar_directive.rs:6:1
+   |
+6  | / juniper_from_schema::graphql_schema! {
+7  | |     schema {
+8  | |         query: Query
+9  | |     }
+...  |
+15 | |     scalar DateTime @juniper(with_time_zone: "foobar")
+16 | | }
+   | |_^
+   |
+   = help: message: 
+           
+           [91merror[0m: Unsupported directive.
+            --> schema:2:75
+             |
+           2 |    { dateTime : DateTime ! @ juniper (ownership : "owned") } scalar DateTime @
+             |                                                                              [91m^[0m
+           
+           Invalid type. Expected `Boolean`, got `String`
+           
+           
+           aborting due to previous error
+           
+
+error: could not compile `juniper-from-schema-tests`.

@@ -11,6 +11,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 - Support customizing the name of the context type. [#66](https://github.com/davidpdrsn/juniper-from-schema/pull/66)
 - Improve documentation of special case scalar types.
 - Implement common traits for generated scalar types.
+- Support converting `DateTime` into `chrono::NaiveDateTime` for those who don't care about time zones. The behavior can be customized with the `@juniper(with_time_zone: true|false)` directive on the scalar definition.
 
 ### Changed
 

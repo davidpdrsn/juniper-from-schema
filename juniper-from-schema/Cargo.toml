@@ -25,3 +25,4 @@ trybuild = "1.0.3"
 rustversion = "0.1"
 uuid = { version = "^0.7.4", features = ["v4"] }
 url = "^1.5.1"
+chrono = "0.4.9"

@@ -269,14 +269,17 @@
 //! [`url::Url`](https://docs.rs/url/2.1.0/url/struct.Url.html).
 //! - `Uuid` becomes
 //! [`uuid::Uuid`](https://docs.rs/uuid/0.7.4/uuid/struct.Uuid.html).
-//! - `DateTime` becomes
-//! [`chrono::DateTime<chrono::offset::Utc>`](https://docs.rs/chrono/0.4.6/chrono/struct.DateTime.html).
 //! - `Date` becomes
 //! [`chrono::naive::NaiveDate`](https://docs.rs/chrono/0.4.6/chrono/naive/struct.NaiveDate.html).
+//! - `DateTime` becomes [`chrono::DateTime<chrono::offset::Utc>`] by default but if defined with
+//! `scalar DateTime @juniper(with_time_zone: false)` it will become [`chrono::naive::NaiveDateTime`].
 //!
 //! Juniper doesn't support [`chrono::Date`](https://docs.rs/chrono/0.4.9/chrono/struct.Date.html)
 //! so therefore this library cannot support that either. You can read about Juniper's supported
 //! integrations [here](https://docs.rs/juniper/0.13.1/juniper/integrations/index.html).
+//!
+//! [`chrono::DateTime<chrono::offset::Utc>`]: https://docs.rs/chrono/0.4.9/chrono/struct.DateTime.html
+//! [`chrono::naive::NaiveDateTime`]: https://docs.rs/chrono/0.4.9/chrono/naive/struct.NaiveDateTime.html
 //!
 //! ## Interfaces
 //!
