@@ -1,5 +1,5 @@
 use colored::*;
-use graphql_parser::Pos;
+use graphql_parser::{query::Value, Pos};
 use std::fmt::{self, Write};
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -59,13 +59,145 @@ impl<'a> fmt::Display for Error<'a> {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Deprecation<'doc> {
+    InvalidName(&'doc str),
+    WrongNumberOfArgs(usize),
+    InvalidKey(&'doc str),
+}
+
+impl<'doc> fmt::Display for Deprecation<'doc> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use Deprecation::*;
+        match self {
+            InvalidName(name) => write!(f, "Invalid name. Expected `deprecated`, got `{}`", name),
+            WrongNumberOfArgs(count) => {
+                write!(f, "Wrong number of args. Expected 0 or 1, got `{}`", count)
+            }
+            InvalidKey(key) => write!(f, "Invalid key. Exptec `reason`, got `{}`", key),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum ValueType {
+    Variable,
+    Int,
+    Float,
+    String,
+    Boolean,
+    Null,
+    Enum,
+    List,
+    Object,
+}
+
+impl<'doc> From<&'doc Value> for ValueType {
+    fn from(value: &'doc Value) -> Self {
+        use ValueType::*;
+        match value {
+            Value::String(_) => String,
+            Value::Variable(_) => Variable,
+            Value::Int(_) => Int,
+            Value::Float(_) => Float,
+            Value::Boolean(_) => Boolean,
+            Value::Null => Null,
+            Value::Enum(_) => Enum,
+            Value::List(_) => List,
+            Value::Object(_) => Object,
+        }
+    }
+}
+
+impl fmt::Display for ValueType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use ValueType::*;
+        match self {
+            String => write!(f, "String"),
+            Variable => write!(f, "Variable"),
+            Int => write!(f, "Int"),
+            Float => write!(f, "Float"),
+            Boolean => write!(f, "Boolean"),
+            Null => write!(f, "Null"),
+            Enum => write!(f, "Enum"),
+            List => write!(f, "List"),
+            Object => write!(f, "Object"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Ownership<'doc> {
+    WrongNumberOfArgs(usize),
+    InvalidKey(&'doc str),
+    InvalidValue(&'doc str),
+}
+
+impl<'doc> fmt::Display for Ownership<'doc> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::WrongNumberOfArgs(actual) => {
+                write!(f, "Wrong number of args. Expected {}, got {}", 1, actual)
+            }
+            Self::InvalidKey(actual) => write!(
+                f,
+                "Invalid key. Expected `{}`, got `{}`",
+                "ownership", actual
+            ),
+            Self::InvalidValue(name) => write!(
+                f,
+                "Invalid value. Expected `owned`, `borrowed`, or `as_ref`, got `{}`",
+                name
+            ),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Juniper<'doc> {
+    InvalidName(&'doc str),
+}
+
+impl<'doc> fmt::Display for Juniper<'doc> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::InvalidName(name) => write!(f, "Invalid name `{}`. Expected `juniper`", name),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum UnsupportedDirectiveKind<'doc> {
+    Deprecation(Deprecation<'doc>),
+    Ownership(Ownership<'doc>),
+    Juniper(Juniper<'doc>),
+    InvalidType {
+        actual: ValueType,
+        expected: ValueType,
+    },
+}
+
+impl<'doc> fmt::Display for UnsupportedDirectiveKind<'doc> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Deprecation(inner) => write!(f, "{}", inner),
+            Self::Ownership(inner) => write!(f, "{}", inner),
+            Self::Juniper(inner) => write!(f, "{}", inner),
+            Self::InvalidType { expected, actual } => {
+                write!(f, "Invalid type. Expected `{}`, got `{}`", expected, actual)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum ErrorKind<'doc> {
     DateTimeScalarNotDefined,
     DateScalarNotDefined,
     UuidScalarNotDefined,
     UrlScalarNotDefined,
     SpecialCaseScalarWithDescription,
-    DirectivesNotSupported,
+    UnsupportedDirective(UnsupportedDirectiveKind<'doc>),
+    UnknownDirective(Vec<&'static str>),
     NoQueryType,
     NonnullableFieldWithDefaultValue,
     SubscriptionsNotSupported,
@@ -80,8 +212,6 @@ pub enum ErrorKind<'doc> {
     },
     VariableDefaultValue,
     InputTypeFieldWithDefaultValue,
-    InvalidArgumentsToDeprecateDirective,
-    InvalidArgumentsToJuniperDirective,
     AsRefOwnershipForNamedType,
     FieldNameInSnakeCase,
 }
@@ -104,8 +234,11 @@ impl<'doc> ErrorKind<'doc> {
             ErrorKind::SpecialCaseScalarWithDescription => {
                 "Special case scalars don't support having descriptions because the Rust types are defined in external crates".to_string()
             }
-            ErrorKind::DirectivesNotSupported => {
-                "Directives are currently not supported".to_string()
+            ErrorKind::UnsupportedDirective(_) => {
+                "Unsupported directive.".to_string()
+            }
+            ErrorKind::UnknownDirective(_) => {
+                "Unknown directive".to_string()
             }
             ErrorKind::SubscriptionsNotSupported => {
                 "Subscriptions are currently not supported".to_string()
@@ -124,12 +257,6 @@ impl<'doc> ErrorKind<'doc> {
             ),
             ErrorKind::InputTypeFieldWithDefaultValue => {
                 "Default values for input type fields are not supported".to_string()
-            }
-            ErrorKind::InvalidArgumentsToDeprecateDirective => {
-                "Invalid arguments passed to @deprecated".to_string()
-            }
-            ErrorKind::InvalidArgumentsToJuniperDirective => {
-                "Invalid arguments passed to @juniper".to_string()
             }
             ErrorKind::AsRefOwnershipForNamedType => {
                 "@juniper(ownership: \"as_ref\") is only supported on `Option` and `Vec` types"
@@ -176,17 +303,18 @@ impl<'doc> ErrorKind<'doc> {
                 writeln!(f, "See https://github.com/webonyx/graphql-php/issues/350 for an example");
                 Some(f)
             }
-            ErrorKind::InvalidArgumentsToDeprecateDirective => {
-                Some("It takes 0 or 1 argument and the argument most be named `reason` and be of type `String`".to_string())
-            }
-            ErrorKind::InvalidArgumentsToJuniperDirective => {
-                let mut f = String::new();
-                writeln!(f, "It takes exactly 1 argument and the argument most be named `ownership`");
-                writeln!(f, "and be either \"owned\", \"borrowed\", or \"as_ref\"");
-                Some(f)
-            }
             ErrorKind::FieldNameInSnakeCase => {
                 Some("This is because Juniper always converts all field names to camelCase".to_string())
+            }
+            ErrorKind::UnsupportedDirective(reason) => {
+                Some(format!("{}", reason))
+            }
+            ErrorKind::UnknownDirective(suggestions) => {
+                if suggestions.is_empty() {
+                    None
+                } else {
+                    Some(format!("Did you mean: {}?", suggestions.join(", ")))
+                }
             }
             _ => None,
         }

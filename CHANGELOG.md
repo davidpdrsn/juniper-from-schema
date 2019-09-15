@@ -17,6 +17,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 - Internal refactoring of code generation. Use visitor trait for `CodeGenPass`.
 - Implement common traits for generated scalar types.
 - Special case scalars `Date`, `DateTime`, `Uuid`, and `Url` no longer support descriptions in the GraphQL schema. See [#69](https://github.com/davidpdrsn/juniper-from-schema/pull/69) for more details.
+- Refactor schema directive parsing. Should give better error messages and be more flexible in the future.
 
 ### Removed
 

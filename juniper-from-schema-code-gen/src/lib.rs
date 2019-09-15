@@ -14,6 +14,7 @@ extern crate proc_macro;
 extern crate proc_macro2;
 
 mod ast_pass;
+mod from_directive;
 mod nullable_type;
 mod parse_input;
 mod pretty_print;

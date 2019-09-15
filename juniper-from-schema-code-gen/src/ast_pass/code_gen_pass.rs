@@ -4,7 +4,11 @@ use super::{
     error::{Error, ErrorKind},
     ident, quote_ident, type_name, AstData, TypeKind,
 };
-use crate::{ast_pass::schema_visitor::SchemaVisitor, nullable_type::NullableType};
+use crate::{
+    ast_pass::schema_visitor::SchemaVisitor,
+    from_directive::{Deprecation, FieldArguments, FromDirective, JuniperDirective, Ownership},
+    nullable_type::NullableType,
+};
 use graphql_parser::{
     query::{Name, Type},
     schema::{self, *},
@@ -32,12 +36,12 @@ pub struct CodeGenPass<'doc> {
 }
 
 impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
-    fn visit_schema_definition(&mut self, schema_def: &'doc schema::SchemaDefinition) {
+    fn visit_schema_definition(&mut self, schema_def: &'doc SchemaDefinition) {
         if schema_def.subscription.is_some() {
             self.emit_non_fatal_error(schema_def.position, ErrorKind::SubscriptionsNotSupported);
         }
 
-        self.error_if_has_unsupported_directive(&schema_def);
+        self.parse_directives(schema_def);
 
         let query = match &schema_def.query {
             Some(query) => ident(query),
@@ -61,8 +65,8 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         });
     }
 
-    fn visit_scalar_type(&mut self, scalar_type: &'doc schema::ScalarType) {
-        self.error_if_has_unsupported_directive(&scalar_type);
+    fn visit_scalar_type(&mut self, scalar_type: &'doc ScalarType) {
+        self.parse_directives(scalar_type);
 
         match &*scalar_type.name {
             "Date" | "DateTime" | "Uuid" | "Url" => {
@@ -86,8 +90,8 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         };
     }
 
-    fn visit_object_type(&mut self, obj_type: &'doc schema::ObjectType) {
-        self.error_if_has_unsupported_directive(&obj_type);
+    fn visit_object_type(&mut self, obj_type: &'doc ObjectType) {
+        self.parse_directives(obj_type);
 
         let struct_name = ident(&obj_type.name);
 
@@ -179,8 +183,8 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         self.extend(code)
     }
 
-    fn visit_interface_type(&mut self, interface: &'doc schema::InterfaceType) {
-        self.error_if_has_unsupported_directive(&interface);
+    fn visit_interface_type(&mut self, interface: &'doc InterfaceType) {
+        self.parse_directives(interface);
 
         let interface_name = ident(&interface.name);
 
@@ -290,8 +294,8 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         self.extend(code);
     }
 
-    fn visit_union_type(&mut self, union: &'doc schema::UnionType) {
-        self.error_if_has_unsupported_directive(&union);
+    fn visit_union_type(&mut self, union: &'doc UnionType) {
+        self.parse_directives(union);
 
         let union_name = ident(&union.name);
         let implementors = union.types.iter().map(ident).collect::<Vec<_>>();
@@ -344,8 +348,8 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         self.extend(code);
     }
 
-    fn visit_enum_type(&mut self, enum_type: &'doc schema::EnumType) {
-        self.error_if_has_unsupported_directive(&enum_type);
+    fn visit_enum_type(&mut self, enum_type: &'doc EnumType) {
+        self.parse_directives(enum_type);
 
         let name = to_enum_name(&enum_type.name);
 
@@ -366,8 +370,8 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         });
     }
 
-    fn visit_input_object_type(&mut self, input_object: &'doc schema::InputObjectType) {
-        self.error_if_has_unsupported_directive(&input_object);
+    fn visit_input_object_type(&mut self, input_object: &'doc InputObjectType) {
+        self.parse_directives(input_object);
 
         let name = ident(&input_object.name);
 
@@ -569,8 +573,8 @@ impl<'doc> CodeGenPass<'doc> {
         })
     }
 
-    fn argument_to_name_and_rust_type<'a>(&mut self, arg: &'a InputValue) -> FieldArgument<'a> {
-        self.error_if_has_unsupported_directive(&arg);
+    fn argument_to_name_and_rust_type(&mut self, arg: &'doc InputValue) -> FieldArgument<'doc> {
+        self.parse_directives(arg);
 
         let default_value_tokens = arg
             .default_value
@@ -622,7 +626,7 @@ impl<'doc> CodeGenPass<'doc> {
         };
 
         let as_ref = match destination {
-            FieldTypeDestination::Return(attrs) => match attrs.ownership() {
+            FieldTypeDestination::Return(attrs) => match attrs.ownership {
                 Ownership::AsRef => true,
                 Ownership::Borrowed => false,
                 Ownership::Owned => false,
@@ -633,7 +637,7 @@ impl<'doc> CodeGenPass<'doc> {
         let (tokens, ty) = self.gen_nullable_field_type(field_type, as_ref, pos);
 
         match (destination, ty) {
-            (FieldTypeDestination::Return(attrs), ref ty) => match attrs.ownership() {
+            (FieldTypeDestination::Return(attrs), ref ty) => match attrs.ownership {
                 Ownership::Owned | Ownership::AsRef => (tokens, *ty),
                 Ownership::Borrowed => (quote! { &#tokens }, *ty),
             },
@@ -681,15 +685,16 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn collect_data_for_field_gen(&mut self, field: &'doc Field) -> FieldTokens<'doc> {
-        self.error_if_has_unsupported_directive(&field);
-
-        let deprecation = self.quote_deprecations(&field.directives);
-
         let name = ident(&field.name);
 
         let inner_type = type_name(&field.field_type).to_camel_case();
 
-        let attributes = self.parse_attributes(&field);
+        let attributes = self.parse_directives(field);
+        let deprecation = attributes
+            .deprecated
+            .as_ref()
+            .map(quote_deprecation)
+            .unwrap_or_else(empty_token_stream);
 
         let (field_type, type_kind) = self.gen_field_type(
             &field.field_type,
@@ -756,23 +761,12 @@ impl<'doc> CodeGenPass<'doc> {
         }
     }
 
-    fn error_if_has_unsupported_directive<T: GetDirectives>(&mut self, t: &T) {
-        for directive in t.directives() {
-            if t.supports_directive(&directive.name) {
-                continue;
-            }
-            self.emit_non_fatal_error(directive.position, ErrorKind::DirectivesNotSupported);
-        }
-    }
-
-    fn gen_enum_value(&mut self, enum_value: &EnumValue) -> TokenStream {
-        self.error_if_has_unsupported_directive(&enum_value);
-
+    fn gen_enum_value(&mut self, enum_value: &'doc EnumValue) -> TokenStream {
         let graphql_name = &enum_value.name;
         let name = to_enum_name(&graphql_name);
         let description = doc_tokens(&enum_value.description);
 
-        let deprecation = self.quote_deprecations(&enum_value.directives);
+        let deprecation = quote_deprecation(&self.parse_directives(enum_value));
 
         quote! {
             #[allow(missing_docs)]
@@ -781,89 +775,6 @@ impl<'doc> CodeGenPass<'doc> {
             #description
             #name,
         }
-    }
-
-    fn quote_deprecations(&mut self, directives: &[Directive]) -> TokenStream {
-        for directive in directives {
-            if directive.name == "deprecated" {
-                let mut arguments = BTreeMap::new();
-                for (key, value) in &directive.arguments {
-                    arguments.insert(key, value);
-                }
-
-                if arguments.keys().count() > 1 {
-                    self.emit_non_fatal_error(
-                        directive.position,
-                        ErrorKind::InvalidArgumentsToDeprecateDirective,
-                    );
-                }
-
-                if let Some(value) = arguments.get(&"reason".to_string()) {
-                    let tokens = match value {
-                        Value::String(reason) => quote! { #[deprecated(note = #reason)] },
-                        _ => {
-                            self.emit_non_fatal_error(
-                                directive.position,
-                                ErrorKind::InvalidArgumentsToDeprecateDirective,
-                            );
-                            quote! { #[deprecated] }
-                        }
-                    };
-                    return tokens;
-                } else {
-                    return quote! { #[deprecated] };
-                }
-            }
-        }
-
-        quote! {}
-    }
-
-    fn parse_attributes(&mut self, field: &Field) -> Attributes {
-        self.parse_attributes_from_directives(&field.directives)
-    }
-
-    fn parse_attributes_from_directives(&mut self, directives: &[Directive]) -> Attributes {
-        let mut attrs = vec![];
-
-        for directive in directives {
-            if directive.name == "juniper" {
-                let arguments = directive_args_to_map(&directive.arguments);
-
-                let mut invalid = || {
-                    self.emit_non_fatal_error(
-                        directive.position,
-                        ErrorKind::InvalidArgumentsToJuniperDirective,
-                    );
-                };
-
-                if arguments.keys().count() > 1 {
-                    invalid();
-                }
-
-                if let Some(value) = arguments.get(&"ownership".to_string()) {
-                    if let Value::String(ownership) = value {
-                        if ownership == "owned" {
-                            attrs.push(Attribute::Ownership(Ownership::Owned))
-                        } else if ownership == "borrowed" {
-                            attrs.push(Attribute::Ownership(Ownership::Borrowed))
-                        } else if ownership == "as_ref" {
-                            attrs.push(Attribute::Ownership(Ownership::AsRef))
-                        } else {
-                            invalid();
-                        }
-                    } else {
-                        invalid();
-                    }
-                } else {
-                    invalid();
-                }
-            } else {
-                // Other directives are handled by `error_if_has_unsupported_directive`
-            }
-        }
-
-        Attributes { list: attrs }
     }
 
     fn quote_value(&mut self, value: &Value, type_name: &str, pos: Pos) -> TokenStream {
@@ -1021,6 +932,18 @@ impl<'doc> CodeGenPass<'doc> {
     }
 }
 
+fn quote_deprecation(deprecated: &Deprecation) -> TokenStream {
+    match deprecated {
+        Deprecation::NoDeprecation => empty_token_stream(),
+        Deprecation::Deprecated(Some(reason)) => {
+            quote! { #[deprecated(note = #reason)] }
+        }
+        Deprecation::Deprecated(None) => {
+            quote! { #[deprecated] }
+        }
+    }
+}
+
 impl Extend<TokenTree> for CodeGenPass<'_> {
     fn extend<T: IntoIterator<Item = TokenTree>>(&mut self, iter: T) {
         self.tokens.extend(iter);
@@ -1144,43 +1067,7 @@ fn i32_from_i64(i: i64) -> Option<i32> {
 
 enum FieldTypeDestination {
     Argument,
-    Return(Attributes),
-}
-
-#[derive(Debug, Eq, PartialEq)]
-enum Attribute {
-    Ownership(Ownership),
-}
-
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
-enum Ownership {
-    Borrowed,
-    Owned,
-    AsRef,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-struct Attributes {
-    list: Vec<Attribute>,
-}
-
-impl std::default::Default for Attributes {
-    fn default() -> Self {
-        Attributes { list: Vec::new() }
-    }
-}
-
-impl Attributes {
-    #[allow(clippy::never_loop)]
-    fn ownership(&self) -> Ownership {
-        for attr in &self.list {
-            match attr {
-                Attribute::Ownership(x) => return *x,
-            }
-        }
-
-        Ownership::Borrowed
-    }
+    Return(FieldArguments),
 }
 
 fn doc_tokens(doc: &Option<String>) -> TokenStream {
@@ -1191,46 +1078,6 @@ fn doc_tokens(doc: &Option<String>) -> TokenStream {
     } else {
         quote! {}
     }
-}
-
-fn directive_args_to_map(map: &[(String, Value)]) -> BTreeMap<&String, &Value> {
-    let mut out = BTreeMap::new();
-    for (key, value) in map {
-        out.insert(key, value);
-    }
-    out
-}
-
-trait GetDirectives {
-    fn directives(&self) -> &Vec<Directive>;
-
-    fn supports_directive(&self, name: &str) -> bool;
-}
-
-macro_rules! impl_GetDirectives {
-    ($name:path, supported_directives: $supported_directives:expr) => {
-        impl GetDirectives for &$name {
-            fn directives(&self) -> &Vec<Directive> {
-                &self.directives
-            }
-
-            fn supports_directive(&self, name: &str) -> bool {
-                $supported_directives.contains(&name)
-            }
-        }
-    };
-
-    ($name:path) => {
-        impl GetDirectives for &$name {
-            fn directives(&self) -> &Vec<Directive> {
-                &self.directives
-            }
-
-            fn supports_directive(&self, _: &str) -> bool {
-                false
-            }
-        }
-    };
 }
 
 struct FieldNameCaseValidator<'pass, 'doc> {
@@ -1278,23 +1125,98 @@ fn is_snake_case(s: &str) -> bool {
     s.contains('_') && s.to_snake_case() == s
 }
 
-// All the schema types that have directives
-impl_GetDirectives!(EnumType);
-impl_GetDirectives!(EnumValue, supported_directives: ["deprecated"]);
-impl_GetDirectives!(Field, supported_directives: ["deprecated", "juniper"]);
-impl_GetDirectives!(InputObjectType);
-impl_GetDirectives!(InputValue);
-impl_GetDirectives!(InterfaceType);
-impl_GetDirectives!(ObjectType);
-impl_GetDirectives!(ScalarType);
-impl_GetDirectives!(SchemaDefinition);
-impl_GetDirectives!(UnionType);
-// Not supported yet
-// impl_GetDirectives!(schema::EnumTypeExtension);
-// impl_GetDirectives!(schema::InterfaceTypeExtension);
-// impl_GetDirectives!(schema::ObjectTypeExtension);
-// impl_GetDirectives!(schema::ScalarTypeExtension);
-// impl_GetDirectives!(schema::UnionTypeExtension);
+trait ParseDirective<'doc, T> {
+    type Output;
+
+    fn parse_directives(&mut self, input: &'doc T) -> Self::Output;
+}
+
+impl<'doc> ParseDirective<'doc, Field> for CodeGenPass<'doc> {
+    type Output = FieldArguments;
+
+    fn parse_directives(&mut self, input: &'doc Field) -> Self::Output {
+        let mut ownership = Ownership::default();
+        let mut deprecated = None::<Deprecation>;
+
+        for dir in &input.directives {
+            match JuniperDirective::<Ownership>::from_directive(dir) {
+                Ok(x) => {
+                    ownership = x.args;
+                    continue;
+                }
+                Err(_) => {}
+            }
+
+            match Deprecation::from_directive(dir) {
+                Ok(x) => {
+                    deprecated = Some(x);
+                    continue;
+                }
+                Err(_) => {}
+            }
+
+            self.emit_non_fatal_error(
+                dir.position,
+                ErrorKind::UnknownDirective(vec![
+                    "`@deprecated`",
+                    "`@juniper(ownership: \"owned\")`",
+                ]),
+            );
+        }
+
+        FieldArguments {
+            ownership,
+            deprecated,
+        }
+    }
+}
+
+impl<'doc> ParseDirective<'doc, EnumValue> for CodeGenPass<'doc> {
+    type Output = Deprecation;
+
+    fn parse_directives(&mut self, input: &'doc EnumValue) -> Self::Output {
+        let mut deprecated = Deprecation::default();
+
+        for dir in &input.directives {
+            match Deprecation::from_directive(dir) {
+                Ok(x) => {
+                    deprecated = x;
+                }
+                Err(err) => {
+                    self.emit_non_fatal_error(dir.position, err);
+                }
+            }
+        }
+
+        deprecated
+    }
+}
+
+macro_rules! supports_no_directives {
+    ($ty:ty) => {
+        impl<'doc> ParseDirective<'doc, $ty> for CodeGenPass<'doc> {
+            type Output = ();
+
+            fn parse_directives(&mut self, input: &'doc $ty) -> Self::Output {
+                for directive in &input.directives {
+                    self.emit_non_fatal_error(
+                        directive.position,
+                        ErrorKind::UnknownDirective(vec![]),
+                    );
+                }
+            }
+        }
+    };
+}
+
+supports_no_directives!(SchemaDefinition);
+supports_no_directives!(ScalarType);
+supports_no_directives!(ObjectType);
+supports_no_directives!(InterfaceType);
+supports_no_directives!(UnionType);
+supports_no_directives!(EnumType);
+supports_no_directives!(InputObjectType);
+supports_no_directives!(InputValue);
 
 #[cfg(test)]
 mod test {

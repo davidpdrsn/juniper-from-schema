@@ -114,63 +114,7 @@ static SCHEMA_INTROSPECTION_QUERY: &'static str = r#"
     }
 "#;
 
-graphql_schema! {
-    schema {
-        query: Query
-    }
-
-    "Root query type"
-    type Query {
-        "queryField desc"
-        queryField(
-            "queryFieldArg desc"
-            queryFieldArg: InputType!
-        ): SomeScalar!
-
-        "deprecatedField desc"
-        deprecatedField: ID! @deprecated
-
-        "deprecatedField2 desc"
-        deprecatedField2: ID! @deprecated(reason: "because reasons")
-
-        entity: Entity!
-
-        search(query: String!): [SearchResult!]!
-    }
-
-    "SomeScalar scalar desc"
-    scalar SomeScalar
-
-    "InputType desc"
-    input InputType {
-        "id desc"
-        id: ID!
-    }
-
-    type User implements Entity {
-        id: ID!
-        userType: UserType!
-    }
-
-    "Entity desc"
-    interface Entity {
-        "Entity id desc"
-        id: ID! @deprecated
-    }
-
-    "UserType desc"
-    enum UserType {
-        "REAL desc"
-        REAL  @deprecated(reason: "because reasons")
-        "BOT desc"
-        BOT
-        "OTHER desc"
-        OTHER @deprecated
-    }
-
-    "SearchResult desc"
-    union SearchResult = User
-}
+graphql_schema_from_file!("tests/schemas/doc_test.graphql");
 
 pub struct Query;
 
