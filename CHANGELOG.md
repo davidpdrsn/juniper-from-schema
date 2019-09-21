@@ -25,6 +25,7 @@ N/A
 ### Fixed
 
 - Fix support for special case [`Uuid`](https://crates.io/crates/uuid) and [`Url`](https://crates.io/crates/url) scalars. [#69](https://github.com/davidpdrsn/juniper-from-schema/pull/69)
+- Replace use deprecated `juniper::graphql_object` macro with `juniper::object` proc macro.
 
 ## [0.3.0] - 2019-06-18
 

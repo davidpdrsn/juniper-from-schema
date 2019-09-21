@@ -96,7 +96,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         let field_tokens = obj_type
             .fields
             .iter()
-            .map(|field| self.collect_data_for_field_gen(field))
+            .map(|field| self.collect_data_for_field_gen(field, QuoteFor::ProcMacro))
             .collect::<Vec<_>>();
 
         let trait_methods = field_tokens
@@ -154,7 +154,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         let description = obj_type
             .description
             .as_ref()
-            .map(|d| quote! { description: #d })
+            .map(|d| quote! { description = #d, })
             .unwrap_or_else(empty_token_stream);
 
         let interfaces = if obj_type.implements_interfaces.is_empty() {
@@ -164,17 +164,23 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                 let name = ident(name);
                 quote! { &#name }
             });
-            quote! { interfaces: [#(#interface_names),*] }
+            quote! { interfaces = [#(#interface_names),*], }
         };
 
         let context_type = &self.context_type;
 
+        let macro_args = vec![
+            quote! { Context = #context_type, },
+            description,
+            quote! { scalar = juniper::DefaultScalarValue, },
+            interfaces,
+        ];
+
         let code = quote! {
-            juniper::graphql_object!(#struct_name: #context_type |&self| {
-                #description
+            #[juniper::object( #(#macro_args)* )]
+            impl #struct_name {
                 #(#fields)*
-                #interfaces
-            });
+            }
         };
         self.extend(code)
     }
@@ -231,7 +237,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         let field_tokens: Vec<FieldTokens> = interface
             .fields
             .iter()
-            .map(|field| self.collect_data_for_field_gen(field))
+            .map(|field| self.collect_data_for_field_gen(field, QuoteFor::Macro))
             .collect::<Vec<_>>();
 
         let field_token_streams = field_tokens
@@ -256,7 +262,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                     }
                 });
 
-                let all_args = to_field_args_list(&args);
+                let all_args = to_field_args_list(&args, QuoteFor::Macro);
 
                 let error_type = &self.error_type;
 
@@ -680,10 +686,14 @@ impl<'doc> CodeGenPass<'doc> {
         }
     }
 
-    fn collect_data_for_field_gen(&mut self, field: &'doc Field) -> FieldTokens<'doc> {
+    fn collect_data_for_field_gen(
+        &mut self,
+        field: &'doc Field,
+        quote_for: QuoteFor,
+    ) -> FieldTokens<'doc> {
         self.error_if_has_unsupported_directive(&field);
 
-        let deprecation = self.quote_deprecations(&field.directives);
+        let deprecation = self.quote_deprecations(&field.directives, quote_for);
 
         let name = ident(&field.name);
 
@@ -711,6 +721,16 @@ impl<'doc> CodeGenPass<'doc> {
             .map(|arg| {
                 let name = ident(&arg.name);
                 let arg_type = &arg.macro_type;
+
+                if arg.description.is_some() && quote_for == QuoteFor::ProcMacro {
+                    // TODO: support descriptions field arguments.
+                    // That is currently annoying in juniper when using the `#[object]` proc macro
+                    // https://docs.rs/juniper_codegen/0.13.2/juniper_codegen/attr.object.html#customization-documentation-renaming-
+                    return quote! {
+                        #name: #arg_type
+                    };
+                }
+
                 let description = doc_tokens(&arg.description);
                 quote! {
                     #description
@@ -772,7 +792,7 @@ impl<'doc> CodeGenPass<'doc> {
         let name = to_enum_name(&graphql_name);
         let description = doc_tokens(&enum_value.description);
 
-        let deprecation = self.quote_deprecations(&enum_value.directives);
+        let deprecation = self.quote_deprecations(&enum_value.directives, QuoteFor::Macro);
 
         quote! {
             #[allow(missing_docs)]
@@ -783,7 +803,7 @@ impl<'doc> CodeGenPass<'doc> {
         }
     }
 
-    fn quote_deprecations(&mut self, directives: &[Directive]) -> TokenStream {
+    fn quote_deprecations(&mut self, directives: &[Directive], quote_for: QuoteFor) -> TokenStream {
         for directive in directives {
             if directive.name == "deprecated" {
                 let mut arguments = BTreeMap::new();
@@ -800,18 +820,27 @@ impl<'doc> CodeGenPass<'doc> {
 
                 if let Some(value) = arguments.get(&"reason".to_string()) {
                     let tokens = match value {
-                        Value::String(reason) => quote! { #[deprecated(note = #reason)] },
+                        Value::String(reason) => match quote_for {
+                            QuoteFor::Macro => quote! { #[deprecated(note = #reason)] },
+                            QuoteFor::ProcMacro => quote! { deprecated = #reason, },
+                        },
                         _ => {
                             self.emit_non_fatal_error(
                                 directive.position,
                                 ErrorKind::InvalidArgumentsToDeprecateDirective,
                             );
-                            quote! { #[deprecated] }
+                            match quote_for {
+                                QuoteFor::Macro => quote! { #[deprecated] },
+                                QuoteFor::ProcMacro => quote! { deprecated, },
+                            }
                         }
                     };
                     return tokens;
                 } else {
-                    return quote! { #[deprecated] };
+                    return match quote_for {
+                        QuoteFor::Macro => quote! { #[deprecated] },
+                        QuoteFor::ProcMacro => quote! { deprecated, },
+                    };
                 }
             }
         }
@@ -1059,14 +1088,18 @@ fn gen_field(
         .map(ToString::to_string)
         .unwrap_or_else(String::new);
 
-    let all_args = to_field_args_list(args);
+    let all_args = to_field_args_list(args, QuoteFor::ProcMacro);
 
     let deprecation = &field.deprecation;
 
+    let macro_args = vec![
+        quote! { description = #description },
+        quote! { #deprecation },
+    ];
+
     quote! {
-        #[doc = #description]
-        #deprecation
-        field #field_name(#all_args) -> std::result::Result<#field_type, #error_type> {
+        #[graphql( #(#macro_args),* )]
+        fn #field_name(#all_args) -> std::result::Result<#field_type, #error_type> {
             #body
         }
     }
@@ -1098,11 +1131,28 @@ fn gen_field_body(
     }
 }
 
-fn to_field_args_list(args: &[TokenStream]) -> TokenStream {
-    if args.is_empty() {
-        quote! { &executor }
-    } else {
-        quote! { &executor, #(#args),* }
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum QuoteFor {
+    Macro,
+    ProcMacro,
+}
+
+fn to_field_args_list(args: &[TokenStream], quote_for: QuoteFor) -> TokenStream {
+    match quote_for {
+        QuoteFor::ProcMacro => {
+            if args.is_empty() {
+                quote! { &self, executor: &Executor }
+            } else {
+                quote! { &self, executor: &Executor, #(#args),* }
+            }
+        }
+        QuoteFor::Macro => {
+            if args.is_empty() {
+                quote! { &executor }
+            } else {
+                quote! { &executor, #(#args),* }
+            }
+        }
     }
 }
 
