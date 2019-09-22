@@ -539,11 +539,18 @@ impl<'doc> CodeGenPass<'doc> {
                 #description
 
                 resolve(&self) -> juniper::Value {
-                    juniper::Value::string(&self.0)
+                    juniper::Value::scalar(juniper::DefaultScalarValue::from(self.0.as_ref()))
                 }
 
                 from_input_value(v: &InputValue) -> Option<#name> {
-                    v.as_string_value().map(|s| #name::new(s.to_owned()))
+                    let scalar = v.as_scalar_value();
+                    match scalar {
+                        Some(juniper::DefaultScalarValue::String(s)) => {
+                            Some(#name::new(s.to_owned()))
+                        }
+                        Some(_) => None,
+                        None => None,
+                    }
                 }
 
                 from_str<'a>(value: ScalarToken<'a>) -> juniper::ParseScalarResult<'a> {
