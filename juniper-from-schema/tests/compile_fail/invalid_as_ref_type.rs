@@ -1,7 +1,7 @@
 #![allow(dead_code, unused_variables, unused_must_use, unused_imports)]
-include!("../setup.rs");
+include!("../compile_pass/setup.rs");
 
-graphql_schema! {
+juniper_from_schema::graphql_schema! {
     type Query {
       asRefString: String! @juniper(ownership: "as_ref")
     }

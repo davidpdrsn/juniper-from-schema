@@ -1,7 +1,7 @@
 error: proc macro panicked
   --> $DIR/snake_cased_fields_on_interfaces.rs:4:1
    |
-4  | / graphql_schema! {
+4  | / juniper_from_schema::graphql_schema! {
 5  | |     type Query {
 6  | |         field: SomeInterface!
 7  | |     }

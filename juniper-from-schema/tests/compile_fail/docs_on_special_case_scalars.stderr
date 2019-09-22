@@ -1,7 +1,7 @@
 error: proc macro panicked
   --> $DIR/docs_on_special_case_scalars.rs:6:1
    |
-6  | / graphql_schema! {
+6  | / juniper_from_schema::graphql_schema! {
 7  | |     schema {
 8  | |         query: Query
 9  | |     }
