@@ -1,15 +1,13 @@
 #![recursion_limit = "128"]
+#![allow(dead_code)]
 
-#[macro_use]
 extern crate juniper;
-#[macro_use]
 extern crate maplit;
 
 use assert_json_diff::assert_json_include;
 use juniper::{Executor, FieldResult, Variables, ID};
-use juniper_from_schema::{graphql_schema, graphql_schema_from_file};
+use juniper_from_schema::graphql_schema_from_file;
 use serde_json::{self, json, Value};
-use std::collections::HashMap;
 
 // The query that GraphiQL runs to inspect the schema
 static SCHEMA_INTROSPECTION_QUERY: &'static str = r#"
