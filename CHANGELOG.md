@@ -8,6 +8,24 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Added
 
+N/A
+
+### Changed
+
+N/A
+
+### Removed
+
+N/A
+
+### Fixed
+
+N/A
+
+## [0.3.1] - 2019-10-24
+
+### Added
+
 - Support customizing the name of the context type. [#66](https://github.com/davidpdrsn/juniper-from-schema/pull/66)
 - Improve documentation of special case scalar types.
 - Implement common traits for generated scalar types.
@@ -16,10 +34,6 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 ### Changed
 
 - Special case scalars `Date`, `DateTime`, `Uuid`, and `Url` no longer support descriptions in the GraphQL schema. See [#69](https://github.com/davidpdrsn/juniper-from-schema/pull/69) for more details.
-
-### Removed
-
-N/A
 
 ### Fixed
 
@@ -127,6 +141,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.3.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.3...0.3.0
 [0.2.3]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.2...0.2.3
 [0.2.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.1...0.2.2
