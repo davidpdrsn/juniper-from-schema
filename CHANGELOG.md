@@ -27,6 +27,7 @@ N/A
 
 - Fix support for special case [`Uuid`](https://crates.io/crates/uuid) and [`Url`](https://crates.io/crates/url) scalars. [#69](https://github.com/davidpdrsn/juniper-from-schema/pull/69)
 - Removed some deprecation warnings related to scalar types. [#78](https://github.com/davidpdrsn/juniper-from-schema/pull/78)
+- Don't deprecate enum variants in Rust code when marked as deprecated in the schema.
 
 ## [0.3.0] - 2019-06-18
 

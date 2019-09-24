@@ -773,12 +773,21 @@ impl<'doc> CodeGenPass<'doc> {
         let name = to_enum_name(&graphql_name);
         let description = doc_tokens(&enum_value.description);
 
-        let deprecation = quote_deprecation(&self.parse_directives(enum_value));
+        let graphql_attr = match self.parse_directives(enum_value) {
+            Deprecation::NoDeprecation => {
+                quote! { #[graphql(name=#graphql_name)] }
+            }
+            Deprecation::Deprecated(None) => {
+                quote! { #[graphql(name=#graphql_name, deprecated="")] }
+            }
+            Deprecation::Deprecated(Some(reason)) => {
+                quote! { #[graphql(name=#graphql_name, deprecated=#reason)] }
+            }
+        };
 
         quote! {
             #[allow(missing_docs)]
-            #[graphql(name=#graphql_name)]
-            #deprecation
+            #graphql_attr
             #description
             #name,
         }

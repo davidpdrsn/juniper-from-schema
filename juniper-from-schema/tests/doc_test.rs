@@ -1,5 +1,6 @@
 #![recursion_limit = "128"]
 #![allow(dead_code)]
+#![deny(deprecated)]
 
 extern crate juniper;
 extern crate maplit;
@@ -270,7 +271,7 @@ fn test_docs() {
                         {
                             "name": "OTHER",
                             "description": "OTHER desc",
-                            "deprecationReason": null,
+                            "deprecationReason": "",
                             "isDeprecated": true,
                         },
                     ],
