@@ -22,6 +22,12 @@ N/A
 
 N/A
 
+## [0.3.2] - 2019-10-30
+
+### Added
+
+- Juniper 0.14 support.
+
 ## [0.3.1] - 2019-10-24
 
 ### Added
@@ -141,6 +147,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.3.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.3.1...0.3.2
 [0.3.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.3...0.3.0
 [0.2.3]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.2...0.2.3

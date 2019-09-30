@@ -1006,7 +1006,7 @@
 //! [rustfmt]: https://github.com/rust-lang/rustfmt
 
 #![deny(unused_imports, dead_code, unused_variables, unused_must_use)]
-#![doc(html_root_url = "https://docs.rs/juniper-from-schema/0.3.1")]
+#![doc(html_root_url = "https://docs.rs/juniper-from-schema/0.3.2")]
 
 pub use juniper_from_schema_code_gen::{graphql_schema, graphql_schema_from_file};
 
