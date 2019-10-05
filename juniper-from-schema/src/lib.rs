@@ -978,7 +978,7 @@
 //! ### Why is this useful?
 //!
 //! If you were do perform some kind of preloading of data you might have a function that inspects
-//! a `QueryTrail` and load the necessary data from a database. Such a function could look like
+//! a `QueryTrail` and loads the necessary data from a database. Such a function could look like
 //! this:
 //!
 //! ```ignore
@@ -1018,11 +1018,11 @@
 //! }
 //! ```
 //!
-//! The method `QueryFields::field_seach` will receive a `QueryTrail<'a, SearchResult, Walked>`.
+//! The method `QueryFields::field_search` will receive a `QueryTrail<'a, SearchResult, Walked>`.
 //! That type doesn't work with `preload_users`. So we have to convert our `QueryTrail<'a,
 //! SearchResult, Walked>` into `QueryTrail<'a, User, Walked>`.
 //!
-//! This can be done calling [`.downcast()`] which automatically gets implemented for interface and
+//! This can be done by calling `.downcast()` which automatically gets implemented for interface and
 //! union query trails. See above for an example.
 //!
 //! # Customizing the error type
