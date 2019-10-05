@@ -12,7 +12,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Changed
 
-N/A
+- The `QueryTrail` type is now part of this library rather than being emitted as part of the generated code. This was done so other libraries could make sure of the type. If you're getting errors about missing methods adding `use crate::graphql_schema::query_trails::*` to you module should fix it.
 
 ### Removed
 

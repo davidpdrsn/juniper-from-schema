@@ -37,7 +37,7 @@ impl QueryFields for Query {
         trail: &QueryTrail<'a, Entity, Walked>,
     ) -> FieldResult<Vec<Entity>> {
         verify_entity_query_trail(trail);
-        verify_user_query_trail(&trail.into());
+        verify_user_query_trail(&trail.downcast());
 
         Ok(vec![])
     }
@@ -49,7 +49,7 @@ impl QueryFields for Query {
         _query: String,
     ) -> FieldResult<Vec<SearchResult>> {
         verify_search_result_query_trail(trail);
-        verify_user_query_trail(&trail.into());
+        verify_user_query_trail(&trail.downcast());
 
         Ok(vec![])
     }

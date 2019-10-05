@@ -739,8 +739,32 @@
 //! on all your types. This means the compiler will reject your code if you're checking for invalid
 //! fields.
 //!
-//! Fields that return objects types (non scalar values) will also get a `QueryTrail` argument
+//! Fields that return object types (non scalar values) will also get a `QueryTrail` argument
 //! besides the executor.
+//!
+//! Since the `QueryTrail` type itself is defined in this crate (rather than being inserted into
+//! your code) we cannot directly add methods for your GraphQL fields. Those methods have to be
+//! added through ["extension traits"](http://xion.io/post/code/rust-extension-traits.html). So if
+//! you see an error like
+//!
+//! ```text
+//!    |  trail.foo();
+//!    |        ^^^ method not found in `&juniper_from_schema::QueryTrail<'a, User, juniper_from_schema::Walked>`
+//!    |
+//!    = help: items from traits can only be used if the trait is in scope
+//! help: the following trait is implemented but not in scope, perhaps add a `use` for it:
+//!    |
+//! 2  | use crate::graphql_schema::query_trails::QueryTrailUserExtensions;
+//!    |
+//! ```
+//!
+//! Then adding `use crate::graphql_schema::query_trails::*` to you module should fix it. This is
+//! necessary because all the extention traits are generated inside a module called `query_trails`.
+//! This is done so you can glob import the `QueryTrail` extension traits without glob importing
+//! everything from your GraphQL schema.
+//!
+//! If you just want everything from the schema `use crate::graphql_schema::*` will also bring in
+//! the extension traits.
 //!
 //! [N+1 query bugs]: https://secure.phabricator.com/book/phabcontrib/article/n_plus_one/
 //! [look ahead api]: https://docs.rs/juniper/0.11.1/juniper/struct.LookAheadSelection.html
@@ -883,7 +907,8 @@
 //! specific to that library._
 //!
 //! If you have a `QueryTrail<'a, T, Walked>` where `T` is an interface or union type you can use
-//! `.into()` to convert that `QueryTrail` into one of the implementors of the interface or union.
+//! `.downcast()` to convert that `QueryTrail` into one of the implementors of the interface or
+//! union.
 //!
 //! Example:
 //!
@@ -941,8 +966,8 @@
 //!         trail: &QueryTrail<'_, SearchResult, juniper_from_schema::Walked>,
 //!         query: String,
 //!     ) -> FieldResult<&Vec<SearchResult>> {
-//!         let article_trail: QueryTrail<'_, Article, Walked> = trail.into();
-//!         let tweet_trail: QueryTrail<'_, Tweet, Walked> = trail.into();
+//!         let article_trail: QueryTrail<'_, Article, Walked> = trail.downcast();
+//!         let tweet_trail: QueryTrail<'_, Tweet, Walked> = trail.downcast();
 //!
 //!         // ...
 //!         # unimplemented!()
@@ -997,9 +1022,8 @@
 //! That type doesn't work with `preload_users`. So we have to convert our `QueryTrail<'a,
 //! SearchResult, Walked>` into `QueryTrail<'a, User, Walked>`.
 //!
-//! This can be done [`std::convert::Into`](https://doc.rust-lang.org/std/convert/trait.Into.html)
-//! which automatically gets implemented for interface and union query trails. See above for an
-//! example.
+//! This can be done calling [`.downcast()`] which automatically gets implemented for interface and
+//! union query trails. See above for an example.
 //!
 //! # Customizing the error type
 //!
@@ -1130,8 +1154,17 @@
 //! [feature]: https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features
 //! [rustfmt]: https://github.com/rust-lang/rustfmt
 
-#![deny(unused_imports, dead_code, unused_variables, unused_must_use)]
+#![deny(
+    missing_docs,
+    unused_imports,
+    dead_code,
+    unused_variables,
+    unused_must_use
+)]
 #![doc(html_root_url = "https://docs.rs/juniper-from-schema/0.3.2")]
+
+use juniper::{DefaultScalarValue, LookAheadSelection};
+use std::marker::PhantomData;
 
 pub use juniper_from_schema_code_gen::{graphql_schema, graphql_schema_from_file};
 
@@ -1140,6 +1173,48 @@ pub struct Walked;
 
 /// A type used to parameterize `QueryTrail` to know that `walk` has *not* been called.
 pub struct NotWalked;
+
+/// A wrapper around a `juniper::LookAheadSelection` with methods for each possible child.
+pub struct QueryTrail<'a, T, K> {
+    #[doc(hidden)]
+    pub look_ahead: Option<&'a LookAheadSelection<'a, DefaultScalarValue>>,
+    #[doc(hidden)]
+    pub node_type: PhantomData<T>,
+    #[doc(hidden)]
+    pub walked: K,
+}
+
+impl<'a, T> QueryTrail<'a, T, NotWalked> {
+    /// Check if the trail is present in the query being executed
+    pub fn walk(self) -> Option<QueryTrail<'a, T, Walked>> {
+        match self.look_ahead {
+            Some(inner) => Some(QueryTrail {
+                look_ahead: Some(inner),
+                node_type: self.node_type,
+                walked: Walked,
+            }),
+            None => None,
+        }
+    }
+}
+
+/// Make a `QueryTrail` from something, normally a `juniper::LookAheadSelection`.
+///
+/// You normally shouldn't need to worry about this trait.
+pub trait MakeQueryTrail<'a> {
+    #[allow(missing_docs)]
+    fn make_query_trail<T>(&'a self) -> QueryTrail<'a, T, Walked>;
+}
+
+impl<'a> MakeQueryTrail<'a> for LookAheadSelection<'a, DefaultScalarValue> {
+    fn make_query_trail<T>(&'a self) -> QueryTrail<'a, T, Walked> {
+        QueryTrail {
+            look_ahead: Some(self),
+            node_type: PhantomData,
+            walked: Walked,
+        }
+    }
+}
 
 #[cfg(test)]
 mod test {
