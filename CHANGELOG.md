@@ -8,11 +8,11 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Added
 
-- Support converting `QueryTrail`s for interfaces or unions into `QueryTrail`s for implementors of those interfaces or unions. This makes it possible to use [juniper-eager-loading](https://crates.io/crates/juniper-eager-loading) with interface or union types. [#63](https://github.com/davidpdrsn/juniper-from-schema/pull/63)
+N/A
 
 ### Changed
 
-- The `QueryTrail` type is now part of this library rather than being emitted as part of the generated code. This was done so other libraries could make sure of the type. If you're getting errors about missing methods adding `use crate::graphql_schema::query_trails::*` to you module should fix it.
+N/A
 
 ### Removed
 
@@ -21,6 +21,16 @@ N/A
 ### Fixed
 
 N/A
+
+## [0.4.0] - 2019-11-05
+
+### Added
+
+- Support converting `QueryTrail`s for interfaces or unions into `QueryTrail`s for implementors of those interfaces or unions. This makes it possible to use [juniper-eager-loading](https://crates.io/crates/juniper-eager-loading) with interface or union types. [#63](https://github.com/davidpdrsn/juniper-from-schema/pull/63)
+
+### Changed
+
+- The `QueryTrail` type is now part of this library rather than being emitted as part of the generated code. This was done so other libraries could make sure of the type. If you're getting errors about missing methods adding `use crate::graphql_schema::query_trails::*` to you module should fix it. [#82](https://github.com/davidpdrsn/juniper-from-schema/pull/82)
 
 ## [0.3.2] - 2019-10-30
 
@@ -147,6 +157,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.4.0]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.3.2...0.4.0
 [0.3.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.3.1...0.3.2
 [0.3.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.2.3...0.3.0
