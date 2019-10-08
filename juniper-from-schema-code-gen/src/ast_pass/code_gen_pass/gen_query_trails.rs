@@ -1,4 +1,4 @@
-use super::{ident, type_name, CodeGenPass, EmitError, TypeKind};
+use super::{ident, type_name, CodeGenPass, EmitError, FieldTypeDestination, TypeKind};
 use crate::ast_pass::{error::ErrorKind, schema_visitor::SchemaVisitor};
 use graphql_parser::schema::*;
 use heck::{CamelCase, MixedCase, SnakeCase};
@@ -26,9 +26,13 @@ impl<'doc> CodeGenPass<'doc> {
             fields_map,
         };
         query_trail_pass.gen_query_trail();
+        query_trail_pass.gen_scalar_value_conversion();
         query_trail_pass.visit_document(doc);
 
         let query_trail_tokens = &self.tokens;
+        // println!("{}", query_trail_tokens);
+        // let query_trail_tokens = quote! {};
+
         self.tokens = quote! {
             pub use juniper_from_schema::{Walked, NotWalked, QueryTrail, MakeQueryTrail};
             pub use self::query_trails::*;
@@ -71,30 +75,81 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
         })
     }
 
-    fn gen_field_walk_methods(&mut self, obj: InternalQueryTrailNode<'_>) {
+    fn gen_scalar_value_conversion(&mut self) {
+        self.pass.extend(quote! {
+            trait ConvertScalarValue<T> {
+                fn convert_to_rust_value(self) -> T;
+            }
+        });
+
+        let gen_impl = |to: Ident, variant: Ident| {
+            quote! {
+                impl<'a, 'b> ConvertScalarValue<#to> for &'a &'b juniper::DefaultScalarValue {
+                    fn convert_to_rust_value(self) -> #to {
+                        match self {
+                            juniper::DefaultScalarValue::#variant(x) => x.to_owned(),
+                            other => {
+                                match other {
+                                    juniper::DefaultScalarValue::Int(_) => panic!(
+                                        "Failed conerting scalar value. Expected `{}` got `Int`",
+                                        stringify!(#to),
+                                    ),
+                                    juniper::DefaultScalarValue::String(_) => panic!(
+                                        "Failed conerting scalar value. Expected `{}` got `String`",
+                                        stringify!(#to),
+                                    ),
+                                    juniper::DefaultScalarValue::Float(_) => panic!(
+                                        "Failed conerting scalar value. Expected `{}` got `Float`",
+                                        stringify!(#to),
+                                    ),
+                                    juniper::DefaultScalarValue::Boolean(_) => panic!(
+                                        "Failed conerting scalar value. Expected `{}` got `Boolean`",
+                                        stringify!(#to),
+                                    ),
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        self.pass.extend(gen_impl(ident("i32"), ident("Int")));
+        self.pass.extend(gen_impl(ident("String"), ident("String")));
+        self.pass.extend(gen_impl(ident("f64"), ident("Float")));
+        self.pass.extend(gen_impl(ident("bool"), ident("Boolean")));
+    }
+
+    fn gen_field_walk_methods(&mut self, obj: InternalQueryTrailNode) {
         let name = ident(&obj.name());
         let trait_name = ident(&format!("QueryTrail{}Extensions", obj.name()));
         let fields = obj.fields();
 
-        let (method_signatures, method_implementations) = fields
-            .iter()
-            .map(|field| {
-                let FieldWalkMethod {
-                    method_signature,
-                    method_implementation,
-                } = self.gen_field_walk_method(field);
-                (method_signature, method_implementation)
-            })
-            .unzip::<_, _, Vec<_>, Vec<_>>();
+        let mut method_signatures = vec![];
+        let mut method_implementations = vec![];
+        let mut arguments_implementations = vec![];
+
+        for field in fields {
+            let FieldWalkMethod {
+                method_signature,
+                method_implementation,
+                arguments_implementation,
+            } = self.gen_field_walk_method(field, &obj);
+            method_signatures.push(method_signature);
+            method_implementations.push(method_implementation);
+            arguments_implementations.push(arguments_implementation);
+        }
 
         self.pass.extend(quote! {
-            pub trait #trait_name<'a> {
+            pub trait #trait_name<'a, K> {
                 #(#method_signatures)*
             }
 
-            impl<'a, K> #trait_name<'a> for QueryTrail<'a, #name, K> {
+            impl<'a, K> #trait_name<'a, K> for QueryTrail<'a, #name, K> {
                 #(#method_implementations)*
             }
+
+            #(#arguments_implementations)*
         });
 
         self.gen_conversion_methods(name, obj);
@@ -171,26 +226,31 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
         }
     }
 
-    fn gen_field_walk_method(&mut self, field: &Field) -> FieldWalkMethod {
+    fn gen_field_walk_method(
+        &mut self,
+        field: &Field,
+        obj: &InternalQueryTrailNode,
+    ) -> FieldWalkMethod {
         let field_type = type_name(&field.field_type);
         let (_, ty) = self
             .pass
             .graphql_scalar_type_to_rust_type(&field_type, field.position);
         let field_type = ident(field_type.clone().to_camel_case());
+        let obj_type = ident(&obj.name());
 
         match ty {
             TypeKind::Scalar => {
                 let name = ident(&field.name.to_snake_case());
                 let string_name = &field.name.to_mixed_case();
 
-                let method_signature = quote! {
+                let mut method_signature = quote! {
                     /// Check if a scalar leaf node is queried for
                     ///
                     /// Generated by `juniper-from-schema`.
                     fn #name(&self) -> bool;
                 };
 
-                let method_implementation = quote! {
+                let mut method_implementation = quote! {
                     fn #name(&self) -> bool {
                         use juniper::LookAheadMethods;
 
@@ -200,9 +260,46 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                     }
                 };
 
+                let mut arguments_implementation = quote! {};
+
+                if !field.arguments.is_empty() {
+                    let args_method_name = ident(&format!("{}_args", name));
+                    let args_type_name = ident(&format!(
+                        "{}{}Args",
+                        obj.name(),
+                        name.to_string().to_camel_case()
+                    ));
+
+                    method_signature.extend(quote! {
+                        fn #args_method_name<'trail>(&'trail self) -> #args_type_name<'trail, 'a, K>;
+                    });
+
+                    method_implementation.extend(quote! {
+                        fn #args_method_name<'trail>(&'trail self) -> #args_type_name<'trail, 'a, K> {
+                            #args_type_name(self)
+                        }
+                    });
+
+                    let arguments_methods = field.arguments.iter().map(|input_value| {
+                        self.gen_argument_look_ahead_methods(input_value, &field.name)
+                    });
+
+                    arguments_implementation.extend(quote! {
+                        // TODO: docs
+                        pub struct #args_type_name<'trail, 'a, K>(
+                            &'trail QueryTrail<'a, #obj_type, K>
+                        );
+
+                        impl<'trail, 'a, K> #args_type_name<'trail, 'a, K> {
+                            #(#arguments_methods)*
+                        }
+                    });
+                }
+
                 FieldWalkMethod {
                     method_signature,
                     method_implementation,
+                    arguments_implementation,
                 }
             }
             TypeKind::Type => {
@@ -230,10 +327,56 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                     }
                 };
 
+                // TODO
+                let arguments_implementation = quote! {};
+
                 FieldWalkMethod {
                     method_signature,
                     method_implementation,
+                    arguments_implementation,
                 }
+            }
+        }
+    }
+
+    fn gen_argument_look_ahead_methods(
+        &mut self,
+        input_value: &InputValue,
+        field_name: &str,
+    ) -> TokenStream {
+        if input_value.default_value.is_some() {
+            panic!("default values not supported yet")
+        }
+
+        let (field_type, _) = self.pass.gen_field_type(
+            &input_value.value_type,
+            &FieldTypeDestination::Argument,
+            false,
+            input_value.position,
+        );
+
+        let name = &input_value.name;
+        let ident = ident(name.to_snake_case());
+        quote! {
+            // TODO: docs
+            pub fn #ident(&self) -> Option<#field_type> {
+                use juniper::LookAheadMethods;
+
+                let lh = &self.0.look_ahead?.select_child(#field_name)?;
+                let arg = lh.arguments().iter().find(|arg| {
+                    arg.name() == #name
+                })?;
+                let value = arg.value();
+                let x = match value {
+                    juniper::LookAheadValue::Null => unimplemented!("null"),
+                    juniper::LookAheadValue::Scalar(scalar) => {
+                        ConvertScalarValue::convert_to_rust_value(scalar)
+                    },
+                    juniper::LookAheadValue::Enum(_) => unimplemented!("enum"),
+                    juniper::LookAheadValue::List(_) => unimplemented!("list"),
+                    juniper::LookAheadValue::Object(_) => unimplemented!("object"),
+                };
+                Some(x)
             }
         }
     }
@@ -241,7 +384,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
 
 impl<'pass, 'doc> SchemaVisitor<'doc> for QueryTrailCodeGenPass<'pass, 'doc> {
     fn visit_object_type(&mut self, obj: &'doc ObjectType) {
-        self.gen_field_walk_methods(InternalQueryTrailNode::Object(obj))
+        self.gen_field_walk_methods(InternalQueryTrailNode::Object(obj));
     }
 
     fn visit_interface_type(&mut self, interface: &'doc InterfaceType) {
@@ -261,9 +404,10 @@ impl<'pass, 'doc> SchemaVisitor<'doc> for QueryTrailCodeGenPass<'pass, 'doc> {
 struct FieldWalkMethod {
     method_signature: TokenStream,
     method_implementation: TokenStream,
+    arguments_implementation: TokenStream,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct HashFieldByName<'a>(&'a Field);
 
 impl<'a> PartialEq for HashFieldByName<'a> {
@@ -280,6 +424,7 @@ impl<'a> Hash for HashFieldByName<'a> {
     }
 }
 
+#[derive(Debug)]
 enum InternalQueryTrailNode<'a> {
     Object(&'a ObjectType),
     Interface(&'a InterfaceType),

@@ -1,50 +1,152 @@
-#![allow(dead_code, unused_variables, unused_must_use, unused_imports)]
-use juniper::{EmptyMutation, Executor, FieldResult, Variables};
-use juniper_from_schema::{graphql_schema, graphql_schema_from_file};
+#![allow(dead_code, unused_variables, unused_imports)]
 
-pub struct Context;
-impl juniper::Context for Context {}
+#[macro_use]
+extern crate juniper;
+
+use assert_json_diff::assert_json_include;
+use juniper::{Executor, FieldResult, Variables};
+use juniper_from_schema::{graphql_schema, graphql_schema_from_file};
+use serde_json::{self, json, Value};
+use std::collections::HashMap;
 
 graphql_schema! {
     schema {
-      query: Query
+        query: Query
     }
 
     type Query {
-      users(arg: String!): [User!]! @juniper(ownership: "owned")
-      // field: String @juniper(ownership: "owned")
+        a: A! @juniper(ownership: "owned")
     }
 
-    type User {
-      id: Int!
-      name: String!
+    type A {
+        b: B! @juniper(ownership: "owned")
+    }
+
+    type B {
+        c: C! @juniper(ownership: "owned")
+    }
+
+    type C {
+        fieldWithArg(
+            stringArg: String!
+            // nullableArg: String
+            intArg: Int!
+            floatArg: Float!
+            boolArg: Boolean!
+        ): String! @juniper(ownership: "owned")
     }
 }
 
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_users(
+    fn field_a(
         &self,
         executor: &Executor<'_, Context>,
-        trail: &QueryTrail<'_, User, Walked>,
-        _arg: String,
-    ) -> FieldResult<Vec<User>> {
-        Ok(vec![])
+        trail: &QueryTrail<'_, A, Walked>,
+    ) -> FieldResult<A> {
+        assert_eq!(
+            Some("foo".to_string()),
+            trail.b().c().field_with_arg_args().string_arg()
+        );
+
+        // assert_eq!(
+        //     Some(None),
+        //     trail.b().c().field_with_arg_args().nullable_arg()
+        // );
+
+        assert_eq!(Some(1), trail.b().c().field_with_arg_args().int_arg());
+
+        assert_eq!(Some(2.5), trail.b().c().field_with_arg_args().float_arg());
+
+        assert_eq!(Some(false), trail.b().c().field_with_arg_args().bool_arg());
+
+        Ok(A)
     }
 }
 
-pub struct User {
-    id: i32,
-    name: String,
+// TODO: Support default arguments
+
+pub struct A;
+
+impl AFields for A {
+    fn field_b(
+        &self,
+        executor: &Executor<'_, Context>,
+        trail: &QueryTrail<'_, B, Walked>,
+    ) -> FieldResult<B> {
+        Ok(B)
+    }
 }
 
-impl UserFields for User {
-    fn field_id<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&i32> {
-        Ok(&self.id)
-    }
+pub struct B;
 
-    fn field_name<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&String> {
-        Ok(&self.name)
+impl BFields for B {
+    fn field_c(
+        &self,
+        executor: &Executor<'_, Context>,
+        trail: &QueryTrail<'_, C, Walked>,
+    ) -> FieldResult<C> {
+        Ok(C)
     }
+}
+
+pub struct C;
+
+impl CFields for C {
+    fn field_field_with_arg(
+        &self,
+        executor: &Executor<'_, Context>,
+        _: String,
+        _: i32,
+        _: f64,
+        _: bool,
+    ) -> FieldResult<String> {
+        Ok(String::new())
+    }
+}
+
+#[test]
+fn first_test() {
+    let value = run_query(
+        r#"query {
+        a {
+            b {
+                c {
+                    fieldWithArg(
+                        stringArg: "foo",
+                        intArg: 1,
+                        floatArg: 2.5,
+                        boolArg: false
+                    )
+                }
+            }
+        }
+    }"#,
+    );
+    assert_json_include!(
+        actual: value,
+        expected: json!({
+            "a": { "b": { "c": {} } }
+        })
+    );
+}
+
+type Context = ();
+
+fn run_query(query: &str) -> Value {
+    let (res, _errors) = juniper::execute(
+        query,
+        None,
+        &Schema::new(Query, juniper::EmptyMutation::new()),
+        &Variables::new(),
+        &(),
+    )
+    .unwrap();
+
+    let json = serde_json::from_str(&serde_json::to_string(&res).unwrap()).unwrap();
+    println!("--- <json> -----------------");
+    println!("{}", serde_json::to_string_pretty(&json).unwrap());
+    println!("--- </json> -----------------");
+    json
 }
