@@ -1,5 +1,5 @@
 use super::{ident, type_name, CodeGenPass, EmitError, TypeKind};
-use crate::ast_pass::error::ErrorKind;
+use crate::ast_pass::{error::ErrorKind, schema_visitor::SchemaVisitor};
 use graphql_parser::schema::*;
 use heck::{CamelCase, MixedCase, SnakeCase};
 use proc_macro2::TokenStream;
@@ -10,35 +10,23 @@ use std::{
 };
 use syn::Ident;
 
+struct QueryTrailCodeGenPass<'pass, 'doc> {
+    pass: &'pass mut CodeGenPass<'doc>,
+    fields_map: HashMap<&'doc String, Vec<&'doc Field>>,
+}
+
 impl<'doc> CodeGenPass<'doc> {
     pub fn gen_query_trails(&mut self, doc: &'doc Document) {
         let original_tokens = std::mem::replace(&mut self.tokens, quote! {});
 
-        self.gen_query_trail();
-
         let fields_map = build_fields_map(doc);
 
-        for def in &doc.definitions {
-            if let Definition::TypeDefinition(type_def) = def {
-                match type_def {
-                    TypeDefinition::Object(obj) => {
-                        self.gen_field_walk_methods(InternalQueryTrailNode::Object(obj))
-                    }
-                    TypeDefinition::Interface(interface) => {
-                        self.gen_field_walk_methods(InternalQueryTrailNode::Interface(interface))
-                    }
-                    TypeDefinition::Union(union) => {
-                        self.error_msg_if_field_types_dont_overlap(union, &fields_map);
-
-                        self.gen_field_walk_methods(InternalQueryTrailNode::Union(
-                            union,
-                            build_union_fields_set(union, &fields_map),
-                        ))
-                    }
-                    _ => {}
-                }
-            }
-        }
+        let mut query_trail_pass = QueryTrailCodeGenPass {
+            pass: self,
+            fields_map,
+        };
+        query_trail_pass.gen_query_trail();
+        query_trail_pass.visit_document(doc);
 
         let query_trail_tokens = &self.tokens;
         self.tokens = quote! {
@@ -59,9 +47,11 @@ impl<'doc> CodeGenPass<'doc> {
             }
         };
     }
+}
 
+impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
     fn gen_query_trail(&mut self) {
-        self.extend(quote! {
+        self.pass.extend(quote! {
             use juniper_from_schema::{Walked, NotWalked, QueryTrail, MakeQueryTrail};
 
             /// Convert from one type of `QueryTrail` to another. Used for converting interface and
@@ -86,19 +76,18 @@ impl<'doc> CodeGenPass<'doc> {
         let trait_name = ident(&format!("QueryTrail{}Extensions", obj.name()));
         let fields = obj.fields();
 
-        let mut method_signatures = vec![];
-        let mut method_implementations = vec![];
+        let (method_signatures, method_implementations) = fields
+            .iter()
+            .map(|field| {
+                let FieldWalkMethod {
+                    method_signature,
+                    method_implementation,
+                } = self.gen_field_walk_method(field);
+                (method_signature, method_implementation)
+            })
+            .unzip::<_, _, Vec<_>, Vec<_>>();
 
-        for field in fields {
-            let FieldWalkMethod {
-                method_signature,
-                method_implementation,
-            } = self.gen_field_walk_method(field);
-            method_signatures.push(method_signature);
-            method_implementations.push(method_implementation);
-        }
-
-        self.extend(quote! {
+        self.pass.extend(quote! {
             pub trait #trait_name<'a> {
                 #(#method_signatures)*
             }
@@ -121,7 +110,7 @@ impl<'doc> CodeGenPass<'doc> {
         match obj {
             InternalQueryTrailNode::Object(_) => {}
             InternalQueryTrailNode::Interface(i) => {
-                if let Some(i) = &self.ast_data.get_implementors_of_interface(&i.name) {
+                if let Some(i) = &self.pass.ast_data.get_implementors_of_interface(&i.name) {
                     for interface_implementor_name in *i {
                         let ident = ident(interface_implementor_name);
                         destination_types.push(ident);
@@ -137,7 +126,7 @@ impl<'doc> CodeGenPass<'doc> {
         }
 
         for type_ in destination_types {
-            self.extend(quote! {
+            self.pass.extend(quote! {
                 impl<'a> DowncastQueryTrail<'a, #type_> for &QueryTrail<'a, #original_type_name, Walked> {
                     fn downcast(self) -> QueryTrail<'a, #type_, Walked> {
                         QueryTrail {
@@ -151,11 +140,8 @@ impl<'doc> CodeGenPass<'doc> {
         }
     }
 
-    fn error_msg_if_field_types_dont_overlap(
-        &mut self,
-        union: &'doc UnionType,
-        fields_map: &HashMap<&'doc String, Vec<&'doc Field>>,
-    ) {
+    fn error_msg_if_field_types_dont_overlap(&mut self, union: &'doc UnionType) {
+        let fields_map = &self.fields_map;
         let mut prev: HashMap<&'doc str, (&'doc str, &'doc str)> = HashMap::new();
 
         for type_b in &union.types {
@@ -165,7 +151,7 @@ impl<'doc> CodeGenPass<'doc> {
 
                     if let Some((type_a, field_type_a)) = prev.get(&field.name.as_ref()) {
                         if field_type_b != field_type_a {
-                            self.emit_non_fatal_error(
+                            self.pass.emit_non_fatal_error(
                                 union.position,
                                 ErrorKind::UnionFieldTypeMismatch {
                                     union_name: &union.name,
@@ -187,7 +173,9 @@ impl<'doc> CodeGenPass<'doc> {
 
     fn gen_field_walk_method(&mut self, field: &Field) -> FieldWalkMethod {
         let field_type = type_name(&field.field_type);
-        let (_, ty) = self.graphql_scalar_type_to_rust_type(&field_type, field.position);
+        let (_, ty) = self
+            .pass
+            .graphql_scalar_type_to_rust_type(&field_type, field.position);
         let field_type = ident(field_type.clone().to_camel_case());
 
         match ty {
@@ -248,6 +236,25 @@ impl<'doc> CodeGenPass<'doc> {
                 }
             }
         }
+    }
+}
+
+impl<'pass, 'doc> SchemaVisitor<'doc> for QueryTrailCodeGenPass<'pass, 'doc> {
+    fn visit_object_type(&mut self, obj: &'doc ObjectType) {
+        self.gen_field_walk_methods(InternalQueryTrailNode::Object(obj))
+    }
+
+    fn visit_interface_type(&mut self, interface: &'doc InterfaceType) {
+        self.gen_field_walk_methods(InternalQueryTrailNode::Interface(interface))
+    }
+
+    fn visit_union_type(&mut self, union: &'doc UnionType) {
+        self.error_msg_if_field_types_dont_overlap(union);
+
+        self.gen_field_walk_methods(InternalQueryTrailNode::Union(
+            union,
+            build_union_fields_set(union, &self.fields_map),
+        ))
     }
 }
 
