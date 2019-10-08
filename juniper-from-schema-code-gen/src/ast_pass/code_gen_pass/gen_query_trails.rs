@@ -222,6 +222,99 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                 }
             }
         });
+
+        if self.pass.ast_data.url_scalar_defined() {
+            self.pass.extend(quote! {
+                impl<'a, 'b> FromLookAheadValue<url::Url>
+                    for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                {
+                    fn from(self) -> url::Url {
+                        let s = FromLookAheadValue::<String>::from(self);
+                        match url::Url::parse(&s) {
+                            Ok(url) => url,
+                            Err(e) => panic!("Error parsing URL: {}", e),
+                        }
+                    }
+                }
+            });
+        }
+
+        if self.pass.ast_data.uuid_scalar_defined() {
+            self.pass.extend(quote! {
+                impl<'a, 'b> FromLookAheadValue<uuid::Uuid>
+                    for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                {
+                    fn from(self) -> uuid::Uuid {
+                        let s = FromLookAheadValue::<String>::from(self);
+                        match uuid::Uuid::parse_str(&s) {
+                            Ok(url) => url,
+                            Err(e) => panic!("Error parsing UUID: {}", e),
+                        }
+                    }
+                }
+            });
+        }
+
+        if self.pass.ast_data.date_scalar_defined() {
+            self.pass.extend(quote! {
+                impl<'a, 'b> FromLookAheadValue<chrono::NaiveDate>
+                    for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                {
+                    fn from(self) -> chrono::NaiveDate {
+                        let s = FromLookAheadValue::<String>::from(self);
+                        match chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d") {
+                            Ok(date) => date,
+                            Err(e) => {
+                                panic!(
+                                    "Error parsing NaiveDate. Format used is `%Y-%m-%d`\n{}",
+                                    e,
+                                )
+                            },
+                        }
+                    }
+                }
+            });
+        }
+
+        if self.pass.ast_data.date_time_scalar_defined() {
+            self.pass.extend(quote! {
+                impl<'a, 'b> FromLookAheadValue<chrono::DateTime<chrono::Utc>>
+                    for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                {
+                    fn from(self) -> chrono::DateTime<chrono::Utc> {
+                        let s = FromLookAheadValue::<String>::from(self);
+                        let parsed = chrono::DateTime::parse_from_rfc3339(&s);
+                        match parsed {
+                            Ok(date_time) => date_time.into(),
+                            Err(e) => {
+                                panic!(
+                                    "Error parsing DateTime. Format used is RFC 3339 (aka ISO 8601)\n{}",
+                                    e,
+                                )
+                            },
+                        }
+                    }
+                }
+
+                impl<'a, 'b> FromLookAheadValue<chrono::NaiveDateTime>
+                    for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                {
+                    fn from(self) -> chrono::NaiveDateTime {
+                        let s = FromLookAheadValue::<String>::from(self);
+                        let parsed = chrono::NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S");
+                        match parsed {
+                            Ok(date_time) => date_time.into(),
+                            Err(e) => {
+                                panic!(
+                                    "Error parsing NaiveDateTime. Format used is `%Y-%m-%d %H:%M:%S`\n{}",
+                                    e,
+                                )
+                            },
+                        }
+                    }
+                }
+            });
+        }
     }
 
     fn gen_field_walk_methods(&mut self, obj: InternalQueryTrailNode) {

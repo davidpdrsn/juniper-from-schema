@@ -4,13 +4,15 @@
 extern crate juniper;
 
 use assert_json_diff::assert_json_include;
-use juniper::{Executor, FieldResult, Variables};
+use chrono::prelude::*;
+use juniper::{Executor, FieldResult, Variables, ID};
 use juniper_from_schema::{graphql_schema, graphql_schema_from_file};
 use serde_json::{self, json, Value};
 use std::collections::HashMap;
+use url::Url;
+use uuid::Uuid;
 
 // TODO: Support default arguments
-// TODO: Date, DateTime, Url, Uuid scalars
 
 graphql_schema! {
     schema {
@@ -42,6 +44,10 @@ graphql_schema! {
             objectArg: InputObject!
             cursorArg: Cursor!
             idArg: ID!
+            urlArg: Url!
+            uuidArg: Uuid!
+            dateArg: Date!
+            dateTimeArg: DateTime!
         ): String! @juniper(ownership: "owned")
     }
 
@@ -55,6 +61,10 @@ graphql_schema! {
     }
 
     scalar Cursor
+    scalar Url
+    scalar Uuid
+    scalar Date
+    scalar DateTime
 }
 
 pub struct Query;
@@ -102,8 +112,28 @@ impl QueryFields for Query {
             trail.b().c().field_with_arg_args().cursor_arg()
         );
         assert_eq!(
-            Some(juniper::ID::new("id-value")),
+            Some(ID::new("id-value")),
             trail.b().c().field_with_arg_args().id_arg()
+        );
+        assert_eq!(
+            Some(Url::parse("https://example.net").unwrap()),
+            trail.b().c().field_with_arg_args().url_arg()
+        );
+        assert_eq!(
+            Some(Uuid::parse_str("46ebd0ee-0e6d-43c9-b90d-ccc35a913f3e").unwrap()),
+            trail.b().c().field_with_arg_args().uuid_arg()
+        );
+        assert_eq!(
+            Some(NaiveDate::parse_from_str("2019-01-01", "%Y-%m-%d").unwrap()),
+            trail.b().c().field_with_arg_args().date_arg()
+        );
+        assert_eq!(
+            Some(
+                DateTime::parse_from_rfc3339("1996-12-19T16:39:57-08:00")
+                    .unwrap()
+                    .into()
+            ),
+            trail.b().c().field_with_arg_args().date_time_arg()
         );
 
         Ok(A)
@@ -150,7 +180,11 @@ impl CFields for C {
         _: Color,
         _: InputObject,
         _: Cursor,
-        _: juniper::ID,
+        _: ID,
+        _: Url,
+        _: Uuid,
+        _: NaiveDate,
+        _: DateTime<Utc>,
     ) -> FieldResult<String> {
         Ok(String::new())
     }
@@ -175,6 +209,10 @@ fn scalar_values() {
                         objectArg: { value: "baz" },
                         cursorArg: "cursor-value",
                         idArg: "id-value",
+                        urlArg: "https://example.net",
+                        uuidArg: "46ebd0ee-0e6d-43c9-b90d-ccc35a913f3e",
+                        dateArg: "2019-01-01",
+                        dateTimeArg: "1996-12-19T16:39:57-08:00",
                     )
                 }
             }

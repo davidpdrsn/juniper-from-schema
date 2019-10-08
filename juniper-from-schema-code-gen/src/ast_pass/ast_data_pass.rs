@@ -97,6 +97,10 @@ impl<'doc> AstData<'doc> {
         self.is_scalar("Date")
     }
 
+    pub fn date_time_scalar_defined(&self) -> bool {
+        self.is_scalar("DateTime")
+    }
+
     pub fn date_time_scalar_definition(&self) -> Option<DateTimeScalarDefinition> {
         if self.is_scalar("DateTime") {
             if self.include_time_zone_on_date_time_scalar {
