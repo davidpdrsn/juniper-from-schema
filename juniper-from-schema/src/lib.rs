@@ -1224,8 +1224,8 @@ mod test {
     #[rustversion::nightly]
     #[test]
     fn test_compile_pass() {
-        // let t = trybuild::TestCases::new();
-        // t.pass("tests/compile_pass/*.rs");
-        // t.compile_fail("tests/compile_fail/*.rs");
+        let t = trybuild::TestCases::new();
+        t.pass("tests/compile_pass/*.rs");
+        t.compile_fail("tests/compile_fail/*.rs");
     }
 }

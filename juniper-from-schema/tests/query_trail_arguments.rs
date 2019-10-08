@@ -9,6 +9,9 @@ use juniper_from_schema::{graphql_schema, graphql_schema_from_file};
 use serde_json::{self, json, Value};
 use std::collections::HashMap;
 
+// TODO: Support default arguments
+// TODO: Date, DateTime, Url, Uuid scalars
+
 graphql_schema! {
     schema {
         query: Query
@@ -37,6 +40,8 @@ graphql_schema! {
             listArg: [Int!]!
             enumArg: Color!
             objectArg: InputObject!
+            cursorArg: Cursor!
+            idArg: ID!
         ): String! @juniper(ownership: "owned")
     }
 
@@ -48,6 +53,8 @@ graphql_schema! {
         RED
         BLUE
     }
+
+    scalar Cursor
 }
 
 pub struct Query;
@@ -90,12 +97,18 @@ impl QueryFields for Query {
                 .object_arg()
                 .map(|x| x.value)
         );
+        assert_eq!(
+            Some(Cursor("cursor-value".to_string())),
+            trail.b().c().field_with_arg_args().cursor_arg()
+        );
+        assert_eq!(
+            Some(juniper::ID::new("id-value")),
+            trail.b().c().field_with_arg_args().id_arg()
+        );
 
         Ok(A)
     }
 }
-
-// TODO: Support default arguments
 
 pub struct A;
 
@@ -136,6 +149,8 @@ impl CFields for C {
         _: Vec<i32>,
         _: Color,
         _: InputObject,
+        _: Cursor,
+        _: juniper::ID,
     ) -> FieldResult<String> {
         Ok(String::new())
     }
@@ -157,7 +172,9 @@ fn scalar_values() {
                         boolArg: false,
                         listArg: [1, 2, 3],
                         enumArg: RED,
-                        objectArg: { value: "baz" }
+                        objectArg: { value: "baz" },
+                        cursorArg: "cursor-value",
+                        idArg: "id-value",
                     )
                 }
             }
