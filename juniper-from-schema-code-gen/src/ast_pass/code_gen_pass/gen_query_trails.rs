@@ -31,8 +31,6 @@ impl<'doc> CodeGenPass<'doc> {
         query_trail_pass.visit_document(doc);
 
         let query_trail_tokens = &self.tokens;
-        // println!("{}", query_trail_tokens);
-        // let query_trail_tokens = quote! {};
 
         self.tokens = quote! {
             pub use juniper_from_schema::{Walked, NotWalked, QueryTrail, MakeQueryTrail};
@@ -219,24 +217,8 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                 for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
             {
                 fn from(self) -> juniper::ID {
-                    match self {
-                        juniper::LookAheadValue::Scalar(scalar) => {
-                            let s = FromDefaultScalarValue::<String>::from(scalar);
-                            juniper::ID::new(s)
-                        },
-                        juniper::LookAheadValue::Null => panic!(
-                            "Failed converting look ahead value. Expected scalar type got `null`",
-                        ),
-                        juniper::LookAheadValue::Enum(_) => panic!(
-                            "Failed converting look ahead value. Expected scalar type got `enum`",
-                        ),
-                        juniper::LookAheadValue::List(_) => panic!(
-                            "Failed converting look ahead value. Expected scalar type got `list`",
-                        ),
-                        juniper::LookAheadValue::Object(_) => panic!(
-                            "Failed converting look ahead value. Expected scalar type got `object`",
-                        ),
-                    }
+                    let s = FromLookAheadValue::<String>::from(self);
+                    juniper::ID::new(s)
                 }
             }
         });

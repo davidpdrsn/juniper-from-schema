@@ -536,7 +536,6 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                 }
             }
         };
-        // println!("{}", code);
         self.extend(code)
     }
 
@@ -674,24 +673,8 @@ impl<'doc> CodeGenPass<'doc> {
                 for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
             {
                 fn from(self) -> #name {
-                    match self {
-                        juniper::LookAheadValue::Scalar(scalar) => {
-                            let s = FromDefaultScalarValue::<String>::from(scalar);
-                            #name(s)
-                        },
-                        juniper::LookAheadValue::Null => panic!(
-                            "Failed converting look ahead value. Expected scalar type got `null`",
-                        ),
-                        juniper::LookAheadValue::Enum(_) => panic!(
-                            "Failed converting look ahead value. Expected scalar type got `enum`",
-                        ),
-                        juniper::LookAheadValue::List(_) => panic!(
-                            "Failed converting look ahead value. Expected scalar type got `list`",
-                        ),
-                        juniper::LookAheadValue::Object(_) => panic!(
-                            "Failed converting look ahead value. Expected scalar type got `object`",
-                        ),
-                    }
+                    let s = query_trails::FromLookAheadValue::<String>::from(self);
+                    #name(s)
                 }
             }
         })
