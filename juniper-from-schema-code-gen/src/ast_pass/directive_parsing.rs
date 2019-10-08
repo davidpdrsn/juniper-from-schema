@@ -142,7 +142,7 @@ impl FromDirectiveArguments for Ownership {
 
         let ownership_raw = value_as_string(value)?;
 
-        let ownership = match ownership_raw.as_ref() {
+        let ownership = match ownership_raw {
             "owned" => Ownership::Owned,
             "borrowed" => Ownership::Borrowed,
             "as_ref" => Ownership::AsRef,
@@ -196,28 +196,24 @@ impl FromDirectiveArguments for DateTimeScalarArguments {
 fn value_as_string(value: &Value) -> Result<&str, ErrorKind> {
     match value {
         Value::String(x) => Ok(x),
-        other => {
-            return Err(ErrorKind::UnsupportedDirective(
-                UnsupportedDirectiveKind::InvalidType {
-                    expected: ValueType::String,
-                    actual: ValueType::from(other),
-                },
-            ));
-        }
+        other => Err(ErrorKind::UnsupportedDirective(
+            UnsupportedDirectiveKind::InvalidType {
+                expected: ValueType::String,
+                actual: ValueType::from(other),
+            },
+        )),
     }
 }
 
 fn value_as_bool(value: &Value) -> Result<bool, ErrorKind> {
     match value {
         Value::Boolean(x) => Ok(*x),
-        other => {
-            return Err(ErrorKind::UnsupportedDirective(
-                UnsupportedDirectiveKind::InvalidType {
-                    expected: ValueType::Boolean,
-                    actual: ValueType::from(other),
-                },
-            ));
-        }
+        other => Err(ErrorKind::UnsupportedDirective(
+            UnsupportedDirectiveKind::InvalidType {
+                expected: ValueType::Boolean,
+                actual: ValueType::from(other),
+            },
+        )),
     }
 }
 
@@ -235,20 +231,14 @@ impl<'doc> ParseDirective<&'doc Field> for CodeGenPass<'doc> {
         let mut deprecated = None::<Deprecation>;
 
         for dir in &input.directives {
-            match JuniperDirective::<Ownership>::from_directive(dir) {
-                Ok(x) => {
-                    ownership = x.args;
-                    continue;
-                }
-                Err(_) => {}
+            if let Ok(x) = JuniperDirective::<Ownership>::from_directive(dir) {
+                ownership = x.args;
+                continue;
             }
 
-            match Deprecation::from_directive(dir) {
-                Ok(x) => {
-                    deprecated = Some(x);
-                    continue;
-                }
-                Err(_) => {}
+            if let Ok(x) = Deprecation::from_directive(dir) {
+                deprecated = Some(x);
+                continue;
             }
 
             self.emit_non_fatal_error(

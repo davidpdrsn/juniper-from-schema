@@ -17,10 +17,10 @@ pub fn ident<T: AsRef<str>>(name: T) -> Ident {
 }
 
 pub fn type_name(type_: &Type) -> &Name {
-    match *type_ {
-        Type::NamedType(ref name) => &name,
-        Type::ListType(ref item_type) => type_name(&*item_type),
-        Type::NonNullType(ref item_type) => type_name(&*item_type),
+    match &*type_ {
+        Type::NamedType(name) => &name,
+        Type::ListType(item_type) => type_name(&*item_type),
+        Type::NonNullType(item_type) => type_name(&*item_type),
     }
 }
 
