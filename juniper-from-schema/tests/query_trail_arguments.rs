@@ -29,7 +29,7 @@ graphql_schema! {
     type C {
         fieldWithArg(
             stringArg: String!
-            // nullableArg: String
+            nullableArg: String
             intArg: Int!
             floatArg: Float!
             boolArg: Boolean!
@@ -49,16 +49,12 @@ impl QueryFields for Query {
             Some("foo".to_string()),
             trail.b().c().field_with_arg_args().string_arg()
         );
-
-        // assert_eq!(
-        //     Some(None),
-        //     trail.b().c().field_with_arg_args().nullable_arg()
-        // );
-
+        assert_eq!(
+            Some(None),
+            trail.b().c().field_with_arg_args().nullable_arg()
+        );
         assert_eq!(Some(1), trail.b().c().field_with_arg_args().int_arg());
-
         assert_eq!(Some(2.5), trail.b().c().field_with_arg_args().float_arg());
-
         assert_eq!(Some(false), trail.b().c().field_with_arg_args().bool_arg());
 
         Ok(A)
@@ -98,6 +94,7 @@ impl CFields for C {
         &self,
         executor: &Executor<'_, Context>,
         _: String,
+        _: Option<String>,
         _: i32,
         _: f64,
         _: bool,
@@ -107,7 +104,7 @@ impl CFields for C {
 }
 
 #[test]
-fn first_test() {
+fn scalar_values() {
     let value = run_query(
         r#"query {
         a {
@@ -115,6 +112,7 @@ fn first_test() {
                 c {
                     fieldWithArg(
                         stringArg: "foo",
+                        nullableArg: null,
                         intArg: 1,
                         floatArg: 2.5,
                         boolArg: false

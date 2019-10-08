@@ -26,7 +26,8 @@ impl<'doc> CodeGenPass<'doc> {
             fields_map,
         };
         query_trail_pass.gen_query_trail();
-        query_trail_pass.gen_scalar_value_conversion();
+        query_trail_pass.gen_from_default_scalar_value();
+        query_trail_pass.gen_from_look_ahead_value();
         query_trail_pass.visit_document(doc);
 
         let query_trail_tokens = &self.tokens;
@@ -75,17 +76,19 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
         })
     }
 
-    fn gen_scalar_value_conversion(&mut self) {
+    fn gen_from_default_scalar_value(&mut self) {
         self.pass.extend(quote! {
-            trait ConvertScalarValue<T> {
-                fn convert_to_rust_value(self) -> T;
+            trait FromDefaultScalarValue<T> {
+                fn from(self) -> T;
             }
         });
 
-        let gen_impl = |to: Ident, variant: Ident| {
+        let gen_impl = |to: &str, variant: &str| {
+            let to = ident(to);
+            let variant = ident(variant);
             quote! {
-                impl<'a, 'b> ConvertScalarValue<#to> for &'a &'b juniper::DefaultScalarValue {
-                    fn convert_to_rust_value(self) -> #to {
+                impl<'a, 'b> FromDefaultScalarValue<#to> for &'a &'b juniper::DefaultScalarValue {
+                    fn from(self) -> #to {
                         match self {
                             juniper::DefaultScalarValue::#variant(x) => x.to_owned(),
                             other => {
@@ -114,10 +117,78 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
             }
         };
 
-        self.pass.extend(gen_impl(ident("i32"), ident("Int")));
-        self.pass.extend(gen_impl(ident("String"), ident("String")));
-        self.pass.extend(gen_impl(ident("f64"), ident("Float")));
-        self.pass.extend(gen_impl(ident("bool"), ident("Boolean")));
+        self.pass.extend(gen_impl("i32", "Int"));
+        self.pass.extend(gen_impl("String", "String"));
+        self.pass.extend(gen_impl("f64", "Float"));
+        self.pass.extend(gen_impl("bool", "Boolean"));
+
+        self.pass.extend(quote! {
+            impl<'a, 'b, T> FromDefaultScalarValue<Option<T>> for &'a &'b juniper::DefaultScalarValue
+            where
+                &'a &'b juniper::DefaultScalarValue: FromDefaultScalarValue<T>,
+            {
+                fn from(self) -> Option<T> {
+                    Some(self.from())
+                }
+            }
+        });
+    }
+
+    fn gen_from_look_ahead_value(&mut self) {
+        self.pass.extend(quote! {
+            trait FromLookAheadValue<T> {
+                fn from(self) -> T;
+            }
+        });
+
+        let gen_scalar_impl = |to: &str| {
+            let to = ident(to);
+            quote! {
+                impl<'a, 'b> FromLookAheadValue<#to>
+                    for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                {
+                    fn from(self) -> #to {
+                        match self {
+                            juniper::LookAheadValue::Scalar(scalar) => {
+                                FromDefaultScalarValue::from(scalar)
+                            },
+                            juniper::LookAheadValue::Null => panic!(
+                                "Failed conerting scalar value. Expected scalar type got `null`",
+                            ),
+                            juniper::LookAheadValue::Enum(_) => panic!(
+                                "Failed conerting scalar value. Expected scalar type got `enum`",
+                            ),
+                            juniper::LookAheadValue::List(_) => panic!(
+                                "Failed conerting scalar value. Expected scalar type got `list`",
+                            ),
+                            juniper::LookAheadValue::Object(_) => panic!(
+                                "Failed conerting scalar value. Expected scalar type got `object`",
+                            ),
+                        }
+                    }
+                }
+            }
+        };
+
+        self.pass.extend(gen_scalar_impl("i32"));
+        self.pass.extend(gen_scalar_impl("String"));
+        self.pass.extend(gen_scalar_impl("f64"));
+        self.pass.extend(gen_scalar_impl("bool"));
+
+        self.pass.extend(quote! {
+            impl<'a, 'b, T> FromLookAheadValue<Option<T>>
+                for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+            where
+                &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>: FromLookAheadValue<T>,
+            {
+                fn from(self) -> Option<T> {
+                    match self {
+                        juniper::LookAheadValue::Null => None,
+                        other => Some(other.from()),
+                    }
+                }
+            }
+        });
     }
 
     fn gen_field_walk_methods(&mut self, obj: InternalQueryTrailNode) {
@@ -367,16 +438,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                     arg.name() == #name
                 })?;
                 let value = arg.value();
-                let x = match value {
-                    juniper::LookAheadValue::Null => unimplemented!("null"),
-                    juniper::LookAheadValue::Scalar(scalar) => {
-                        ConvertScalarValue::convert_to_rust_value(scalar)
-                    },
-                    juniper::LookAheadValue::Enum(_) => unimplemented!("enum"),
-                    juniper::LookAheadValue::List(_) => unimplemented!("list"),
-                    juniper::LookAheadValue::Object(_) => unimplemented!("object"),
-                };
-                Some(x)
+                Some(FromLookAheadValue::<#field_type>::from(value))
             }
         }
     }
