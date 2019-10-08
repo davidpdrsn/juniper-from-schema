@@ -36,7 +36,12 @@ graphql_schema! {
             boolArg: Boolean!
             listArg: [Int!]!
             enumArg: Color!
+            objectArg: InputObject!
         ): String! @juniper(ownership: "owned")
+    }
+
+    input InputObject {
+        value: String!
     }
 
     enum Color {
@@ -75,6 +80,15 @@ impl QueryFields for Query {
         assert_eq!(
             Some(Color::Red),
             trail.b().c().field_with_arg_args().enum_arg()
+        );
+        assert_eq!(
+            Some("baz".to_string()),
+            trail
+                .b()
+                .c()
+                .field_with_arg_args()
+                .object_arg()
+                .map(|x| x.value)
         );
 
         Ok(A)
@@ -121,6 +135,7 @@ impl CFields for C {
         _: bool,
         _: Vec<i32>,
         _: Color,
+        _: InputObject,
     ) -> FieldResult<String> {
         Ok(String::new())
     }
@@ -141,7 +156,8 @@ fn scalar_values() {
                         floatArg: 2.5,
                         boolArg: false,
                         listArg: [1, 2, 3],
-                        enumArg: RED
+                        enumArg: RED,
+                        objectArg: { value: "baz" }
                     )
                 }
             }
