@@ -188,6 +188,32 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                     }
                 }
             }
+
+            impl<'a, 'b, T> FromLookAheadValue<Vec<T>>
+                for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+            where
+                &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>: FromLookAheadValue<T>,
+            {
+                fn from(self) -> Vec<T> {
+                    match self {
+                        juniper::LookAheadValue::List(values) => {
+                            values.iter().map(|value| value.from()).collect::<Vec<_>>()
+                        },
+                        juniper::LookAheadValue::Scalar(_) => panic!(
+                            "Failed conerting scalar value. Expected list type got `scalar`",
+                        ),
+                        juniper::LookAheadValue::Null => panic!(
+                            "Failed conerting scalar value. Expected list type got `null`",
+                        ),
+                        juniper::LookAheadValue::Enum(_) => panic!(
+                            "Failed conerting scalar value. Expected list type got `enum`",
+                        ),
+                        juniper::LookAheadValue::Object(_) => panic!(
+                            "Failed conerting scalar value. Expected list type got `object`",
+                        ),
+                    }
+                }
+            }
         });
     }
 

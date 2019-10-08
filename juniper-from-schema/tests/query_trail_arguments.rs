@@ -30,9 +30,11 @@ graphql_schema! {
         fieldWithArg(
             stringArg: String!
             nullableArg: String
+            nullableArg2: String
             intArg: Int!
             floatArg: Float!
             boolArg: Boolean!
+            listArg: [Int!]!
         ): String! @juniper(ownership: "owned")
     }
 }
@@ -53,9 +55,17 @@ impl QueryFields for Query {
             Some(None),
             trail.b().c().field_with_arg_args().nullable_arg()
         );
+        assert_eq!(
+            Some(Some("bar".to_string())),
+            trail.b().c().field_with_arg_args().nullable_arg2()
+        );
         assert_eq!(Some(1), trail.b().c().field_with_arg_args().int_arg());
         assert_eq!(Some(2.5), trail.b().c().field_with_arg_args().float_arg());
         assert_eq!(Some(false), trail.b().c().field_with_arg_args().bool_arg());
+        assert_eq!(
+            Some(vec![1, 2, 3]),
+            trail.b().c().field_with_arg_args().list_arg()
+        );
 
         Ok(A)
     }
@@ -95,9 +105,11 @@ impl CFields for C {
         executor: &Executor<'_, Context>,
         _: String,
         _: Option<String>,
+        _: Option<String>,
         _: i32,
         _: f64,
         _: bool,
+        _: Vec<i32>,
     ) -> FieldResult<String> {
         Ok(String::new())
     }
@@ -113,9 +125,11 @@ fn scalar_values() {
                     fieldWithArg(
                         stringArg: "foo",
                         nullableArg: null,
+                        nullableArg2: "bar",
                         intArg: 1,
                         floatArg: 2.5,
-                        boolArg: false
+                        boolArg: false,
+                        listArg: [1, 2, 3]
                     )
                 }
             }
