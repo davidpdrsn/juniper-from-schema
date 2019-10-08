@@ -78,7 +78,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
 
     fn gen_from_default_scalar_value(&mut self) {
         self.pass.extend(quote! {
-            trait FromDefaultScalarValue<T> {
+            pub(super) trait FromDefaultScalarValue<T> {
                 fn from(self) -> T;
             }
         });
@@ -94,19 +94,19 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                             other => {
                                 match other {
                                     juniper::DefaultScalarValue::Int(_) => panic!(
-                                        "Failed conerting scalar value. Expected `{}` got `Int`",
+                                        "Failed converting scalar value. Expected `{}` got `Int`",
                                         stringify!(#to),
                                     ),
                                     juniper::DefaultScalarValue::String(_) => panic!(
-                                        "Failed conerting scalar value. Expected `{}` got `String`",
+                                        "Failed converting scalar value. Expected `{}` got `String`",
                                         stringify!(#to),
                                     ),
                                     juniper::DefaultScalarValue::Float(_) => panic!(
-                                        "Failed conerting scalar value. Expected `{}` got `Float`",
+                                        "Failed converting scalar value. Expected `{}` got `Float`",
                                         stringify!(#to),
                                     ),
                                     juniper::DefaultScalarValue::Boolean(_) => panic!(
-                                        "Failed conerting scalar value. Expected `{}` got `Boolean`",
+                                        "Failed converting scalar value. Expected `{}` got `Boolean`",
                                         stringify!(#to),
                                     ),
                                 }
@@ -136,7 +136,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
 
     fn gen_from_look_ahead_value(&mut self) {
         self.pass.extend(quote! {
-            trait FromLookAheadValue<T> {
+            pub(super) trait FromLookAheadValue<T> {
                 fn from(self) -> T;
             }
         });
@@ -153,16 +153,16 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                                 FromDefaultScalarValue::from(scalar)
                             },
                             juniper::LookAheadValue::Null => panic!(
-                                "Failed conerting scalar value. Expected scalar type got `null`",
+                                "Failed converting look ahead value. Expected scalar type got `null`",
                             ),
                             juniper::LookAheadValue::Enum(_) => panic!(
-                                "Failed conerting scalar value. Expected scalar type got `enum`",
+                                "Failed converting look ahead value. Expected scalar type got `enum`",
                             ),
                             juniper::LookAheadValue::List(_) => panic!(
-                                "Failed conerting scalar value. Expected scalar type got `list`",
+                                "Failed converting look ahead value. Expected scalar type got `list`",
                             ),
                             juniper::LookAheadValue::Object(_) => panic!(
-                                "Failed conerting scalar value. Expected scalar type got `object`",
+                                "Failed converting look ahead value. Expected scalar type got `object`",
                             ),
                         }
                     }
@@ -200,16 +200,16 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                             values.iter().map(|value| value.from()).collect::<Vec<_>>()
                         },
                         juniper::LookAheadValue::Scalar(_) => panic!(
-                            "Failed conerting scalar value. Expected list type got `scalar`",
+                            "Failed converting look ahead value. Expected list type got `scalar`",
                         ),
                         juniper::LookAheadValue::Null => panic!(
-                            "Failed conerting scalar value. Expected list type got `null`",
+                            "Failed converting look ahead value. Expected list type got `null`",
                         ),
                         juniper::LookAheadValue::Enum(_) => panic!(
-                            "Failed conerting scalar value. Expected list type got `enum`",
+                            "Failed converting look ahead value. Expected list type got `enum`",
                         ),
                         juniper::LookAheadValue::Object(_) => panic!(
-                            "Failed conerting scalar value. Expected list type got `object`",
+                            "Failed converting look ahead value. Expected list type got `object`",
                         ),
                     }
                 }

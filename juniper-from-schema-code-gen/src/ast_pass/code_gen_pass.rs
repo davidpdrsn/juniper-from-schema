@@ -373,18 +373,50 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         let values = enum_type
             .values
             .iter()
-            .map(|enum_value| self.gen_enum_value(enum_value))
-            .collect::<Vec<_>>();
+            .map(|enum_value| self.gen_enum_value(enum_value));
 
         let description = doc_tokens(&enum_type.description);
 
-        self.extend(quote! {
+        let string_to_enum_value_mappings = enum_type.values.iter().map(|enum_value| {
+            let graphql_name = &enum_value.name;
+            let variant = to_enum_name(&graphql_name);
+            quote! { &#graphql_name => #name::#variant, }
+        });
+
+        let code = quote! {
             #description
             #[derive(juniper::GraphQLEnum, Debug, Eq, PartialEq, Copy, Clone, Hash)]
             pub enum #name {
                 #(#values)*
             }
-        });
+
+            impl<'a, 'b> query_trails::FromLookAheadValue<#name>
+                for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue> {
+                    fn from(self) -> #name {
+                        match self {
+                            juniper::LookAheadValue::Enum(name) => {
+                                match name {
+                                    #(#string_to_enum_value_mappings)*
+                                    other => panic!("Invalid enum name: {}", other),
+                                }
+                            },
+                            juniper::LookAheadValue::Null => panic!(
+                                "Failed converting look ahead value. Expected enum type got `null`",
+                            ),
+                            juniper::LookAheadValue::List(_) => panic!(
+                                "Failed converting look ahead value. Expected enum type got `list`",
+                            ),
+                            juniper::LookAheadValue::Object(_) => panic!(
+                                "Failed converting look ahead value. Expected enum type got `object`",
+                            ),
+                            juniper::LookAheadValue::Scalar(_) => panic!(
+                                "Failed converting look ahead value. Expected enum type got `scalar`",
+                            ),
+                        }
+                    }
+            }
+        };
+        self.extend(code);
     }
 
     fn visit_input_object_type(&mut self, input_object: &'doc InputObjectType) {

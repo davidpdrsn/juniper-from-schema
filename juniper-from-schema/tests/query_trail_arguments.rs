@@ -35,7 +35,13 @@ graphql_schema! {
             floatArg: Float!
             boolArg: Boolean!
             listArg: [Int!]!
+            enumArg: Color!
         ): String! @juniper(ownership: "owned")
+    }
+
+    enum Color {
+        RED
+        BLUE
     }
 }
 
@@ -65,6 +71,10 @@ impl QueryFields for Query {
         assert_eq!(
             Some(vec![1, 2, 3]),
             trail.b().c().field_with_arg_args().list_arg()
+        );
+        assert_eq!(
+            Some(Color::Red),
+            trail.b().c().field_with_arg_args().enum_arg()
         );
 
         Ok(A)
@@ -110,6 +120,7 @@ impl CFields for C {
         _: f64,
         _: bool,
         _: Vec<i32>,
+        _: Color,
     ) -> FieldResult<String> {
         Ok(String::new())
     }
@@ -129,7 +140,8 @@ fn scalar_values() {
                         intArg: 1,
                         floatArg: 2.5,
                         boolArg: false,
-                        listArg: [1, 2, 3]
+                        listArg: [1, 2, 3],
+                        enumArg: RED
                     )
                 }
             }
