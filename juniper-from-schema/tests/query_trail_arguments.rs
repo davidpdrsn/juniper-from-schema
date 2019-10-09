@@ -49,6 +49,14 @@ graphql_schema! {
             dateArg: Date!
             dateTimeArg: DateTime!
         ): String! @juniper(ownership: "owned")
+
+        fieldWithArgReturningType(
+            stringArg: String!
+        ): D! @juniper(ownership: "owned")
+    }
+
+    type D {
+      value: String! @juniper(ownership: "owned")
     }
 
     input InputObject {
@@ -135,6 +143,14 @@ impl QueryFields for Query {
             ),
             trail.b().c().field_with_arg_args().date_time_arg()
         );
+        assert_eq!(
+            Some("qux".to_string()),
+            trail
+                .b()
+                .c()
+                .field_with_arg_returning_type_args()
+                .string_arg()
+        );
 
         Ok(A)
     }
@@ -188,6 +204,23 @@ impl CFields for C {
     ) -> FieldResult<String> {
         Ok(String::new())
     }
+
+    fn field_field_with_arg_returning_type(
+        &self,
+        executor: &Executor<'_, Context>,
+        _: &QueryTrail<'_, D, Walked>,
+        _: String,
+    ) -> FieldResult<D> {
+        Ok(D)
+    }
+}
+
+pub struct D;
+
+impl DFields for D {
+    fn field_value(&self, executor: &Executor<'_, Context>) -> FieldResult<String> {
+        Ok(String::new())
+    }
 }
 
 #[test]
@@ -214,6 +247,11 @@ fn scalar_values() {
                         dateArg: "2019-01-01",
                         dateTimeArg: "1996-12-19T16:39:57-08:00",
                     )
+                    fieldWithArgReturningType(
+                        stringArg: "qux",
+                    ) {
+                      value
+                    }
                 }
             }
         }
