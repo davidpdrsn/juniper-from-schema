@@ -587,30 +587,55 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
         input_value: &InputValue,
         field_name: &str,
     ) -> TokenStream {
-        if input_value.default_value.is_some() {
-            eprintln!("default values not supported yet")
-        }
+        let default_value = input_value.default_value.as_ref().map(|value| {
+            self.pass.quote_value(
+                &value,
+                type_name(&input_value.value_type),
+                input_value.position,
+            )
+        });
 
         let (field_type, _) = self.pass.gen_field_type(
             &input_value.value_type,
             &FieldTypeDestination::Argument,
-            false,
+            default_value.is_some(),
             input_value.position,
         );
 
         let name = &input_value.name;
         let ident = ident(name.to_snake_case());
-        quote! {
-            #[allow(missing_docs)]
-            pub fn #ident(&self) -> Option<#field_type> {
-                use juniper::LookAheadMethods;
 
-                let lh = &self.0.look_ahead?.select_child(#field_name)?;
-                let arg = lh.arguments().iter().find(|arg| {
-                    arg.name() == #name
-                })?;
-                let value = arg.value();
-                Some(FromLookAheadValue::<#field_type>::from(value))
+        if let Some(default_value) = default_value {
+            quote! {
+                #[allow(missing_docs)]
+                pub fn #ident(&self) -> Option<#field_type> {
+                    use juniper::LookAheadMethods;
+
+                    let lh = &self.0.look_ahead?.select_child(#field_name)?;
+
+                    let arg = lh.arguments().iter().find(|arg| {
+                        arg.name() == #name
+                    });
+
+                    if let Some(arg) = arg {
+                        let value = arg.value();
+                        Some(FromLookAheadValue::<#field_type>::from(value))
+                    } else {
+                        Some(#default_value)
+                    }
+                }
+            }
+        } else {
+            quote! {
+                #[allow(missing_docs)]
+                pub fn #ident(&self) -> Option<#field_type> {
+                    use juniper::LookAheadMethods;
+
+                    let lh = &self.0.look_ahead?.select_child(#field_name)?;
+                    let arg = lh.arguments().iter().find(|arg| { arg.name() == #name })?;
+                    let value = arg.value();
+                    Some(FromLookAheadValue::<#field_type>::from(value))
+                }
             }
         }
     }

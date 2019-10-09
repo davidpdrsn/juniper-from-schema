@@ -16,6 +16,8 @@ pub fn ident<T: AsRef<str>>(name: T) -> Ident {
     Ident::new(name.as_ref(), Span::call_site())
 }
 
+// TODO: `Name` is a type alias for `String`. It would be nice if this returned a newtype so we
+// would have more type safety. All this `&str` business makes me nervous.
 pub fn type_name(type_: &Type) -> &Name {
     match &*type_ {
         Type::NamedType(name) => &name,

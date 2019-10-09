@@ -48,6 +48,8 @@ graphql_schema! {
             uuidArg: Uuid!
             dateArg: Date!
             dateTimeArg: DateTime!
+            defaultArg: String = "value set in schema"
+            defaultArg2: String = "error"
         ): String! @juniper(ownership: "owned")
 
         fieldWithArgReturningType(
@@ -144,6 +146,14 @@ impl QueryFields for Query {
             trail.b().c().field_with_arg_args().date_time_arg()
         );
         assert_eq!(
+            Some("value set in schema".to_string()),
+            trail.b().c().field_with_arg_args().default_arg()
+        );
+        assert_eq!(
+            Some("value set in query".to_string()),
+            trail.b().c().field_with_arg_args().default_arg2()
+        );
+        assert_eq!(
             Some("qux".to_string()),
             trail
                 .b()
@@ -201,6 +211,8 @@ impl CFields for C {
         _: Uuid,
         _: NaiveDate,
         _: DateTime<Utc>,
+        _: String,
+        _: String,
     ) -> FieldResult<String> {
         Ok(String::new())
     }
@@ -246,6 +258,7 @@ fn scalar_values() {
                         uuidArg: "46ebd0ee-0e6d-43c9-b90d-ccc35a913f3e",
                         dateArg: "2019-01-01",
                         dateTimeArg: "1996-12-19T16:39:57-08:00",
+                        defaultArg2: "value set in query",
                     )
                     fieldWithArgReturningType(
                         stringArg: "qux",

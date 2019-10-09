@@ -954,7 +954,9 @@ impl<'doc> CodeGenPass<'doc> {
                 let field_type_name = self
                     .ast_data
                     .input_object_field_type_name(&type_name, &key)
-                    .unwrap();
+                    .unwrap_or_else(|| {
+                        panic!("input_object_field_type_name {} {}", type_name, key)
+                    });
 
                 let value_quote = self.quote_value(value, field_type_name, pos);
                 match self

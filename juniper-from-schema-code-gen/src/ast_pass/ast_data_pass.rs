@@ -164,8 +164,10 @@ impl<'doc> AstData<'doc> {
         input_type_name: &'doc str,
         field_name: &'doc String,
     ) -> Option<&'doc Name> {
-        let field_map = self.input_object_field_types.get(input_type_name)?;
-        let type_ = field_map.get(field_name)?;
+        dbg!(input_type_name);
+        let field_map = dbg!(&self.input_object_field_types).get(input_type_name)?;
+        dbg!(field_map);
+        let type_ = dbg!(field_map).get(field_name)?;
         Some(type_name(&type_))
     }
 }
