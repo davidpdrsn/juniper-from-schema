@@ -13,7 +13,7 @@ readme = "README.md"
 repository = "https://github.com/davidpdrsn/juniper-from-schema.git"
 
 [dependencies]
-syn = "1.0.5"
+syn = { version = "1.0.5", features = ["extra-traits"] }
 quote = "1.0.2"
 graphql-parser = "0.2.2"
 proc-macro2 = "1.0.5"

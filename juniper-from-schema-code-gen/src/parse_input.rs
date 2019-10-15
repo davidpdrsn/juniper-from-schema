@@ -40,13 +40,14 @@ impl Parse for GraphqlSchemaFromFileInput {
         let error_type = configs
             .remove("error_type")
             .map(|(t, _)| t)
-            .unwrap_or_else(|| default_error_type());
+            .unwrap_or_else(default_error_type);
 
         let context_type = configs
             .remove("context_type")
             .map(|(t, _)| t)
-            .unwrap_or_else(|| default_context_type());
+            .unwrap_or_else(default_context_type);
 
+        #[allow(clippy::never_loop)]
         for (name, (_, span)) in configs {
             let mut msg = String::new();
             writeln!(msg, "Unknown `graphql_schema_from_file` config `{}`", name).unwrap();

@@ -291,14 +291,12 @@ fn test_object_nesting() {
 }
 
 fn run_query(query: &str) -> Value {
-    let ctx = ();
-
     let (res, _errors) = juniper::execute(
         query,
         None,
         &Schema::new(Query, juniper::EmptyMutation::new()),
         &Variables::new(),
-        &ctx,
+        &(),
     )
     .unwrap();
 

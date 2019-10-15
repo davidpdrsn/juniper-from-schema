@@ -136,13 +136,11 @@ impl<'doc> fmt::Display for Ownership<'doc> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::WrongNumberOfArgs(actual) => {
-                write!(f, "Wrong number of args. Expected {}, got {}", 1, actual)
+                write!(f, "Wrong number of args. Expected 1, got {}", actual)
             }
-            Self::InvalidKey(actual) => write!(
-                f,
-                "Invalid key. Expected `{}`, got `{}`",
-                "ownership", actual
-            ),
+            Self::InvalidKey(actual) => {
+                write!(f, "Invalid key. Expected `ownership`, got `{}`", actual)
+            }
             Self::InvalidValue(name) => write!(
                 f,
                 "Invalid value. Expected `owned`, `borrowed`, or `as_ref`, got `{}`",
