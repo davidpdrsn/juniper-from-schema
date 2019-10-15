@@ -23,8 +23,9 @@ use self::{
     parse_input::{default_context_type, default_error_type, GraphqlSchemaFromFileInput},
 };
 use graphql_parser::parse_schema;
-use proc_macro2::TokenStream;
-use std::collections::BTreeSet;
+use proc_macro2::{Span, TokenStream};
+use quote::quote;
+use std::{collections::BTreeSet, path::Path};
 use syn::Type;
 
 /// Read a GraphQL schema file and generate corresponding Juniper macro calls.
@@ -38,9 +39,28 @@ pub fn graphql_schema_from_file(input: proc_macro::TokenStream) -> proc_macro::T
     };
 
     match std::fs::read_to_string(&parsed.schema_path) {
-        Ok(schema) => parse_and_gen_schema(&schema, parsed.error_type, parsed.context_type),
+        Ok(schema) => {
+            let mut tokens = parse_and_gen_schema(&schema, parsed.error_type, parsed.context_type);
+            include_literal_schema(&mut tokens, &parsed.schema_path);
+            tokens
+        }
         Err(err) => panic!("{}", err),
     }
+}
+
+// This should cause the Rust schema to be rebuild even if the user only changes the GraphQL schema
+// file.
+fn include_literal_schema(tokens: &mut proc_macro::TokenStream, schema_path: &Path) {
+    let schema_path = syn::LitStr::new(
+        schema_path
+            .to_str()
+            .expect("Invalid UTF-8 characters in file name"),
+        Span::call_site(),
+    );
+
+    tokens.extend(proc_macro::TokenStream::from(quote! {
+        const _: &str = std::include_str!(#schema_path);
+    }));
 }
 
 /// Write your GraphQL schema directly in your Rust code.

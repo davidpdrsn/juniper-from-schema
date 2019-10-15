@@ -20,7 +20,7 @@ N/A
 
 ### Fixed
 
-N/A
+- Correctly trigger rebuild of Rust schema if only GraphQL schema changed when using `graphql_schema_from_file!`.
 
 ## [0.4.0] - 2019-11-05
 
