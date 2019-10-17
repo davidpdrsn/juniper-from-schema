@@ -12,8 +12,6 @@ use std::collections::HashMap;
 use url::Url;
 use uuid::Uuid;
 
-// TODO: Support default arguments
-
 graphql_schema! {
     schema {
         query: Query
@@ -85,82 +83,56 @@ impl QueryFields for Query {
         executor: &Executor<'_, Context>,
         trail: &QueryTrail<'_, A, Walked>,
     ) -> FieldResult<A> {
-        assert_eq!(
-            Some("foo".to_string()),
-            trail.b().c().field_with_arg_args().string_arg()
-        );
-        assert_eq!(
-            Some(None),
-            trail.b().c().field_with_arg_args().nullable_arg()
-        );
-        assert_eq!(
-            Some(Some("bar".to_string())),
-            trail.b().c().field_with_arg_args().nullable_arg2()
-        );
-        assert_eq!(Some(1), trail.b().c().field_with_arg_args().int_arg());
-        assert_eq!(Some(2.5), trail.b().c().field_with_arg_args().float_arg());
-        assert_eq!(Some(false), trail.b().c().field_with_arg_args().bool_arg());
-        assert_eq!(
-            Some(vec![1, 2, 3]),
-            trail.b().c().field_with_arg_args().list_arg()
-        );
-        assert_eq!(
-            Some(Color::Red),
-            trail.b().c().field_with_arg_args().enum_arg()
-        );
-        assert_eq!(
-            Some("baz".to_string()),
-            trail
-                .b()
-                .c()
-                .field_with_arg_args()
-                .object_arg()
-                .map(|x| x.value)
-        );
-        assert_eq!(
-            Some(Cursor("cursor-value".to_string())),
-            trail.b().c().field_with_arg_args().cursor_arg()
-        );
-        assert_eq!(
-            Some(ID::new("id-value")),
-            trail.b().c().field_with_arg_args().id_arg()
-        );
-        assert_eq!(
-            Some(Url::parse("https://example.net").unwrap()),
-            trail.b().c().field_with_arg_args().url_arg()
-        );
-        assert_eq!(
-            Some(Uuid::parse_str("46ebd0ee-0e6d-43c9-b90d-ccc35a913f3e").unwrap()),
-            trail.b().c().field_with_arg_args().uuid_arg()
-        );
-        assert_eq!(
-            Some(NaiveDate::parse_from_str("2019-01-01", "%Y-%m-%d").unwrap()),
-            trail.b().c().field_with_arg_args().date_arg()
-        );
-        assert_eq!(
-            Some(
-                DateTime::parse_from_rfc3339("1996-12-19T16:39:57-08:00")
-                    .unwrap()
-                    .into()
-            ),
-            trail.b().c().field_with_arg_args().date_time_arg()
-        );
-        assert_eq!(
-            Some("value set in schema".to_string()),
-            trail.b().c().field_with_arg_args().default_arg()
-        );
-        assert_eq!(
-            Some("value set in query".to_string()),
-            trail.b().c().field_with_arg_args().default_arg2()
-        );
-        assert_eq!(
-            Some("qux".to_string()),
-            trail
-                .b()
-                .c()
-                .field_with_arg_returning_type_args()
-                .string_arg()
-        );
+        if let Some(c) = trail.b().c().walk() {
+            assert_eq!("foo".to_string(), c.field_with_arg_args().string_arg());
+            assert_eq!(None, c.field_with_arg_args().nullable_arg());
+            assert_eq!(
+                Some("bar".to_string()),
+                c.field_with_arg_args().nullable_arg2()
+            );
+            assert_eq!(1, c.field_with_arg_args().int_arg());
+            assert_eq!("2.5", c.field_with_arg_args().float_arg().to_string());
+            assert_eq!(false, c.field_with_arg_args().bool_arg());
+            assert_eq!(vec![1, 2, 3], c.field_with_arg_args().list_arg());
+            assert_eq!(Color::Red, c.field_with_arg_args().enum_arg());
+            assert_eq!(
+                "baz".to_string(),
+                c.field_with_arg_args().object_arg().value
+            );
+            assert_eq!(
+                Cursor("cursor-value".to_string()),
+                c.field_with_arg_args().cursor_arg()
+            );
+            assert_eq!(ID::new("id-value"), c.field_with_arg_args().id_arg());
+            assert_eq!(
+                Url::parse("https://example.net").unwrap(),
+                c.field_with_arg_args().url_arg()
+            );
+            assert_eq!(
+                Uuid::parse_str("46ebd0ee-0e6d-43c9-b90d-ccc35a913f3e").unwrap(),
+                c.field_with_arg_args().uuid_arg()
+            );
+            assert_eq!(
+                NaiveDate::parse_from_str("2019-01-01", "%Y-%m-%d").unwrap(),
+                c.field_with_arg_args().date_arg()
+            );
+            assert_eq!(
+                DateTime::parse_from_rfc3339("1996-12-19T16:39:57-08:00").unwrap(),
+                c.field_with_arg_args().date_time_arg()
+            );
+            assert_eq!(
+                "value set in schema".to_string(),
+                c.field_with_arg_args().default_arg()
+            );
+            assert_eq!(
+                "value set in query".to_string(),
+                c.field_with_arg_args().default_arg2()
+            );
+            assert_eq!(
+                "qux".to_string(),
+                c.field_with_arg_returning_type_args().string_arg()
+            );
+        }
 
         Ok(A)
     }
