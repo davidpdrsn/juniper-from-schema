@@ -550,8 +550,24 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
 
         let obj_type = ident(&obj.name());
 
-        if !field.arguments.is_empty() {
-            let args_method_name = ident(&format!("{}_args", name));
+        let args_method_name = ident(&format!("{}_args", name));
+
+        if field.arguments.is_empty() {
+            argument_signature.extend(quote! {
+                /// Inspect argument in incoming query.
+                ///
+                /// This field takes no arguments, so therefore it returns `()`.
+                fn #args_method_name(&self) -> ();
+            });
+
+            argument_implementation.extend(quote! {
+                #[allow(missing_docs)]
+                #[inline]
+                fn #args_method_name(&self) -> () {
+                    ()
+                }
+            });
+        } else {
             let args_type_name = ident(&format!(
                 "{}{}Args",
                 obj.name(),
