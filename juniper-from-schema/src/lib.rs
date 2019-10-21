@@ -21,6 +21,10 @@
 //!     - [Default argument values](#default-argument-values)
 //! - [GraphQL to Rust types](#graphql-to-rust-types)
 //! - [Query trails](#query-trails)
+//!     - [Abbreviated example](#abbreviated-example)
+//!     - [Types](#types)
+//!     - [Downcasting for interface and union `QueryTrail`s](#downcasting-for-interface-and-union-querytrails)
+//!     - [`QueryTrail`s for fields that take arguments](#querytrails-for-fields-that-take-arguments)
 //! - [Customizing the error type](#customizing-the-error-type)
 //! - [Customizing the context type](#customizing-the-context-type)
 //! - [Inspecting the generated code](#inspecting-the-generated-code)
@@ -731,7 +735,7 @@
 //! # Query trails
 //!
 //! If you're not careful about preloading associations for deeply nested queries you risk getting
-//! lots of [N+1 query bugs][]. Juniper provides a [look ahead api][] which lets you inspect things
+//! lots of [N+1 query bugs][]. Juniper provides a [look ahead API][] which lets you inspect things
 //! coming up further down a query. However the API is string based, so you risk making typos and
 //! checking for fields that don't exist.
 //!
@@ -739,8 +743,8 @@
 //! on all your types. This means the compiler will reject your code if you're checking for invalid
 //! fields.
 //!
-//! Fields that return object types (non scalar values) will also get a `QueryTrail` argument
-//! besides the executor.
+//! Resolver methods (`field_*`) that return object types (non scalar values) will also get a
+//! `QueryTrail` argument besides the executor.
 //!
 //! Since the `QueryTrail` type itself is defined in this crate (rather than being inserted into
 //! your code) we cannot directly add methods for your GraphQL fields. Those methods have to be
@@ -767,7 +771,7 @@
 //! the extension traits.
 //!
 //! [N+1 query bugs]: https://secure.phabricator.com/book/phabcontrib/article/n_plus_one/
-//! [look ahead api]: https://docs.rs/juniper/0.11.1/juniper/struct.LookAheadSelection.html
+//! [look ahead API]: https://docs.rs/juniper/0.11.1/juniper/struct.LookAheadSelection.html
 //!
 //! ## Abbreviated example
 //!
@@ -1024,6 +1028,113 @@
 //!
 //! This can be done by calling `.downcast()` which automatically gets implemented for interface and
 //! union query trails. See above for an example.
+//!
+//! ## `QueryTrail`s for fields that take arguments
+//!
+//! Sometimes you have GraphQL fields that take arguments that impact which things your resolvers
+//! should return. `QueryTrail` therefore also allows you inspect arguments to fields.
+//!
+//! Abbreviated example:
+//!
+//! ```
+//! # #[macro_use]
+//! # extern crate juniper;
+//! # use juniper_from_schema::*;
+//! # pub struct Context;
+//! # impl juniper::Context for Context {}
+//! # fn main() {}
+//! # pub struct Country {}
+//! # impl CountryFields for Country {
+//! #     fn field_users<'a>(
+//! #         &self,
+//! #         executor: &juniper::Executor<'a, Context>,
+//! #         trail: &QueryTrail<'a, User, Walked>,
+//! #         active_since: DateTime<Utc>,
+//! #     ) -> juniper::FieldResult<Vec<User>> {
+//! #         unimplemented!()
+//! #     }
+//! # }
+//! # pub struct User {}
+//! # impl UserFields for User {
+//! #     fn field_id<'a>(
+//! #         &self,
+//! #         executor: &juniper::Executor<'a, Context>,
+//! #     ) -> juniper::FieldResult<&juniper::ID> {
+//! #         unimplemented!()
+//! #     }
+//! # }
+//! use chrono::prelude::*;
+//!
+//! graphql_schema! {
+//!     schema {
+//!         query: Query
+//!     }
+//!
+//!     type Query {
+//!         countries: [Country!]! @juniper(ownership: "owned")
+//!     }
+//!
+//!     type Country {
+//!         users(activeSince: DateTime!): [User!]! @juniper(ownership: "owned")
+//!     }
+//!
+//!     type User {
+//!         id: ID!
+//!     }
+//!
+//!     scalar DateTime
+//! }
+//!
+//! pub struct Query;
+//!
+//! impl QueryFields for Query {
+//!     fn field_countries<'request, 'trail>(
+//!         &self,
+//!         executor: &juniper::Executor<'request, Context>,
+//!         trail: &'trail QueryTrail<'request, Country, Walked>
+//!     ) -> juniper::FieldResult<Vec<Country>> {
+//!         // Get struct that has all arguments passed to `Country.users`
+//!         let args: CountryUsersArgs<'trail, 'request> = trail.users_args();
+//!
+//!         // The struct has methods for each argument, e.g. `active_since`.
+//!         //
+//!         // Notice that it automatically converts the incoming value to
+//!         // a `DateTime<Utc>`.
+//!         let _: DateTime<Utc> = args.active_since();
+//!
+//!         # unimplemented!()
+//!         // ...
+//!     }
+//! }
+//! ```
+//!
+//! The name of the arguments struct will always be `{name of type}{name of field}Args` (e.g.
+//! `CountryUsersArgs`). The method names will always be the name of the arguments in snake case.
+//!
+//! The argument structs are generic over two lifetimes:
+//!
+//! - `'trail`: The lifetime of `QueryTrail` as given to the resolver method.
+//! - `'request`: The lifetime of the GraphQL request currently being processed. This is the
+//! lifetime called `'a` throughout Juniper's documentation.
+//!
+//! The `*_args` method is only defined on `Walked` query trails so if you get an error like:
+//!
+//! ```text
+//! ---- src/lib.rs -  (line 10) stdout ----
+//! error[E0599]: no method named `users_args` found for type `&QueryTrail<'_, Country, Walked>` in the current
+//!  scope
+//!   --> src/lib.rs:10:1
+//!    |
+//! 10 |         trail.users_args();
+//!    |               ^^^^^^^^^^^^ method not found in `&QueryTrail<'_, Country, Walked>`
+//! ```
+//!
+//! It is likely because you've forgotten to call [`.walk()`][] on `trail`.
+//!
+//! [`.walk()`]: struct.QueryTrail.html#method.walk
+//!
+//! Remember that you can always run `cargo doc` to get a high level overview of the generated
+//! code.
 //!
 //! # Customizing the error type
 //!
