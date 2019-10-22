@@ -6,19 +6,23 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ## Unreleased
 
-- Add support for inspecting arguments to `QueryTrail`. See docs for more info. [#83](https://github.com/davidpdrsn/juniper-from-schema/pull/83).
+None.
 
 #### Breaking changes
 
-None
+None.
 
-## [0.4.1] - 2019-11-16
+## [0.4.2] - 2019-10-16
+
+- Add support for inspecting arguments to `QueryTrail`. See docs for more info. [#83](https://github.com/davidpdrsn/juniper-from-schema/pull/83).
+
+## [0.4.1] - 2019-10-16
 
 ### Fixed
 
 - Correctly trigger rebuild of Rust schema if only GraphQL schema changed when using `graphql_schema_from_file!`.
 
-## [0.4.0] - 2019-11-05
+## [0.4.0] - 2019-10-05
 
 ### Added
 
@@ -28,13 +32,13 @@ None
 
 - The `QueryTrail` type is now part of this library rather than being emitted as part of the generated code. This was done so other libraries could make sure of the type. If you're getting errors about missing methods adding `use crate::graphql_schema::query_trails::*` to you module should fix it. [#82](https://github.com/davidpdrsn/juniper-from-schema/pull/82)
 
-## [0.3.2] - 2019-10-30
+## [0.3.2] - 2019-09-30
 
 ### Added
 
 - Juniper 0.14 support.
 
-## [0.3.1] - 2019-10-24
+## [0.3.1] - 2019-09-24
 
 ### Added
 
@@ -153,6 +157,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.4.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.3.2...0.4.0
 [0.3.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.3.1...0.3.2
