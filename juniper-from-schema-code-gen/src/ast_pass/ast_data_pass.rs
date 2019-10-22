@@ -97,6 +97,10 @@ impl<'doc> AstData<'doc> {
         self.is_scalar("Date")
     }
 
+    pub fn date_time_scalar_defined(&self) -> bool {
+        self.is_scalar("DateTime")
+    }
+
     pub fn date_time_scalar_definition(&self) -> Option<DateTimeScalarDefinition> {
         if self.is_scalar("DateTime") {
             if self.include_time_zone_on_date_time_scalar {
@@ -160,7 +164,7 @@ impl<'doc> AstData<'doc> {
         input_type_name: &'doc str,
         field_name: &'doc String,
     ) -> Option<&'doc Name> {
-        let field_map = self.input_object_field_types.get(input_type_name)?;
+        let field_map = &self.input_object_field_types.get(input_type_name)?;
         let type_ = field_map.get(field_name)?;
         Some(type_name(&type_))
     }

@@ -6,21 +6,11 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ## Unreleased
 
-### Added
+- Add support for inspecting arguments to `QueryTrail`. See docs for more info. [#83](https://github.com/davidpdrsn/juniper-from-schema/pull/83).
 
-N/A
+#### Breaking changes
 
-### Changed
-
-N/A
-
-### Removed
-
-N/A
-
-### Fixed
-
-N/A
+None
 
 ## [0.4.1] - 2019-11-16
 

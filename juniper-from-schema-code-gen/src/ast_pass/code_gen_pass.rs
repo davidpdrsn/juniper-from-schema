@@ -373,18 +373,51 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         let values = enum_type
             .values
             .iter()
-            .map(|enum_value| self.gen_enum_value(enum_value))
-            .collect::<Vec<_>>();
+            .map(|enum_value| self.gen_enum_value(enum_value));
 
         let description = doc_tokens(&enum_type.description);
 
-        self.extend(quote! {
+        let string_to_enum_value_mappings = enum_type.values.iter().map(|enum_value| {
+            let graphql_name = &enum_value.name;
+            let variant = to_enum_name(&graphql_name);
+            quote! { &#graphql_name => #name::#variant, }
+        });
+
+        let code = quote! {
             #description
             #[derive(juniper::GraphQLEnum, Debug, Eq, PartialEq, Copy, Clone, Hash)]
             pub enum #name {
                 #(#values)*
             }
-        });
+
+            impl<'a, 'b> query_trails::FromLookAheadValue<#name>
+                for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+            {
+                fn from(self) -> #name {
+                    match self {
+                        juniper::LookAheadValue::Enum(name) => {
+                            match name {
+                                #(#string_to_enum_value_mappings)*
+                                other => panic!("Invalid enum name: {}", other),
+                            }
+                        },
+                        juniper::LookAheadValue::Null => panic!(
+                            "Failed converting look ahead value. Expected enum type got `null`",
+                        ),
+                        juniper::LookAheadValue::List(_) => panic!(
+                            "Failed converting look ahead value. Expected enum type got `list`",
+                        ),
+                        juniper::LookAheadValue::Object(_) => panic!(
+                            "Failed converting look ahead value. Expected enum type got `object`",
+                        ),
+                        juniper::LookAheadValue::Scalar(_) => panic!(
+                            "Failed converting look ahead value. Expected enum type got `scalar`",
+                        ),
+                    }
+                }
+            }
+        };
+        self.extend(code);
     }
 
     fn visit_input_object_type(&mut self, input_object: &'doc InputObjectType) {
@@ -419,13 +452,91 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
 
         let description = doc_tokens(&input_object.description);
 
-        self.extend(quote! {
+        let field_names = input_object
+            .fields
+            .iter()
+            .map(|field| {
+                let arg = self.argument_to_name_and_rust_type(&field);
+                ident(&format!("{}_temp", arg.name))
+            })
+            .collect::<Vec<_>>();
+
+        let field_setters = input_object
+            .fields
+            .iter()
+            .map(|field| {
+                let arg = self.argument_to_name_and_rust_type(&field);
+                let name = ident(&arg.name);
+                let temp_name = ident(&format!("{}_temp", arg.name));
+                quote! {
+                    #name: #temp_name.unwrap_or_else(|| panic!("Field `{}` was not set", stringify!(#name))),
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let temp_field_setters = input_object
+            .fields
+            .iter()
+            .map(|field| {
+                let arg = self.argument_to_name_and_rust_type(&field);
+                let name = &arg.name;
+                let temp_name = ident(&format!("{}_temp", arg.name));
+                let rust_type = arg.macro_type;
+                quote! {
+                    #name => {
+                        #temp_name = Some(
+                            query_trails::FromLookAheadValue::<#rust_type>::from(
+                                look_ahead_value
+                            )
+                        );
+                    },
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let code = quote! {
             #[derive(juniper::GraphQLInputObject, Debug)]
             #description
             pub struct #name {
                 #(#fields),*
             }
-        })
+
+            impl<'a, 'b> query_trails::FromLookAheadValue<#name>
+                for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+            {
+                fn from(self) -> #name {
+                    match self {
+                        juniper::LookAheadValue::Object(pairs) => {
+                            #(
+                                let mut #field_names = None;
+                            )*
+                            for (look_ahead_key, look_ahead_value) in pairs {
+                                match *look_ahead_key {
+                                    #(#temp_field_setters)*
+                                    other => panic!("Invalid input object key: {}", other),
+                                }
+                            }
+                            #name {
+                                #(#field_setters)*
+                            }
+                        },
+                        juniper::LookAheadValue::Enum(_) => panic!(
+                            "Failed converting look ahead value. Expected object type got `enum`",
+                        ),
+                        juniper::LookAheadValue::Null => panic!(
+                            "Failed converting look ahead value. Expected object type got `null`",
+                        ),
+                        juniper::LookAheadValue::List(_) => panic!(
+                            "Failed converting look ahead value. Expected object type got `list`",
+                        ),
+                        juniper::LookAheadValue::Scalar(_) => panic!(
+                            "Failed converting look ahead value. Expected object type got `scalar`",
+                        ),
+                    }
+                }
+            }
+        };
+        self.extend(code)
     }
 
     fn visit_directive_definition(&mut self, inner: &'doc schema::DirectiveDefinition) {
@@ -555,6 +666,15 @@ impl<'doc> CodeGenPass<'doc> {
             impl std::ops::DerefMut for #name {
                 fn deref_mut(&mut self) -> &mut Self::Target {
                     &mut self.0
+                }
+            }
+
+            impl<'a, 'b> query_trails::FromLookAheadValue<#name>
+                for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+            {
+                fn from(self) -> #name {
+                    let s = query_trails::FromLookAheadValue::<String>::from(self);
+                    #name(s)
                 }
             }
         })
@@ -834,7 +954,9 @@ impl<'doc> CodeGenPass<'doc> {
                 let field_type_name = self
                     .ast_data
                     .input_object_field_type_name(&type_name, &key)
-                    .unwrap();
+                    .unwrap_or_else(|| {
+                        panic!("input_object_field_type_name {} {}", type_name, key)
+                    });
 
                 let value_quote = self.quote_value(value, field_type_name, pos);
                 match self
