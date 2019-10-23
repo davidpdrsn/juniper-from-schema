@@ -71,7 +71,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
 
     fn visit_scalar_type(&mut self, scalar_type: &'doc ScalarType) {
         match &*scalar_type.name {
-            "DateTime" => {
+            name if name == crate::DATE_TIME_SCALAR_NAME => {
                 // We don't need to parse and check the directives here because that is done by
                 // `AstData::visit_scalar_type`
 
@@ -82,7 +82,10 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                     );
                 }
             }
-            "Date" | "Uuid" | "Url" => {
+            name if name == crate::DATE_SCALAR_NAME
+                || name == crate::URL_SCALAR_NAME
+                || name == crate::UUID_SCALAR_NAME =>
+            {
                 self.parse_directives(scalar_type);
 
                 if scalar_type.description.is_some() {
@@ -1008,14 +1011,14 @@ impl<'doc> CodeGenPass<'doc> {
             "String" => (quote! { String }, TypeKind::Scalar),
             "Boolean" => (quote! { bool }, TypeKind::Scalar),
             "ID" => (quote! { juniper::ID }, TypeKind::Scalar),
-            "Date" => {
+            name if name == crate::DATE_SCALAR_NAME => {
                 if !self.ast_data.date_scalar_defined() {
                     self.emit_fatal_error(pos, ErrorKind::DateScalarNotDefined)
                         .ok();
                 }
                 (quote! { chrono::naive::NaiveDate }, TypeKind::Scalar)
             }
-            "DateTime" => {
+            name if name == crate::DATE_TIME_SCALAR_NAME => {
                 let tokens = match self.ast_data.date_time_scalar_definition() {
                     Some(DateTimeScalarDefinition::WithTimeZone) => {
                         quote! { chrono::DateTime<chrono::offset::Utc> }
@@ -1032,14 +1035,14 @@ impl<'doc> CodeGenPass<'doc> {
 
                 (tokens, TypeKind::Scalar)
             }
-            "Uuid" => {
+            name if name == crate::UUID_SCALAR_NAME => {
                 if !self.ast_data.uuid_scalar_defined() {
                     self.emit_fatal_error(pos, ErrorKind::UuidScalarNotDefined)
                         .ok();
                 }
                 (quote! { uuid::Uuid }, TypeKind::Scalar)
             }
-            "Url" => {
+            name if name == crate::URL_SCALAR_NAME => {
                 if !self.ast_data.url_scalar_defined() {
                     self.emit_fatal_error(pos, ErrorKind::UrlScalarNotDefined)
                         .ok();

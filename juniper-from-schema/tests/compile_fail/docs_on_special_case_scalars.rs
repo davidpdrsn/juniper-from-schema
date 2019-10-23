@@ -15,8 +15,8 @@ juniper_from_schema::graphql_schema! {
     "Url docs"
     scalar Url
 
-    "DateTime docs"
-    scalar DateTime
+    "DateTimeUtc docs"
+    scalar DateTimeUtc
 
     "Date docs"
     scalar Date

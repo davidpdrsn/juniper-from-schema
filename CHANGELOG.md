@@ -11,6 +11,7 @@ None.
 #### Breaking changes
 
 - Remove the second lifetime from generated structs for field arguments. Turns out `'a` from `QueryTrail<'a, _, _>` is all we need.
+- The `DateTime` scalar has been renamed to `DateTimeUtc` to clearly communicate the name Juniper gives it.
 
 ## [0.4.2] - 2019-10-16
 

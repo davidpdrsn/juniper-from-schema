@@ -33,7 +33,7 @@ impl<'doc> SchemaVisitor<'doc> for AstData<'doc> {
 
     fn visit_scalar_type(&mut self, scalar: &'doc ScalarType) {
         match &*scalar.name {
-            name @ "DateTime" => {
+            name if name == crate::DATE_TIME_SCALAR_NAME => {
                 let args = self.parse_directives(DateTimeScalarType(scalar));
                 if args.with_time_zone {
                     self.include_time_zone_on_date_time_scalar = true;
@@ -94,15 +94,15 @@ impl<'doc> AstData<'doc> {
     }
 
     pub fn date_scalar_defined(&self) -> bool {
-        self.is_scalar("Date")
+        self.is_scalar(crate::DATE_SCALAR_NAME)
     }
 
     pub fn date_time_scalar_defined(&self) -> bool {
-        self.is_scalar("DateTime")
+        self.is_scalar(crate::DATE_TIME_SCALAR_NAME)
     }
 
     pub fn date_time_scalar_definition(&self) -> Option<DateTimeScalarDefinition> {
-        if self.is_scalar("DateTime") {
+        if self.is_scalar(crate::DATE_TIME_SCALAR_NAME) {
             if self.include_time_zone_on_date_time_scalar {
                 Some(DateTimeScalarDefinition::WithTimeZone)
             } else {
@@ -114,11 +114,11 @@ impl<'doc> AstData<'doc> {
     }
 
     pub fn uuid_scalar_defined(&self) -> bool {
-        self.is_scalar("Uuid")
+        self.is_scalar(crate::UUID_SCALAR_NAME)
     }
 
     pub fn url_scalar_defined(&self) -> bool {
-        self.is_scalar("Url")
+        self.is_scalar(crate::URL_SCALAR_NAME)
     }
 
     pub fn is_scalar(&self, name: &str) -> bool {

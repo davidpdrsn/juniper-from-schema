@@ -28,6 +28,11 @@ use quote::quote;
 use std::{collections::BTreeSet, path::Path};
 use syn::Type;
 
+const DATE_TIME_SCALAR_NAME: &str = "DateTimeUtc";
+const DATE_SCALAR_NAME: &str = "Date";
+const UUID_SCALAR_NAME: &str = "Uuid";
+const URL_SCALAR_NAME: &str = "Url";
+
 /// Read a GraphQL schema file and generate corresponding Juniper macro calls.
 ///
 /// See [the crate level docs](index.html) for an example.

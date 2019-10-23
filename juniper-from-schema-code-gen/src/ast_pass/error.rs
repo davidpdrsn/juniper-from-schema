@@ -241,7 +241,7 @@ impl<'doc> ErrorKind<'doc> {
     fn description(&self) -> String {
         match self {
             ErrorKind::DateTimeScalarNotDefined => {
-                "You have to define a custom scalar called `DateTime` to use this type".to_string()
+                "You have to define a custom scalar called `DateTimeUtc` to use this type".to_string()
             }
             ErrorKind::DateScalarNotDefined => {
                 "You have to define a custom scalar called `Date` to use this type".to_string()
@@ -308,7 +308,7 @@ impl<'doc> ErrorKind<'doc> {
                 Some(f)
             }
             ErrorKind::DateTimeScalarNotDefined => {
-                Some("Insert `scalar DateTime` into your schema".to_string())
+                Some("Insert `scalar DateTimeUtc` into your schema".to_string())
             }
             ErrorKind::DateScalarNotDefined => {
                 Some("Insert `scalar Date` into your schema".to_string())

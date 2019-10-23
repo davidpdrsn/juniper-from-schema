@@ -9,10 +9,10 @@ juniper_from_schema::graphql_schema! {
     }
 
     type Query {
-        dateTime: DateTime! @juniper(ownership: "owned")
+        dateTime: DateTimeUtc! @juniper(ownership: "owned")
     }
 
-    scalar DateTime @juniper(with_time_zone: "foobar")
+    scalar DateTimeUtc @juniper(with_time_zone: "foobar")
 }
 
 pub struct Query;
