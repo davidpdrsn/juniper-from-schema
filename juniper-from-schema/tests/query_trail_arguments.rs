@@ -45,7 +45,7 @@ graphql_schema! {
             urlArg: Url!
             uuidArg: Uuid!
             dateArg: Date!
-            dateTimeArg: DateTime!
+            dateTimeArg: DateTimeUtc!
             defaultArg: String = "value set in schema"
             defaultArg2: String = "error"
         ): String! @juniper(ownership: "owned")
@@ -72,7 +72,7 @@ graphql_schema! {
     scalar Url
     scalar Uuid
     scalar Date
-    scalar DateTime
+    scalar DateTimeUtc
 }
 
 pub struct Query;

@@ -10,7 +10,7 @@ None.
 
 #### Breaking changes
 
-None.
+- The `DateTime` scalar has been renamed to `DateTimeUtc` to clearly communicate the name Juniper gives it.
 
 ## [0.4.2] - 2019-10-16
 

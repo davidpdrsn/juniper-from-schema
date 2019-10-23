@@ -275,8 +275,8 @@
 //! [`uuid::Uuid`](https://docs.rs/uuid/0.7.4/uuid/struct.Uuid.html).
 //! - `Date` becomes
 //! [`chrono::naive::NaiveDate`](https://docs.rs/chrono/0.4.6/chrono/naive/struct.NaiveDate.html).
-//! - `DateTime` becomes [`chrono::DateTime<chrono::offset::Utc>`] by default but if defined with
-//! `scalar DateTime @juniper(with_time_zone: false)` it will become [`chrono::naive::NaiveDateTime`].
+//! - `DateTimeUtc` becomes [`chrono::DateTime<chrono::offset::Utc>`] by default but if defined with
+//! `scalar DateTimeUtc @juniper(with_time_zone: false)` it will become [`chrono::naive::NaiveDateTime`].
 //!
 //! Juniper doesn't support [`chrono::Date`](https://docs.rs/chrono/0.4.9/chrono/struct.Date.html)
 //! so therefore this library cannot support that either. You can read about Juniper's supported
@@ -1075,14 +1075,14 @@
 //!     }
 //!
 //!     type Country {
-//!         users(activeSince: DateTime!): [User!]! @juniper(ownership: "owned")
+//!         users(activeSince: DateTimeUtc!): [User!]! @juniper(ownership: "owned")
 //!     }
 //!
 //!     type User {
 //!         id: ID!
 //!     }
 //!
-//!     scalar DateTime
+//!     scalar DateTimeUtc
 //! }
 //!
 //! pub struct Query;

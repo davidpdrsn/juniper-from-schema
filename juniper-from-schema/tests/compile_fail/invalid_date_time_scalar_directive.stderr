@@ -6,17 +6,17 @@ error: proc macro panicked
 8  | |         query: Query
 9  | |     }
 ...  |
-15 | |     scalar DateTime @juniper(with_time_zone: "foobar")
+15 | |     scalar DateTimeUtc @juniper(with_time_zone: "foobar")
 16 | | }
    | |_^
    |
    = help: message: 
            
            [91merror[0m: Unsupported directive.
-            --> schema:2:75
+            --> schema:3:13
              |
-           2 |    { dateTime : DateTime ! @ juniper (ownership : "owned") } scalar DateTime @
-             |                                                                              [91m^[0m
+           3 |    DateTimeUtc @ juniper (with_time_zone : "foobar")
+             |                [91m^[0m
            
            Invalid type. Expected `Boolean`, got `String`
            
