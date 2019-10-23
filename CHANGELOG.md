@@ -10,6 +10,12 @@ None.
 
 #### Breaking changes
 
+None.
+
+## [0.5.0] - 2019-10-17
+
+#### Breaking changes
+
 - Remove the second lifetime from generated structs for field arguments. Turns out `'a` from `QueryTrail<'a, _, _>` is all we need.
 - The `DateTime` scalar has been renamed to `DateTimeUtc` to clearly communicate the name Juniper gives it.
 
@@ -158,6 +164,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.5.0]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.4.2...0.5.0
 [0.4.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.3.2...0.4.0
