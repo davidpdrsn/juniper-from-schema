@@ -1088,13 +1088,13 @@
 //! pub struct Query;
 //!
 //! impl QueryFields for Query {
-//!     fn field_countries<'request, 'trail>(
+//!     fn field_countries<'a>(
 //!         &self,
-//!         executor: &juniper::Executor<'request, Context>,
-//!         trail: &'trail QueryTrail<'request, Country, Walked>
+//!         executor: &'a juniper::Executor<'a, Context>,
+//!         trail: &'a QueryTrail<'a, Country, Walked>
 //!     ) -> juniper::FieldResult<Vec<Country>> {
 //!         // Get struct that has all arguments passed to `Country.users`
-//!         let args: CountryUsersArgs<'trail, 'request> = trail.users_args();
+//!         let args: CountryUsersArgs<'a> = trail.users_args();
 //!
 //!         // The struct has methods for each argument, e.g. `active_since`.
 //!         //
@@ -1108,14 +1108,69 @@
 //! }
 //! ```
 //!
+//! You can also elide the `'a` lifetime:
+//!
+//! ```
+//! # #[macro_use]
+//! # extern crate juniper;
+//! # use juniper_from_schema::*;
+//! # pub struct Context;
+//! # impl juniper::Context for Context {}
+//! # fn main() {}
+//! # pub struct Country {}
+//! # impl CountryFields for Country {
+//! #     fn field_users<'a>(
+//! #         &self,
+//! #         executor: &juniper::Executor<'a, Context>,
+//! #         trail: &QueryTrail<'a, User, Walked>,
+//! #         active_since: DateTime<Utc>,
+//! #     ) -> juniper::FieldResult<Vec<User>> {
+//! #         unimplemented!()
+//! #     }
+//! # }
+//! # pub struct User {}
+//! # impl UserFields for User {
+//! #     fn field_id<'a>(
+//! #         &self,
+//! #         executor: &juniper::Executor<'a, Context>,
+//! #     ) -> juniper::FieldResult<&juniper::ID> {
+//! #         unimplemented!()
+//! #     }
+//! # }
+//! # use chrono::prelude::*;
+//! # graphql_schema! {
+//! #     schema {
+//! #         query: Query
+//! #     }
+//! #     type Query {
+//! #         countries: [Country!]! @juniper(ownership: "owned")
+//! #     }
+//! #     type Country {
+//! #         users(activeSince: DateTime!): [User!]! @juniper(ownership: "owned")
+//! #     }
+//! #     type User {
+//! #         id: ID!
+//! #     }
+//! #     scalar DateTime
+//! # }
+//! # pub struct Query;
+//! #
+//! impl QueryFields for Query {
+//!     fn field_countries(
+//!         &self,
+//!         executor: &juniper::Executor<'_, Context>,
+//!         trail: &QueryTrail<'_, Country, Walked>
+//!     ) -> juniper::FieldResult<Vec<Country>> {
+//!         let args: CountryUsersArgs = trail.users_args();
+//!
+//!         # unimplemented!()
+//!         // ...
+//!     }
+//! }
+//! ```
+//!
 //! The name of the arguments struct will always be `{name of type}{name of field}Args` (e.g.
 //! `CountryUsersArgs`). The method names will always be the name of the arguments in snake case.
-//!
-//! The argument structs are generic over two lifetimes:
-//!
-//! - `'trail`: The lifetime of `QueryTrail` as given to the resolver method.
-//! - `'request`: The lifetime of the GraphQL request currently being processed. This is the
-//! lifetime called `'a` throughout Juniper's documentation.
 //!
 //! The `*_args` method is only defined on `Walked` query trails so if you get an error like:
 //!

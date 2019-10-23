@@ -10,7 +10,7 @@ None.
 
 #### Breaking changes
 
-None.
+- Remove the second lifetime from generated structs for field arguments. Turns out `'a` from `QueryTrail<'a, _, _>` is all we need.
 
 ## [0.4.2] - 2019-10-16
 
