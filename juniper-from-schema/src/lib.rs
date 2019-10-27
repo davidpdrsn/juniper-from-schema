@@ -22,6 +22,7 @@
 //!     - [Customizing ownership](#customizing-ownership)
 //!     - [Infallible fields](#infallible-fields)
 //! - [GraphQL to Rust types](#graphql-to-rust-types)
+//! - [When you schema contains Rust keywords](#when-you-schema-contains-rust-keywords)
 //! - [Query trails](#query-trails)
 //!     - [Abbreviated example](#abbreviated-example)
 //!     - [Types](#types)
@@ -835,6 +836,25 @@
 //! - `String` -> `String`
 //! - `Boolean` -> `bool`
 //! - `ID` -> [`juniper::ID`](https://docs.rs/juniper/latest/juniper/struct.ID.html)
+//!
+//! # When you schema contains Rust keywords
+//!
+//! If your schema contains Rust keywords such as:
+//!
+//! ```graphql
+//! type User {
+//!     // `type` is a keyword in Rust
+//!     type: UserType!
+//! }
+//! ```
+//!
+//! [raw identifies][] will be used instead. So in this case `r#type` would be used for
+//! corresponding method generated on `Query<User, _>`. You would have to call it as `trail.r#type()`
+//!
+//! The things considered keywords can be found
+//! [here](https://doc.rust-lang.org/reference/keywords.html).
+//!
+//! [raw identifies]: https://doc.rust-lang.org/stable/edition-guide/rust-2018/module-system/raw-identifiers.html
 //!
 //! # Query trails
 //!

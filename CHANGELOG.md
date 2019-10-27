@@ -7,6 +7,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 ## Unreleased
 
 - Support making fields infallible with `@juniper(infallible: true)`.
+- Support Rust keywords in the schema using [raw identifies](https://doc.rust-lang.org/stable/edition-guide/rust-2018/module-system/raw-identifiers.html). [#93](https://github.com/davidpdrsn/juniper-from-schema/pull/93).
 
 #### Breaking changes
 

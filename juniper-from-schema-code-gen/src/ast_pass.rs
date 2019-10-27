@@ -2,18 +2,25 @@ pub mod ast_data_pass;
 pub mod code_gen_pass;
 pub mod directive_parsing;
 pub mod error;
+mod is_keyword;
 pub mod schema_visitor;
 
 pub use self::{code_gen_pass::CodeGenPass, error::ErrorKind};
-use graphql_parser::Pos;
 
-use graphql_parser::{query::Name, schema::Type};
-use proc_macro2::{Span, TokenStream};
-use quote::quote;
+use graphql_parser::{query::Name, schema::Type, Pos};
+use is_keyword::is_keyword;
+use proc_macro2::TokenStream;
+use quote::{format_ident, quote};
 use syn::{self, Ident};
 
 pub fn ident<T: AsRef<str>>(name: T) -> Ident {
-    Ident::new(name.as_ref(), Span::call_site())
+    let r = name.as_ref();
+
+    if is_keyword(r) {
+        format_ident!("r#{}", r)
+    } else {
+        format_ident!("{}", r)
+    }
 }
 
 // TODO: `Name` is a type alias for `String`. It would be nice if this returned a newtype so we

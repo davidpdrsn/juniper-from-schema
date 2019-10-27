@@ -788,8 +788,6 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn collect_data_for_field_gen(&mut self, field: &'doc Field) -> FieldTokens<'doc> {
-        let name = ident(&field.name);
-
         let inner_type = type_name(&field.field_type).to_camel_case();
 
         let attributes = self.parse_directives(field);
@@ -806,7 +804,7 @@ impl<'doc> CodeGenPass<'doc> {
             field.position,
         );
 
-        let field_method = ident(format!("field_{}", name.to_string().to_snake_case()));
+        let field_method = ident(format!("field_{}", field.name.to_snake_case()));
 
         let args_data = field
             .arguments
@@ -851,7 +849,7 @@ impl<'doc> CodeGenPass<'doc> {
             .collect::<Vec<_>>();
 
         FieldTokens {
-            name,
+            name: ident(&field.name),
             macro_args,
             trait_args,
             field_type,
