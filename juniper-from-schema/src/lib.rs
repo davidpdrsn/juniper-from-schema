@@ -1387,7 +1387,7 @@ mod test {
     #[allow(unused_imports)]
     use super::*;
 
-    #[rustversion::nightly]
+    #[rustversion::stable]
     #[test]
     fn test_compile_pass() {
         let t = trybuild::TestCases::new();

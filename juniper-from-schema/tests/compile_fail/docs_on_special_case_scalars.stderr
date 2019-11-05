@@ -43,4 +43,4 @@ error: proc macro panicked
            aborting due to 4 errors
            
 
-error: could not compile `juniper-from-schema-tests`.
+error: Could not compile `juniper-from-schema-tests`.

@@ -13,4 +13,4 @@ error[E0405]: cannot find trait `QueryFields` in this scope
    |      ^^^^^^^^^^^ not found in this scope
 
 For more information about this error, try `rustc --explain E0405`.
-error: could not compile `juniper-from-schema-tests`.
+error: Could not compile `juniper-from-schema-tests`.

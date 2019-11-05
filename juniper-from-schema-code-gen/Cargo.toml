@@ -27,7 +27,7 @@ format-debug-output = ["rustfmt-nightly"]
 
 [dev_dependencies]
 version-sync = "0.8"
-juniper = "0.11.0"
+juniper = "^0.14"
 
 [lib]
 proc-macro = true
