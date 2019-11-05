@@ -18,8 +18,6 @@ error: proc macro panicked
            1 |    type Query { string : String ! @ someDirectiveThatIsntNotSupported } schema
              |                                   [91m^[0m
            
-           Did you mean: `@deprecated`, `@juniper(ownership: "owned")`?
-           
            
            aborting due to previous error
            

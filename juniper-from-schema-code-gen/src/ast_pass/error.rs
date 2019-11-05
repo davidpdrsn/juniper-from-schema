@@ -127,20 +127,12 @@ impl fmt::Display for ValueType {
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Ownership<'doc> {
-    WrongNumberOfArgs(usize),
-    InvalidKey(&'doc str),
     InvalidValue(&'doc str),
 }
 
 impl<'doc> fmt::Display for Ownership<'doc> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::WrongNumberOfArgs(actual) => {
-                write!(f, "Wrong number of args. Expected 1, got {}", actual)
-            }
-            Self::InvalidKey(actual) => {
-                write!(f, "Invalid key. Expected `ownership`, got `{}`", actual)
-            }
             Self::InvalidValue(name) => write!(
                 f,
                 "Invalid value. Expected `owned`, `borrowed`, or `as_ref`, got `{}`",
@@ -164,32 +156,10 @@ impl<'doc> fmt::Display for Juniper<'doc> {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum Scalar<'doc> {
-    WrongNumberOfArgs(usize),
-    InvalidKey(&'doc str),
-}
-
-impl<'doc> fmt::Display for Scalar<'doc> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::WrongNumberOfArgs(count) => write!(
-                f,
-                "Wrong number of arguments. Expected `1`, got `{}`",
-                count
-            ),
-            Self::InvalidKey(name) => {
-                write!(f, "Invalid key `{}`. Expected `with_time_zone`", name)
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum UnsupportedDirectiveKind<'doc> {
     Deprecation(Deprecation<'doc>),
     Ownership(Ownership<'doc>),
     Juniper(Juniper<'doc>),
-    Scalar(Scalar<'doc>),
     InvalidType {
         actual: ValueType,
         expected: ValueType,
@@ -202,7 +172,6 @@ impl<'doc> fmt::Display for UnsupportedDirectiveKind<'doc> {
             Self::Deprecation(inner) => write!(f, "{}", inner),
             Self::Ownership(inner) => write!(f, "{}", inner),
             Self::Juniper(inner) => write!(f, "{}", inner),
-            Self::Scalar(inner) => write!(f, "{}", inner),
             Self::InvalidType { expected, actual } => {
                 write!(f, "Invalid type. Expected `{}`, got `{}`", expected, actual)
             }
@@ -218,7 +187,7 @@ pub enum ErrorKind<'doc> {
     UrlScalarNotDefined,
     SpecialCaseScalarWithDescription,
     UnsupportedDirective(UnsupportedDirectiveKind<'doc>),
-    UnknownDirective(Vec<&'static str>),
+    UnknownDirective(Vec<String>),
     NoQueryType,
     NonnullableFieldWithDefaultValue,
     SubscriptionsNotSupported,

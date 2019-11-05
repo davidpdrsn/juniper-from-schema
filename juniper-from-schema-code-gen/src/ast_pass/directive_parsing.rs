@@ -4,13 +4,16 @@ use crate::ast_pass::{
     EmitError,
 };
 use graphql_parser::{query::Value, schema::*};
+use std::convert::identity;
 
 pub trait FromDirective: Sized {
     fn from_directive(dir: &Directive) -> Result<Self, ErrorKind>;
 }
 
-pub trait FromDirectiveArguments: Sized {
-    fn from_directive_args(args: &[(String, Value)]) -> Result<Self, ErrorKind>;
+pub trait FromDirectiveArguments: Sized + Default {
+    const KEY: &'static str;
+
+    fn from_directive_args(args: &(String, Value)) -> Option<Result<Self, ErrorKind>>;
 }
 
 #[derive(Debug)]
@@ -83,28 +86,68 @@ impl<T: Default> Default for JuniperDirective<T> {
     }
 }
 
-impl<T: FromDirectiveArguments> FromDirective for JuniperDirective<T> {
-    fn from_directive(dir: &Directive) -> Result<Self, ErrorKind> {
-        let name = &dir.name;
-        if name != "juniper" {
-            return Err(ErrorKind::UnsupportedDirective(
-                UnsupportedDirectiveKind::Juniper(Juniper::InvalidName(name)),
-            ));
+macro_rules! impl_from_directive_for {
+    {
+        ( $( $name:ident ),* )
+    } => {
+        impl<$($name),*> FromDirective for JuniperDirective<($($name),*)>
+        where
+            $($name: FromDirectiveArguments,)*
+        {
+            #[allow(non_snake_case)]
+            fn from_directive(dir: &Directive) -> Result<Self, ErrorKind> {
+                let name = &dir.name;
+                if name != "juniper" {
+                    return Err(ErrorKind::UnsupportedDirective(
+                        UnsupportedDirectiveKind::Juniper(Juniper::InvalidName(name)),
+                    ));
+                }
+
+                $(let mut $name = None::<$name>;)*
+
+                let mut args: Vec<Option<&(String, Value)>> = dir.arguments.iter().map(Some).collect();
+
+                for idx in 0..args.len() {
+                    let arg = &args[idx].unwrap();
+
+                    $(
+                        if let Some(arg) = $name::from_directive_args(arg) {
+                            $name.replace(arg?);
+                            args[idx] = None;
+                            continue;
+                        }
+                    )*
+                }
+
+                let unknown_args = args.into_iter().filter_map(identity).collect::<Vec<_>>();
+
+                if !unknown_args.is_empty() {
+                    let arg_names = unknown_args
+                        .iter()
+                        .map(|(name, _)| name.to_string())
+                        .collect::<Vec<String>>();
+                    return Err(ErrorKind::UnknownDirective(arg_names));
+                }
+
+                $(let $name = $name.unwrap_or_else($name::default);)*
+
+                Ok(Self {
+                    name: name.to_string(),
+                    args: ($($name),*),
+                })
+            }
         }
-
-        let args = T::from_directive_args(&dir.arguments)?;
-
-        Ok(Self {
-            name: name.to_string(),
-            args,
-        })
-    }
+    };
 }
+
+impl_from_directive_for! { (A) }
+impl_from_directive_for! { (A, B) }
 
 #[derive(Debug)]
 pub struct FieldArguments {
     pub ownership: Ownership,
     pub deprecated: Option<Deprecation>,
+    pub infallible: Infallible,
 }
 
 #[derive(Debug)]
@@ -121,39 +164,58 @@ impl Default for Ownership {
 }
 
 impl FromDirectiveArguments for Ownership {
-    fn from_directive_args(args: &[(String, Value)]) -> Result<Self, ErrorKind> {
-        if args.len() != 1 {
-            return Err(ErrorKind::UnsupportedDirective(
-                UnsupportedDirectiveKind::Ownership(error::Ownership::WrongNumberOfArgs(
-                    args.len(),
-                )),
-            ));
-        }
-        let arg = &args[0];
+    const KEY: &'static str = "ownership";
 
-        let key = &arg.0;
-        if key != "ownership" {
-            return Err(ErrorKind::UnsupportedDirective(
-                UnsupportedDirectiveKind::Ownership(error::Ownership::InvalidKey(key)),
-            ));
+    fn from_directive_args((key, value): &(String, Value)) -> Option<Result<Self, ErrorKind>> {
+        if key != Self::KEY {
+            return None;
         }
 
-        let value = &arg.1;
+        let directive = (|| {
+            let ownership_raw = value_as_string(value)?;
 
-        let ownership_raw = value_as_string(value)?;
+            let ownership = match ownership_raw {
+                "owned" => Ownership::Owned,
+                "borrowed" => Ownership::Borrowed,
+                "as_ref" => Ownership::AsRef,
+                value => {
+                    return Err(ErrorKind::UnsupportedDirective(
+                        UnsupportedDirectiveKind::Ownership(error::Ownership::InvalidValue(value)),
+                    ));
+                }
+            };
 
-        let ownership = match ownership_raw {
-            "owned" => Ownership::Owned,
-            "borrowed" => Ownership::Borrowed,
-            "as_ref" => Ownership::AsRef,
-            value => {
-                return Err(ErrorKind::UnsupportedDirective(
-                    UnsupportedDirectiveKind::Ownership(error::Ownership::InvalidValue(value)),
-                ));
-            }
-        };
+            Ok(ownership)
+        })();
+        Some(directive)
+    }
+}
 
-        Ok(ownership)
+#[derive(Debug)]
+pub struct Infallible {
+    pub value: bool,
+}
+
+impl Default for Infallible {
+    fn default() -> Self {
+        Infallible { value: false }
+    }
+}
+
+impl FromDirectiveArguments for Infallible {
+    const KEY: &'static str = "infallible";
+
+    fn from_directive_args((key, value): &(String, Value)) -> Option<Result<Self, ErrorKind>> {
+        if key != Self::KEY {
+            return None;
+        }
+
+        let directive = (|| {
+            let value = value_as_bool(value)?;
+            Ok(Self { value })
+        })();
+
+        Some(directive)
     }
 }
 
@@ -171,25 +233,19 @@ impl Default for DateTimeScalarArguments {
 }
 
 impl FromDirectiveArguments for DateTimeScalarArguments {
-    fn from_directive_args(args: &[(String, Value)]) -> Result<Self, ErrorKind> {
-        if args.len() != 1 {
-            return Err(ErrorKind::UnsupportedDirective(
-                UnsupportedDirectiveKind::Scalar(error::Scalar::WrongNumberOfArgs(args.len())),
-            ));
-        }
-        let arg = &args[0];
+    const KEY: &'static str = "with_time_zone";
 
-        let key = &arg.0;
-        if key != "with_time_zone" {
-            return Err(ErrorKind::UnsupportedDirective(
-                UnsupportedDirectiveKind::Scalar(error::Scalar::InvalidKey(key)),
-            ));
+    fn from_directive_args((key, value): &(String, Value)) -> Option<Result<Self, ErrorKind>> {
+        if key != Self::KEY {
+            return None;
         }
 
-        let value = &arg.1;
+        let directive = (|| {
+            let with_time_zone = value_as_bool(value)?;
+            Ok(Self { with_time_zone })
+        })();
 
-        let with_time_zone = value_as_bool(value)?;
-        Ok(Self { with_time_zone })
+        Some(directive)
     }
 }
 
@@ -229,10 +285,14 @@ impl<'doc> ParseDirective<&'doc Field> for CodeGenPass<'doc> {
     fn parse_directives(&mut self, input: &'doc Field) -> Self::Output {
         let mut ownership = Ownership::default();
         let mut deprecated = None::<Deprecation>;
+        let mut infallible = Infallible::default();
 
         for dir in &input.directives {
-            if let Ok(x) = JuniperDirective::<Ownership>::from_directive(dir) {
-                ownership = x.args;
+            if let Ok(juniper_directive) =
+                JuniperDirective::<(Ownership, Infallible)>::from_directive(dir)
+            {
+                ownership = juniper_directive.args.0;
+                infallible = juniper_directive.args.1;
                 continue;
             }
 
@@ -241,18 +301,13 @@ impl<'doc> ParseDirective<&'doc Field> for CodeGenPass<'doc> {
                 continue;
             }
 
-            self.emit_non_fatal_error(
-                dir.position,
-                ErrorKind::UnknownDirective(vec![
-                    "`@deprecated`",
-                    "`@juniper(ownership: \"owned\")`",
-                ]),
-            );
+            self.emit_non_fatal_error(dir.position, ErrorKind::UnknownDirective(vec![]));
         }
 
         FieldArguments {
             ownership,
             deprecated,
+            infallible,
         }
     }
 }
