@@ -11,6 +11,14 @@ juniper_from_schema::graphql_schema! {
         owned: String! @juniper(ownership: "owned", infallible: true)
         ownedReordered: String! @juniper(infallible: true, ownership: "owned")
     }
+
+    type User implements Entity {
+        id: ID! @juniper(infallible: true)
+    }
+
+    interface Entity {
+        id: ID! @juniper(infallible: true)
+    }
 }
 
 pub struct Query;
@@ -25,6 +33,14 @@ impl QueryFields for Query {
     }
 
     fn field_owned_reordered(&self, _: &Executor<'_, Context>) -> String {
+        unimplemented!()
+    }
+}
+
+pub struct User;
+
+impl UserFields for User {
+    fn field_id(&self, _: &Executor<'_, Context>) -> &ID {
         unimplemented!()
     }
 }

@@ -27,8 +27,6 @@ use std::{
 };
 use syn::Ident;
 
-type Result<T, E = ()> = std::result::Result<T, E>;
-
 #[derive(Debug)]
 pub struct CodeGenPass<'doc> {
     tokens: TokenStream,
@@ -127,18 +125,9 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
             .iter()
             .map(|field| {
                 let field_name = &field.field_method;
-                let field_type = &field.field_type;
-
                 let args = &field.trait_args;
-
-                let error_type = &self.error_type;
                 let context_type = &self.context_type;
-
-                let return_type = if field.infallible {
-                    quote! { #field_type }
-                } else {
-                    quote! { std::result::Result<#field_type, #error_type> }
-                };
+                let return_type = self.field_return_type_tokens(&field);
 
                 match field.type_kind {
                     TypeKind::Scalar => {
@@ -179,7 +168,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
 
         let fields = field_tokens
             .iter()
-            .map(|field| gen_field(field, &struct_name, &trait_name, &self.error_type))
+            .map(|field| self.gen_field(field, &struct_name, &trait_name))
             .collect::<Vec<_>>();
 
         let description = obj_type
@@ -270,7 +259,6 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
             .map(|field| {
                 let field_name = &field.name;
                 let args = &field.macro_args;
-                let field_type = &field.field_type;
 
                 let description = doc_tokens(&field.description);
 
@@ -288,15 +276,13 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                 });
 
                 let all_args = to_field_args_list(&args);
-
-                let error_type = &self.error_type;
-
                 let deprecation = &field.deprecation;
+                let return_type = self.field_return_type_tokens(&field);
 
                 quote! {
                     #description
                     #deprecation
-                    field #field_name(#all_args) -> std::result::Result<#field_type, #error_type> {
+                    field #field_name(#all_args) -> #return_type {
                         match *self {
                             #(#arms),*
                         }
@@ -598,7 +584,7 @@ impl<'doc> CodeGenPass<'doc> {
     pub fn gen_juniper_code(
         mut self,
         doc: &'doc Document,
-    ) -> std::result::Result<TokenStream, BTreeSet<Error<'doc>>> {
+    ) -> Result<TokenStream, BTreeSet<Error<'doc>>> {
         self.validate_doc(doc);
         self.check_for_errors()?;
 
@@ -622,7 +608,7 @@ impl<'doc> CodeGenPass<'doc> {
         }
     }
 
-    pub fn emit_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) -> Result<()> {
+    pub fn emit_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) -> Result<(), ()> {
         self.emit_non_fatal_error(pos, kind);
         Err(())
     }
@@ -1066,6 +1052,47 @@ impl<'doc> CodeGenPass<'doc> {
             }
         }
     }
+
+    fn field_return_type_tokens(&self, field: &FieldTokens) -> TokenStream {
+        let field_type = &field.field_type;
+
+        if field.infallible {
+            quote! { #field_type }
+        } else {
+            let error_type = &self.error_type;
+            quote! { std::result::Result<#field_type, #error_type> }
+        }
+    }
+
+    fn gen_field(
+        &self,
+        field: &FieldTokens,
+        struct_name: &Ident,
+        trait_name: &Ident,
+    ) -> TokenStream {
+        let field_name = &field.name;
+        let args = &field.macro_args;
+
+        let body = gen_field_body(&field, &quote! { &self }, struct_name, trait_name);
+
+        let description = field
+            .description
+            .as_ref()
+            .map(ToString::to_string)
+            .unwrap_or_else(String::new);
+
+        let all_args = to_field_args_list(args);
+        let deprecation = &field.deprecation;
+        let return_type = self.field_return_type_tokens(&field);
+
+        quote! {
+            #[doc = #description]
+            #deprecation
+            field #field_name(#all_args) -> #return_type {
+                #body
+            }
+        }
+    }
 }
 
 fn quote_deprecation(deprecated: &Deprecation) -> TokenStream {
@@ -1098,43 +1125,6 @@ fn to_enum_name(name: &str) -> Ident {
 
 fn trait_map_for_struct_name(struct_name: &Ident) -> Ident {
     ident(format!("{}Fields", struct_name))
-}
-
-fn gen_field(
-    field: &FieldTokens,
-    struct_name: &Ident,
-    trait_name: &Ident,
-    error_type: &syn::Type,
-) -> TokenStream {
-    let field_name = &field.name;
-    let field_type = &field.field_type;
-    let args = &field.macro_args;
-
-    let body = gen_field_body(&field, &quote! { &self }, struct_name, trait_name);
-
-    let description = field
-        .description
-        .as_ref()
-        .map(ToString::to_string)
-        .unwrap_or_else(String::new);
-
-    let all_args = to_field_args_list(args);
-
-    let deprecation = &field.deprecation;
-
-    let return_type = if field.infallible {
-        quote! { #field_type }
-    } else {
-        quote! { std::result::Result<#field_type, #error_type> }
-    };
-
-    quote! {
-        #[doc = #description]
-        #deprecation
-        field #field_name(#all_args) -> #return_type {
-            #body
-        }
-    }
 }
 
 fn gen_field_body(
