@@ -9,7 +9,6 @@
 //!
 //! - [Example](#example)
 //! - [Example web app](#example-web-app)
-//! - [Customizing ownership](#customizing-ownership)
 //! - [GraphQL features](#graphql-features)
 //!     - [The `ID` type](#the-id-type)
 //!     - [Custom scalar types](#custom-scalar-types)
@@ -19,6 +18,9 @@
 //!     - [Input objects](#input-objects)
 //!     - [Enumeration types](#enumeration-types)
 //!     - [Default argument values](#default-argument-values)
+//! - [Supported schema directives](#supported-schema-directives)
+//!     - [Customizing ownership](#customizing-ownership)
+//!     - [Infallible fields](#infallible-fields)
 //! - [GraphQL to Rust types](#graphql-to-rust-types)
 //! - [Query trails](#query-trails)
 //!     - [Abbreviated example](#abbreviated-example)
@@ -206,26 +208,6 @@
 //! [Diesel]: http://diesel.rs
 //! [Actix]: https://actix.rs/
 //!
-//! # Customizing ownership
-//!
-//! By default all fields return borrowed values. Specifically the type is
-//! `juniper::FieldResult<&'a T>` where `'a` is the lifetime of `self`. This works well for
-//! returning data owned by `self` and avoids needless `.clone()` calls you would need if fields
-//! returned owned values.
-//!
-//! However if you need to change the ownership you have to add the directive
-//! `@juniper(ownership:)` to the field in the schema.
-//!
-//! It takes the following arguments:
-//!
-//! - `@juniper(ownership: "borrowed")`: The return type will be borrowed from `self`
-//! (`FieldResult<&T>`).
-//! - `@juniper(ownership: "owned")`: The return type will be owned (`FieldResult<T>`).
-//! - `@juniper(ownership: "as_ref")`: Only applicable for `Option` and `Vec` return types. Changes
-//! the inner type to be borrowed (`FieldResult<Option<&T>>` or `FieldResult<Vec<&T>>`).
-//!
-//! All field arguments will be owned.
-//!
 //! # GraphQL features
 //!
 //! The goal of this library is to support as much of GraphQL as Juniper does.
@@ -241,8 +223,7 @@
 //! - Enumeration types
 //!
 //! Not supported yet:
-//! - Subscriptions (currently not supported by Juniper so we're unsure when or if this will happen)
-//! - Schema directives (`@deprecated` is supported)
+//! - Subscriptions (will be supported once Juniper supports subscriptions)
 //! - Type extensions
 //!
 //! ## The `ID` type
@@ -721,6 +702,129 @@
 //! The value of `arg` inside the resolver would be `Input { a: None, b: Some("my b") }`. Note that
 //! even though `a` has a default value in the field doesn't get used here because we set `arg` in
 //! the query.
+//!
+//! # Supported schema directives
+//!
+//! A number of [schema directives][] are supported that lets you customize the generated code:
+//!
+//! - `@juniper(ownership: "owned|borrowed|as_ref")`. For customizing ownership of returned data.
+//! More info [here](#customizing-ownership).
+//! - `@juniper(infallible: true|false)`. Customize if a field should return `Result<T, _>` or
+//! just `T`. More info
+//! [here](http://localhost:4000/juniper_from_schema/index.html#infallible-fields).
+//! - `@deprecated`. For deprecating types in your schema. Also supports supplying a reason with
+//! `@deprecated(reason: "...")`
+//!
+//! [schema directives]: https://www.apollographql.com/docs/apollo-server/schema/directives/
+//!
+//! ## Customizing ownership
+//!
+//! By default all fields return borrowed values. Specifically the type is
+//! `juniper::FieldResult<&'a T>` where `'a` is the lifetime of `self`. This works well for
+//! returning data owned by `self` and avoids needless `.clone()` calls you would need if fields
+//! returned owned values.
+//!
+//! However if you need to change the ownership you have to add the directive
+//! `@juniper(ownership:)` to the field in the schema.
+//!
+//! It takes the following arguments:
+//!
+//! - `@juniper(ownership: "borrowed")`: The data returned will be borrowed from `self`
+//! (`FieldResult<&T>`).
+//! - `@juniper(ownership: "owned")`: The return type will be owned (`FieldResult<T>`).
+//! - `@juniper(ownership: "as_ref")`: Only applicable for `Option` and `Vec` return types. Changes
+//! the inner type to be borrowed (`FieldResult<Option<&T>>` or `FieldResult<Vec<&T>>`).
+//!
+//! Example:
+//!
+//! ```
+//! # #[macro_use]
+//! # extern crate juniper;
+//! # use juniper_from_schema::*;
+//! # use juniper::*;
+//! # pub struct Context;
+//! # impl juniper::Context for Context {}
+//! # fn main() {}
+//! graphql_schema! {
+//!     schema {
+//!         query: Query
+//!     }
+//!
+//!     type Query {
+//!         borrowed: String!
+//!         owned: String! @juniper(ownership: "owned")
+//!         asRef: String @juniper(ownership: "as_ref")
+//!     }
+//! }
+//!
+//! pub struct Query;
+//!
+//! impl QueryFields for Query {
+//!     fn field_borrowed(&self, _: &Executor<'_, Context>) -> FieldResult<&String> {
+//!         // ...
+//!         # unimplemented!()
+//!     }
+//!
+//!     fn field_owned(&self, _: &Executor<'_, Context>) -> FieldResult<String> {
+//!         // ...
+//!         # unimplemented!()
+//!     }
+//!
+//!     fn field_as_ref(&self, _: &Executor<'_, Context>) -> FieldResult<Option<&String>> {
+//!         // ...
+//!         # unimplemented!()
+//!     }
+//! }
+//! ```
+//!
+//! All field arguments will be owned.
+//!
+//! ## Infallible fields
+//!
+//! By default the generated resolvers are fallible, meaining they return a `Result<T, _>` rather
+//! than a bare `T`. You can customize that using `@juniper(infallible: true)`.
+//!
+//! Example:
+//!
+//! ```
+//! # #[macro_use]
+//! # extern crate juniper;
+//! # use juniper_from_schema::*;
+//! # use juniper::*;
+//! # pub struct Context;
+//! # impl juniper::Context for Context {}
+//! # fn main() {}
+//! graphql_schema! {
+//!     schema {
+//!         query: Query
+//!     }
+//!
+//!     type Query {
+//!         canError: String!
+//!         cannotError: String! @juniper(infallible: true)
+//!         cannotErrorAndOwned: String! @juniper(infallible: true, ownership: "owned")
+//!     }
+//! }
+//!
+//! pub struct Query;
+//!
+//! impl QueryFields for Query {
+//!     fn field_can_error(&self, _: &Executor<'_, Context>) -> FieldResult<&String> {
+//!         // ...
+//!         # unimplemented!()
+//!     }
+//!
+//!     fn field_cannot_error(&self, _: &Executor<'_, Context>) -> &String {
+//!         // ...
+//!         # unimplemented!()
+//!     }
+//!
+//!     fn field_cannot_error_and_owned(&self, _: &Executor<'_, Context>) -> String {
+//!         // ...
+//!         # unimplemented!()
+//!     }
+//! }
+//! ```
 //!
 //! # GraphQL to Rust types
 //!
