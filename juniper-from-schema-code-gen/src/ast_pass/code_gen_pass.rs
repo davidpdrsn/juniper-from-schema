@@ -441,7 +441,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                 quote! {
                     #[allow(missing_docs)]
                     #description
-                    #name: #rust_type
+                    pub #name: #rust_type
                 }
             })
             .collect::<Vec<_>>();
