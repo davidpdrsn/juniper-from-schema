@@ -8,7 +8,7 @@
     unused_must_use
 )]
 #![recursion_limit = "256"]
-#![doc(html_root_url = "https://docs.rs/juniper-from-schema-code-gen/0.5.0")]
+#![doc(html_root_url = "https://docs.rs/juniper-from-schema-code-gen/0.5.1")]
 
 extern crate proc_macro;
 extern crate proc_macro2;

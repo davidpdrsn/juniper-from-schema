@@ -6,12 +6,16 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ## Unreleased
 
-- Support making fields infallible with `@juniper(infallible: true)`.
-- Make sure fields on input object structs are in fact public.
+None.
 
 #### Breaking changes
 
 None.
+
+## [0.5.1] - 2019-11-14
+
+- Support making fields infallible with `@juniper(infallible: true)`.
+- Make sure fields on input object structs are in fact public.
 
 ## [0.5.0] - 2019-10-17
 
@@ -165,6 +169,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.5.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.4.2...0.5.0
 [0.4.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.4.0...0.4.1
