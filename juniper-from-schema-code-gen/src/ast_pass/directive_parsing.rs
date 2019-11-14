@@ -90,6 +90,7 @@ macro_rules! impl_from_directive_for {
     {
         ( $( $name:ident ),* )
     } => {
+        #[allow(unused_parens)]
         impl<$($name),*> FromDirective for JuniperDirective<($($name),*)>
         where
             $($name: FromDirectiveArguments,)*

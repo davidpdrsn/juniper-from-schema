@@ -12,14 +12,11 @@ error: proc macro panicked
    |
    = help: message: 
            
-           [91merror[0m: @juniper(ownership: "as_ref") is only supported on `Option` and `Vec` types
+           error: @juniper(ownership: "as_ref") is only supported on `Option` and `Vec` types
             --> schema:1:14
              |
            1 |    type Query { asRefString : String ! @ juniper (ownership : "as_ref") } schema
-             |                 [91m^[0m
+             |                 ^
            
            
            aborting due to previous error
-           
-
-error: Could not compile `juniper-from-schema-tests`.

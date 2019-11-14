@@ -12,35 +12,32 @@ error: proc macro panicked
    |
    = help: message: 
            
-           [91merror[0m: Special case scalars don't support having descriptions because the Rust types are defined in external crates
+           error: Special case scalars don't support having descriptions because the Rust types are defined in external crates
             --> schema:2:63
              |
            2 |    { foo : String ! @ juniper (ownership : "owned") } "Url docs" scalar Url
-             |                                                                  [91m^[0m
+             |                                                                  ^
            
            
-           [91merror[0m: Special case scalars don't support having descriptions because the Rust types are defined in external crates
+           error: Special case scalars don't support having descriptions because the Rust types are defined in external crates
             --> schema:3:20
              |
            3 |    "DateTimeUtc docs" scalar DateTimeUtc "Date docs" scalar Date "Uuid docs"
-             |                       [91m^[0m
+             |                       ^
            
            
-           [91merror[0m: Special case scalars don't support having descriptions because the Rust types are defined in external crates
+           error: Special case scalars don't support having descriptions because the Rust types are defined in external crates
             --> schema:3:51
              |
            3 |    "DateTimeUtc docs" scalar DateTimeUtc "Date docs" scalar Date "Uuid docs"
-             |                                                      [91m^[0m
+             |                                                      ^
            
            
-           [91merror[0m: Special case scalars don't support having descriptions because the Rust types are defined in external crates
+           error: Special case scalars don't support having descriptions because the Rust types are defined in external crates
             --> schema:4:1
              |
            4 |    scalar Uuid
-             |    [91m^[0m
+             |    ^
            
            
            aborting due to 4 errors
-           
-
-error: Could not compile `juniper-from-schema-tests`.

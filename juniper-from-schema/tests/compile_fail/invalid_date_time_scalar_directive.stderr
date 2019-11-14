@@ -12,16 +12,13 @@ error: proc macro panicked
    |
    = help: message: 
            
-           [91merror[0m: Unsupported directive.
+           error: Unsupported directive.
             --> schema:3:13
              |
            3 |    DateTimeUtc @ juniper (with_time_zone : "foobar")
-             |                [91m^[0m
+             |                ^
            
            Invalid type. Expected `Boolean`, got `String`
            
            
            aborting due to previous error
-           
-
-error: Could not compile `juniper-from-schema-tests`.
