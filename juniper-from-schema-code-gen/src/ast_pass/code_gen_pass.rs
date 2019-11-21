@@ -1146,7 +1146,10 @@ fn gen_field_body(
             let query_trail_type = ident(&field.inner_type);
             quote! {
                 let look_ahead = executor.look_ahead();
-                let trail = look_ahead.make_query_trail::<#query_trail_type>();
+                let trail = juniper_from_schema::QueryTrail::<
+                    #query_trail_type,
+                    juniper_from_schema::Walked,
+                >::new(&look_ahead);
                 <#struct_name as self::#trait_name>::#field_method(#self_tokens, &executor, &trail, #(#params),*)
             }
         }

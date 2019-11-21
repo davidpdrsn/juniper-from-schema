@@ -33,7 +33,7 @@ impl<'doc> CodeGenPass<'doc> {
         let query_trail_tokens = &self.tokens;
 
         self.tokens = quote! {
-            pub use juniper_from_schema::{Walked, NotWalked, QueryTrail, MakeQueryTrail};
+            pub use juniper_from_schema::{Walked, NotWalked, QueryTrail};
             pub use self::query_trails::*;
 
             #original_tokens
@@ -55,7 +55,7 @@ impl<'doc> CodeGenPass<'doc> {
 impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
     fn gen_query_trail(&mut self) {
         self.pass.extend(quote! {
-            use juniper_from_schema::{Walked, NotWalked, QueryTrail, MakeQueryTrail};
+            use juniper_from_schema::{Walked, NotWalked, QueryTrail};
 
             /// Convert from one type of `QueryTrail` to another. Used for converting interface and
             /// union trails into concrete subtypes.

@@ -1468,18 +1468,13 @@ impl<'a, T> QueryTrail<'a, T, NotWalked> {
     }
 }
 
-/// Make a `QueryTrail` from something, normally a `juniper::LookAheadSelection`.
-///
-/// You normally shouldn't need to worry about this trait.
-pub trait MakeQueryTrail<'a> {
+impl<'a, T, K> QueryTrail<'a, T, K> {
+    #[allow(clippy::new_ret_no_self)]
+    #[doc(hidden)]
     #[allow(missing_docs)]
-    fn make_query_trail<T>(&'a self) -> QueryTrail<'a, T, Walked>;
-}
-
-impl<'a> MakeQueryTrail<'a> for LookAheadSelection<'a, DefaultScalarValue> {
-    fn make_query_trail<T>(&'a self) -> QueryTrail<'a, T, Walked> {
+    pub fn new(lh: &'a LookAheadSelection<'a, DefaultScalarValue>) -> QueryTrail<'a, T, Walked> {
         QueryTrail {
-            look_ahead: Some(self),
+            look_ahead: Some(lh),
             node_type: PhantomData,
             walked: Walked,
         }
