@@ -1,3 +1,4 @@
+#![allow(clippy::redundant_pattern_matching)]
 #![allow(dead_code, unused_variables, unused_imports)]
 
 #[macro_use]

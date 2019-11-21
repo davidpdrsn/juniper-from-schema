@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_arguments)]
 #![allow(dead_code, unused_variables, unused_imports)]
 
 #[macro_use]

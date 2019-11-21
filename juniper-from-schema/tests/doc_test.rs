@@ -11,7 +11,7 @@ use juniper_from_schema::graphql_schema_from_file;
 use serde_json::{self, json, Value};
 
 // The query that GraphiQL runs to inspect the schema
-static SCHEMA_INTROSPECTION_QUERY: &'static str = r#"
+static SCHEMA_INTROSPECTION_QUERY: &str = r#"
     query IntrospectionQuery {
       __schema {
         queryType {

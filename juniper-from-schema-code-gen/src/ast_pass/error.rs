@@ -318,7 +318,7 @@ trait Indent {
 impl Indent for &str {
     fn indent(&self, size: usize) -> String {
         if size == 0 {
-            return self.to_string();
+            return (*self).to_string();
         }
 
         let mut out = String::new();

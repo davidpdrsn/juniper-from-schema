@@ -1,3 +1,4 @@
+#![allow(clippy::let_unit_value)]
 #![allow(dead_code, unused_variables, unused_imports)]
 
 #[macro_use]

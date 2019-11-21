@@ -33,7 +33,7 @@ impl<'a> NullableType<'a> {
 impl<'a> NullableType<'a> {
     fn debug_print(&self) -> String {
         match self {
-            NullableType::NamedType(name) => name.to_string(),
+            NullableType::NamedType(name) => (*name).to_string(),
             NullableType::ListType(inner) => format!("List({})", inner.debug_print()),
             NullableType::NullableType(inner) => format!("Nullable({})", inner.debug_print()),
         }
