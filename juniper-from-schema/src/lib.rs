@@ -968,7 +968,7 @@
 //!
 //! ## Types
 //!
-//! A query trial has two generic parameters: `QueryTrail<'a, T, K>`. `T` is the type the current
+//! A query trail has two generic parameters: `QueryTrail<'a, T, K>`. `T` is the type the current
 //! field returns and `K` is either `Walked` or `NotWalked`.
 //!
 //! The lifetime `'a` comes from Juniper and is the lifetime of the incoming query.
