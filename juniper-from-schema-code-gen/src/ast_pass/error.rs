@@ -204,6 +204,7 @@ pub enum ErrorKind<'doc> {
     InputTypeFieldWithDefaultValue,
     AsRefOwnershipForNamedType,
     FieldNameInSnakeCase,
+    UppercaseUuidScalar,
 }
 
 impl<'doc> ErrorKind<'doc> {
@@ -255,6 +256,9 @@ impl<'doc> ErrorKind<'doc> {
             ErrorKind::FieldNameInSnakeCase => {
                 "Field names must be camelCase, not snake_case".to_string()
             }
+            ErrorKind::UppercaseUuidScalar => {
+                "The UUID must be named `Uuid`".to_string()
+            }
         }
     }
 
@@ -305,6 +309,9 @@ impl<'doc> ErrorKind<'doc> {
                 } else {
                     Some(format!("Did you mean: {}?", suggestions.join(", ")))
                 }
+            }
+            ErrorKind::UppercaseUuidScalar => {
+                Some("This is to be consistent with the naming the \"uuid\" crate".to_string())
             }
             _ => None,
         }

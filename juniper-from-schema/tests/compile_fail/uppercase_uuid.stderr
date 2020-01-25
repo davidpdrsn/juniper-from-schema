@@ -1,0 +1,24 @@
+error: proc macro panicked
+  --> $DIR/uppercase_uuid.rs:6:1
+   |
+6  | / juniper_from_schema::graphql_schema! {
+7  | |     schema {
+8  | |         query: Query
+9  | |     }
+...  |
+15 | |     scalar UUID
+16 | | }
+   | |_^
+   |
+   = help: message: 
+           
+           error: The UUID must be named `Uuid`
+            --> schema:2:51
+             |
+           2 |    { uuid : UUID ! @ juniper (ownership : "owned") } scalar UUID
+             |                                                      ^
+           
+           This is to be consistent with the naming the "uuid" crate
+           
+           
+           aborting due to previous error

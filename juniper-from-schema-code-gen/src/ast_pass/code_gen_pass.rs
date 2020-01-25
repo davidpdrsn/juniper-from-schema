@@ -596,8 +596,8 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn validate_doc(&mut self, doc: &'doc Document) {
-        let mut case_validator = FieldNameCaseValidator::new(self);
-        case_validator.visit_document(doc);
+        FieldNameCaseValidator::new(self).visit_document(doc);
+        UuidNameCaseValidator::new(self).visit_document(doc);
     }
 
     fn check_for_errors(&self) -> Result<(), BTreeSet<Error<'doc>>> {
@@ -1253,6 +1253,25 @@ impl FieldNameCaseValidator<'_, '_> {
         if is_snake_case(name) {
             self.pass
                 .emit_non_fatal_error(pos, ErrorKind::FieldNameInSnakeCase);
+        }
+    }
+}
+
+struct UuidNameCaseValidator<'pass, 'doc> {
+    pass: &'pass mut CodeGenPass<'doc>,
+}
+
+impl<'pass, 'doc> UuidNameCaseValidator<'pass, 'doc> {
+    fn new(pass: &'pass mut CodeGenPass<'doc>) -> Self {
+        Self { pass }
+    }
+}
+
+impl<'pass, 'doc> SchemaVisitor<'doc> for UuidNameCaseValidator<'pass, 'doc> {
+    fn visit_scalar_type(&mut self, scalar: &'doc ScalarType) {
+        if &scalar.name == "UUID" {
+            self.pass
+                .emit_non_fatal_error(scalar.position, ErrorKind::UppercaseUuidScalar);
         }
     }
 }
