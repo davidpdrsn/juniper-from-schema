@@ -187,7 +187,9 @@ pub enum ErrorKind<'doc> {
     UrlScalarNotDefined,
     SpecialCaseScalarWithDescription,
     UnsupportedDirective(UnsupportedDirectiveKind<'doc>),
-    UnknownDirective(Vec<String>),
+    UnknownDirective {
+        suggestions: Vec<String>,
+    },
     NoQueryType,
     NonnullableFieldWithDefaultValue,
     SubscriptionsNotSupported,
@@ -204,6 +206,7 @@ pub enum ErrorKind<'doc> {
     InputTypeFieldWithDefaultValue,
     AsRefOwnershipForNamedType,
     FieldNameInSnakeCase,
+    InvalidJuniperDirective(String, Option<String>),
 }
 
 impl<'doc> ErrorKind<'doc> {
@@ -227,7 +230,7 @@ impl<'doc> ErrorKind<'doc> {
             ErrorKind::UnsupportedDirective(_) => {
                 "Unsupported directive.".to_string()
             }
-            ErrorKind::UnknownDirective(_) => {
+            ErrorKind::UnknownDirective { suggestions: _ } => {
                 "Unknown directive".to_string()
             }
             ErrorKind::SubscriptionsNotSupported => {
@@ -254,6 +257,9 @@ impl<'doc> ErrorKind<'doc> {
             }
             ErrorKind::FieldNameInSnakeCase => {
                 "Field names must be camelCase, not snake_case".to_string()
+            }
+            ErrorKind::InvalidJuniperDirective(msg, _) => {
+                msg.clone()
             }
         }
     }
@@ -299,12 +305,15 @@ impl<'doc> ErrorKind<'doc> {
             ErrorKind::UnsupportedDirective(reason) => {
                 Some(format!("{}", reason))
             }
-            ErrorKind::UnknownDirective(suggestions) => {
+            ErrorKind::UnknownDirective { suggestions } => {
                 if suggestions.is_empty() {
                     None
                 } else {
                     Some(format!("Did you mean: {}?", suggestions.join(", ")))
                 }
+            }
+            ErrorKind::InvalidJuniperDirective(_, notes) => {
+                notes.to_owned()
             }
             _ => None,
         }

@@ -7,6 +7,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 ## Unreleased
 
 - Remove `MakeQueryTrail` trait. This is not a breaking change since user's shouldn't be using it.
+- Support all directive definitions in schema but require specific definition for `@juniper`. See the docs for valid definiton of `@juniper`. juniper-from-schema doesn't require you to define `@juniper` in your schema, but some other external tools might.
 
 #### Breaking changes
 

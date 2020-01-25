@@ -19,6 +19,7 @@
 //!     - [Enumeration types](#enumeration-types)
 //!     - [Default argument values](#default-argument-values)
 //! - [Supported schema directives](#supported-schema-directives)
+//!     - [Definition for `@juniper`](#definition-for-juniper)
 //!     - [Customizing ownership](#customizing-ownership)
 //!     - [Infallible fields](#infallible-fields)
 //! - [GraphQL to Rust types](#graphql-to-rust-types)
@@ -716,6 +717,29 @@
 //! `@deprecated(reason: "...")`
 //!
 //! [schema directives]: https://www.apollographql.com/docs/apollo-server/schema/directives/
+//!
+//! ## Definition for `@juniper`
+//!
+//! Some tools that operate on your GraphQL schema require you to include the definition for all
+//! directives used. So in case you need it the definition for `@juniper` is:
+//!
+//! ```graphql
+//! directive @juniper(
+//!     ownership: String = "borrowed",
+//!     infallible: Boolean = false,
+//!     with_time_zone: Boolean = true
+//! ) on FIELD_DEFINITION
+//! ```
+//!
+//! This directive definition is allowed in your schema, as well as any other directive definition.
+//! Definitions of `@juniper` that differ from this are not allowed though.
+//!
+//! The definition might change in future versions. Please refer to the [changelog][].
+//!
+//! juniper-from-schema doesn't require to put this in your schema, so you only need to include it
+//! if some other tool requires it.
+//!
+//! [changelog]: https://github.com/davidpdrsn/juniper-from-schema/blob/master/CHANGELOG.md
 //!
 //! ## Customizing ownership
 //!
