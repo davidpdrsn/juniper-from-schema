@@ -91,7 +91,3 @@ See the [crate documentation](https://docs.rs/juniper-from-schema/) for a usage 
 # N+1s
 
 If you're having issues with N+1 query bugs consider using [juniper-eager-loading](https://crates.io/crates/juniper-eager-loading). It was built to integrate seamlessly with juniper-from-schema.
-
----
-
-License: MIT
