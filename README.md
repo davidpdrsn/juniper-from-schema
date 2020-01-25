@@ -1,5 +1,7 @@
 # [juniper-from-schema](https://crates.io/crates/juniper-from-schema)
 
+![Build](https://github.com/davidpdrsn/juniper-from-schema/workflows/Build/badge.svg)
+
 This library contains a procedural macro that reads a GraphQL schema file, and generates the
 corresponding [Juniper](https://crates.io/crates/juniper) [macro calls]. This means you can
 have a real schema file and be guaranteed that it matches your Rust implementation. It also
