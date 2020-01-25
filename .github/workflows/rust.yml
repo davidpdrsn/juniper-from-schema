@@ -1,4 +1,4 @@
-name: Rust
+name: Build
 
 on: [push]
 
@@ -9,6 +9,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - name: Use nightly
+      run: rustup override set nightly
     - name: Check formatting
       run: cargo fmt -- --check
     - name: Build
