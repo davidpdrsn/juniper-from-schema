@@ -10,3 +10,4 @@ jobs:
     - uses: jessfraz/branch-cleanup-action@master
       env:
         NO_BRANCH_DELETED_EXIT_CODE: 0
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
