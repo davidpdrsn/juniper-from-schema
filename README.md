@@ -1,6 +1,8 @@
 # [juniper-from-schema](https://crates.io/crates/juniper-from-schema)
 
 ![Build](https://github.com/davidpdrsn/juniper-from-schema/workflows/Build/badge.svg)
+[![crates.io](https://meritbadge.herokuapp.com/juniper-from-schema)](https://crates.io/crates/juniper-from-schema)
+[![Documentation](https://docs.rs/juniper-from-schema/badge.svg)](https://docs.rs/juniper-from-schema)
 
 This library contains a procedural macro that reads a GraphQL schema file, and generates the
 corresponding [Juniper](https://crates.io/crates/juniper) [macro calls]. This means you can
