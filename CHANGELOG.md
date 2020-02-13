@@ -8,6 +8,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 - Remove `MakeQueryTrail` trait. This is not a breaking change since user's shouldn't be using it.
 - Require the UUID scalar type to be named `Uuid`. This is to remain consistent with the uuid crate. This is not considered a breaking change since it fixes a bug in code generation with inconsistent case. See [#104](https://github.com/davidpdrsn/juniper-from-schema/issues/104).
+- Add derive Clone to input types. See [#110](https://github.com/davidpdrsn/juniper-from-schema/issues/110) 
 
 #### Breaking changes
 
