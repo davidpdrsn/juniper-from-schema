@@ -491,7 +491,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
             .collect::<Vec<_>>();
 
         let code = quote! {
-            #[derive(juniper::GraphQLInputObject, Debug)]
+            #[derive(juniper::GraphQLInputObject, Debug, Clone)]
             #description
             pub struct #name {
                 #(#fields),*
