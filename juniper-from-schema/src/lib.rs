@@ -1455,7 +1455,7 @@
     unused_variables,
     unused_must_use
 )]
-#![doc(html_root_url = "https://docs.rs/juniper-from-schema/0.5.1")]
+#![doc(html_root_url = "https://docs.rs/juniper-from-schema/0.5.2")]
 
 use juniper::{DefaultScalarValue, LookAheadSelection};
 use std::marker::PhantomData;

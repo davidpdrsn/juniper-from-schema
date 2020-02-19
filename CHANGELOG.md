@@ -6,14 +6,18 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ## Unreleased
 
-- Remove `MakeQueryTrail` trait. This is not a breaking change since user's shouldn't be using it.
-- Require the UUID scalar type to be named `Uuid`. This is to remain consistent with the uuid crate. This is not considered a breaking change since it fixes a bug in code generation with inconsistent case. See [#104](https://github.com/davidpdrsn/juniper-from-schema/issues/104).
-- Add derive `Clone` to input types. See [#110](https://github.com/davidpdrsn/juniper-from-schema/issues/110) 
-- Support all directive definitions in schema but require specific definition for `@juniper`. See the docs for valid definiton of `@juniper`. juniper-from-schema doesn't require you to define `@juniper` in your schema, but some other external tools might.
+None.
 
 #### Breaking changes
 
 None.
+
+## [0.5.2] - 2020-02-19
+
+- Remove `MakeQueryTrail` trait. This is not a breaking change since user's shouldn't be using it.
+- Require the UUID scalar type to be named `Uuid`. This is to remain consistent with the uuid crate. This is not considered a breaking change since it fixes a bug in code generation with inconsistent case. See [#104](https://github.com/davidpdrsn/juniper-from-schema/issues/104).
+- Add derive `Clone` to input types. See [#110](https://github.com/davidpdrsn/juniper-from-schema/issues/110) 
+- Support all directive definitions in schema but require specific definition for `@juniper`. See the docs for valid definiton of `@juniper`. juniper-from-schema doesn't require you to define `@juniper` in your schema, but some other external tools might.
 
 ## [0.5.1] - 2019-11-14
 
@@ -172,6 +176,7 @@ Just fixed broken homepage link on crates.io
 
 Initial release.
 
+[0.5.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.5.1...0.5.2
 [0.5.1]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.4.2...0.5.0
 [0.4.2]: https://github.com/davidpdrsn/juniper-from-schema/compare/0.4.1...0.4.2
