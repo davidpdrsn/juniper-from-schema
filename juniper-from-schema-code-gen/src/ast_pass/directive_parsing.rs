@@ -127,7 +127,7 @@ macro_rules! impl_from_directive_for {
                         .iter()
                         .map(|(name, _)| name.to_string())
                         .collect::<Vec<String>>();
-                    return Err(ErrorKind::UnknownDirective(arg_names));
+                    return Err(ErrorKind::UnknownDirective { suggestions: arg_names });
                 }
 
                 $(let $name = $name.unwrap_or_else($name::default);)*
@@ -302,7 +302,12 @@ impl<'doc> ParseDirective<&'doc Field> for CodeGenPass<'doc> {
                 continue;
             }
 
-            self.emit_non_fatal_error(dir.position, ErrorKind::UnknownDirective(vec![]));
+            self.emit_non_fatal_error(
+                dir.position,
+                ErrorKind::UnknownDirective {
+                    suggestions: vec![],
+                },
+            );
         }
 
         FieldArguments {
@@ -370,7 +375,9 @@ macro_rules! supports_no_directives {
                 for directive in &input.directives {
                     self.emit_non_fatal_error(
                         directive.position,
-                        ErrorKind::UnknownDirective(vec![]),
+                        ErrorKind::UnknownDirective {
+                            suggestions: vec![],
+                        },
                     );
                 }
             }

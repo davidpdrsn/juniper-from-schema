@@ -535,8 +535,10 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         self.extend(code)
     }
 
-    fn visit_directive_definition(&mut self, inner: &'doc schema::DirectiveDefinition) {
-        self.emit_non_fatal_error(inner.position, ErrorKind::TypeExtensionNotSupported)
+    fn visit_directive_definition(&mut self, directive: &'doc schema::DirectiveDefinition) {
+        if &directive.name == "juniper" {
+            self.validate_juniper_directive_definition(directive)
+        }
     }
 
     fn visit_scalar_type_extension(&mut self, inner: &'doc schema::ScalarTypeExtension) {
@@ -1091,6 +1093,145 @@ impl<'doc> CodeGenPass<'doc> {
             field #field_name(#all_args) -> #return_type {
                 #body
             }
+        }
+    }
+
+    fn validate_juniper_directive_definition(
+        &mut self,
+        directive: &'doc schema::DirectiveDefinition,
+    ) {
+        assert_eq!(directive.name, "juniper");
+
+        for location in directive.locations.iter() {
+            match location {
+                DirectiveLocation::FieldDefinition => {
+                    // valid
+                }
+                other => self.emit_non_fatal_error(
+                    directive.position,
+                    ErrorKind::InvalidJuniperDirective(
+                        format!(
+                            "Invalid location for @juniper directive: `{}`",
+                            other.as_str()
+                        ),
+                        Some("Location must be `FIELD_DEFINITION`".to_string()),
+                    ),
+                ),
+            }
+        }
+
+        let no_directives = |this: &mut Self, arg: &InputValue, name: &str| {
+            for dir in arg.directives.iter() {
+                this.emit_non_fatal_error(
+                    dir.position,
+                    ErrorKind::InvalidJuniperDirective(
+                        format!("`{}` argument doesn't support directives", name),
+                        None,
+                    ),
+                )
+            }
+        };
+
+        let of_type = |this: &mut Self, arg: &InputValue, ty: Type, name: &str| {
+            if &arg.value_type != &ty {
+                this.emit_non_fatal_error(
+                    arg.position,
+                    ErrorKind::InvalidJuniperDirective(
+                        format!("`{}` argument must have type `{}`", name, ty),
+                        Some(format!("Got `{}`", arg.value_type)),
+                    ),
+                )
+            }
+        };
+
+        let default_value = |this: &mut Self, arg: &InputValue, value: Value, name: &str| {
+            if let Some(default) = &arg.default_value {
+                if default == &value {
+                    // ok
+                } else {
+                    this.emit_non_fatal_error(
+                        arg.position,
+                        ErrorKind::InvalidJuniperDirective(
+                            format!(
+                                "Invalid default value for `{}` argument. Must be `{}`",
+                                name, value
+                            ),
+                            Some(format!("Got `{}`", default)),
+                        ),
+                    )
+                }
+            } else {
+                this.emit_non_fatal_error(
+                    arg.position,
+                    ErrorKind::InvalidJuniperDirective(
+                        format!(
+                            "Missing default value for `{}` argument. Must be `{}`",
+                            name, value
+                        ),
+                        None,
+                    ),
+                )
+            }
+        };
+
+        let mut ownership_present = false;
+        let mut infallible_present = false;
+        let mut with_time_zone_present = false;
+
+        for arg in directive.arguments.iter() {
+            match arg.name.as_str() {
+                name @ "ownership" => {
+                    ownership_present = true;
+                    of_type(self, arg, Type::NamedType("String".to_string()), name);
+                    no_directives(self, arg, name);
+                    default_value(self, arg, Value::String("borrowed".to_string()), name);
+                }
+                name @ "infallible" => {
+                    infallible_present = true;
+                    of_type(self, arg, Type::NamedType("Boolean".to_string()), name);
+                    no_directives(self, arg, name);
+                    default_value(self, arg, Value::Boolean(false), name);
+                }
+                name @ "with_time_zone" => {
+                    with_time_zone_present = true;
+                    of_type(self, arg, Type::NamedType("Boolean".to_string()), name);
+                    no_directives(self, arg, name);
+                    default_value(self, arg, Value::Boolean(true), name);
+                }
+                name => {
+                    self.emit_non_fatal_error(
+                        arg.position,
+                        ErrorKind::InvalidJuniperDirective(
+                            format!("Invalid argument for @juniper directive: `{}`", name),
+                            Some("Supported arguments are `ownership`, `infallible`, and `with_time_zone`".to_string()),
+                        ),
+                    )
+                }
+            }
+        }
+
+        if !ownership_present {
+            self.emit_non_fatal_error(
+                directive.position,
+                ErrorKind::InvalidJuniperDirective(format!("Missing argument `ownership`"), None),
+            )
+        }
+
+        if !infallible_present {
+            self.emit_non_fatal_error(
+                directive.position,
+                ErrorKind::InvalidJuniperDirective(format!("Missing argument `infallible`"), None),
+            )
+        }
+
+        if !with_time_zone_present {
+            self.emit_non_fatal_error(
+                directive.position,
+                ErrorKind::InvalidJuniperDirective(
+                    format!("Missing argument `with_time_zone`"),
+                    None,
+                ),
+            )
         }
     }
 }
