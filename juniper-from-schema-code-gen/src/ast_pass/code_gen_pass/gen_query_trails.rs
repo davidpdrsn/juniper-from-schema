@@ -629,6 +629,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
         );
 
         let name = &input_value.name;
+        let opt_ident = ident(format!("{}_opt", name.to_snake_case()));
         let ident = ident(name.to_snake_case());
 
         if let Some(default_value) = default_value {
@@ -657,6 +658,25 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                         #default_value
                     }
                 }
+                #[allow(missing_docs)]
+                pub fn #opt_ident(&self) -> Option<#field_type> {
+                    use juniper::LookAheadMethods;
+
+                    let arg = if let Some(lh) = &self.0.look_head.flat_map(|lh| lh.select_child(#field_name)) {
+                        lh.arguments().iter().find(|arg| {
+                            arg.name() == #name
+                        })
+                    } else {
+                        None
+                    };
+
+                    if let Some(arg) = arg {
+                        let value = arg.value();
+                        FromLookAheadValue::<#field_type>::from(value)
+                    } else {
+                        #default_value
+                    }
+                }
             }
         } else {
             quote! {
@@ -676,6 +696,23 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                     let arg = lh.arguments().iter().find(|arg| { arg.name() == #name }).expect("no argument with name");
                     let value = arg.value();
                     FromLookAheadValue::<#field_type>::from(value)
+                }
+
+                #[allow(missing_docs)]
+                pub fn #opt_ident(&self) -> Option<#field_type> {
+                    use juniper::LookAheadMethods;
+
+                    if let Some(lh) = &self.0.look_head.flat_map(|lh| lh.select_child(#field_name)) {
+                        let arg = lh.arguments().iter().find(|arg| {
+                            arg.name() == #name
+                        });
+                        arg.flat_map(|arg| {
+                            let value = arg.value();
+                            FromLookAheadValue::<#field_type>::from(value)
+                        })
+                    } else {
+                        None
+                    }
                 }
             }
         }
