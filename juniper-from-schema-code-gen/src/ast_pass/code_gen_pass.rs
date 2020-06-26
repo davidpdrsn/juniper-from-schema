@@ -464,8 +464,14 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                 let arg = self.argument_to_name_and_rust_type(&field);
                 let name = ident(&arg.name);
                 let temp_name = ident(&format!("{}_temp", arg.name));
-                quote! {
-                    #name: #temp_name.unwrap_or_else(|| panic!("Field `{}` was not set", stringify!(#name))),
+                if arg.macro_type_is_nullable {
+                    quote! {
+                        #name: #temp_name,
+                    }
+                } else {
+                    quote! {
+                        #name: #temp_name.unwrap_or_else(|| panic!("Field `{}` was not set", stringify!(#name))),
+                    }
                 }
             })
             .collect::<Vec<_>>();
@@ -478,14 +484,24 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                 let name = &arg.name;
                 let temp_name = ident(&format!("{}_temp", arg.name));
                 let rust_type = arg.macro_type;
-                quote! {
-                    #name => {
-                        #temp_name = Some(
-                            query_trails::FromLookAheadValue::<#rust_type>::from(
+                if arg.macro_type_is_nullable {
+                    quote! {
+                         #name => {
+                            #temp_name = query_trails::FromLookAheadValue::<#rust_type>::from(
                                 look_ahead_value
-                            )
-                        );
-                    },
+                            );
+                        },
+                    }
+                } else {
+                    quote! {
+                        #name => {
+                            #temp_name = Some(
+                                query_trails::FromLookAheadValue::<#rust_type>::from(
+                                    look_ahead_value
+                                )
+                            );
+                        },
+                    }
                 }
             })
             .collect::<Vec<_>>();
@@ -688,14 +704,14 @@ impl<'doc> CodeGenPass<'doc> {
 
         let arg_name = arg.name.to_snake_case();
 
-        let (macro_type, _) = self.gen_field_type(
+        let (macro_type, _, macro_is_nullable) = self.gen_field_type(
             &arg.value_type,
             &FieldTypeDestination::Argument,
             false,
             arg.position,
         );
 
-        let (trait_type, _) = self.gen_field_type(
+        let (trait_type, _, trait_is_nullable) = self.gen_field_type(
             &arg.value_type,
             &FieldTypeDestination::Argument,
             default_value_tokens.is_some(),
@@ -704,8 +720,10 @@ impl<'doc> CodeGenPass<'doc> {
 
         FieldArgument {
             name: arg_name,
-            macro_type,
-            trait_type,
+            macro_type: macro_type,
+            macro_type_is_nullable: macro_is_nullable,
+            trait_type: trait_type,
+            _trait_type_is_nullable: trait_is_nullable,
             default_value: default_value_tokens,
             description: &arg.description,
         }
@@ -717,8 +735,9 @@ impl<'doc> CodeGenPass<'doc> {
         destination: &FieldTypeDestination,
         has_default_value: bool,
         pos: Pos,
-    ) -> (TokenStream, TypeKind) {
+    ) -> (TokenStream, TypeKind, bool) {
         let field_type = NullableType::from_schema_type(field_type);
+        let field_is_nullable = field_type.is_nullable();
 
         if has_default_value && !field_type.is_nullable() {
             self.emit_non_fatal_error(pos, ErrorKind::NonnullableFieldWithDefaultValue);
@@ -741,7 +760,7 @@ impl<'doc> CodeGenPass<'doc> {
 
         let (tokens, ty) = self.gen_nullable_field_type(field_type, as_ref, pos);
 
-        match (destination, ty) {
+        let (tokens, ty) = match (destination, ty) {
             (FieldTypeDestination::Return(attrs), ref ty) => match attrs.ownership {
                 Ownership::Owned | Ownership::AsRef => (tokens, *ty),
                 Ownership::Borrowed => (quote! { &#tokens }, *ty),
@@ -749,7 +768,8 @@ impl<'doc> CodeGenPass<'doc> {
 
             (FieldTypeDestination::Argument, ty @ TypeKind::Scalar) => (tokens, ty),
             (FieldTypeDestination::Argument, ty @ TypeKind::Type) => (tokens, ty),
-        }
+        };
+        (tokens, ty, field_is_nullable)
     }
 
     fn gen_nullable_field_type(
@@ -801,7 +821,7 @@ impl<'doc> CodeGenPass<'doc> {
             .map(quote_deprecation)
             .unwrap_or_else(empty_token_stream);
 
-        let (field_type, type_kind) = self.gen_field_type(
+        let (field_type, type_kind, _) = self.gen_field_type(
             &field.field_type,
             &FieldTypeDestination::Return(&attributes),
             false,
@@ -1327,7 +1347,9 @@ struct FieldTokens<'a> {
 struct FieldArgument<'a> {
     name: Name,
     macro_type: TokenStream,
+    macro_type_is_nullable: bool,
     trait_type: TokenStream,
+    _trait_type_is_nullable: bool,
     default_value: Option<TokenStream>,
     description: &'a Option<String>,
 }

@@ -621,7 +621,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
             )
         });
 
-        let (field_type, _) = self.pass.gen_field_type(
+        let (field_type, _, field_is_nullable) = self.pass.gen_field_type(
             &input_value.value_type,
             &FieldTypeDestination::Argument,
             default_value.is_some(),
@@ -632,50 +632,95 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
         let ident = ident(name.to_snake_case());
 
         if let Some(default_value) = default_value {
-            quote! {
-                #[allow(missing_docs)]
-                pub fn #ident(&self) -> #field_type {
-                    use juniper::LookAheadMethods;
+            if !field_is_nullable {
+                quote! {
+                    #[allow(missing_docs)]
+                    pub fn #ident(&self) -> #field_type {
+                        use juniper::LookAheadMethods;
 
-                    // these `expect`s are fine since these methods you can only obtain
-                    // arguments from walked query trails
-                    let lh = &self
-                        .0
-                        .look_ahead
-                        .expect("look_ahead")
-                        .select_child(#field_name)
-                        .expect("select child");
+                        // these `expect`s are fine since these methods you can only obtain
+                        // arguments from walked query trails
+                        let lh = &self
+                            .0
+                            .look_ahead
+                            .expect("look_ahead")
+                            .select_child(#field_name)
+                            .expect("select child");
 
-                    let arg = lh.arguments().iter().find(|arg| {
-                        arg.name() == #name
-                    });
+                        let arg = lh.arguments().iter().find(|arg| {
+                            arg.name() == #name
+                        });
 
-                    if let Some(arg) = arg {
-                        let value = arg.value();
-                        FromLookAheadValue::<#field_type>::from(value)
-                    } else {
-                        #default_value
+                        if let Some(arg) = arg {
+                            let value = arg.value();
+                            FromLookAheadValue::<#field_type>::from(value)
+                        } else {
+                            #default_value
+                        }
+                    }
+                }
+            } else {
+                quote! {
+                    #[allow(missing_docs)]
+                    pub fn #ident(&self) -> #field_type {
+                        use juniper::LookAheadMethods;
+
+                        let arg = if let Some(lh) = &self.0.look_ahead.and_then(|lh| lh.select_child(#field_name)) {
+                            lh.arguments().iter().find(|arg| {
+                                arg.name() == #name
+                            })
+                        } else {
+                            None
+                        };
+
+                        if let Some(arg) = arg {
+                            let value = arg.value();
+                            FromLookAheadValue::<#field_type>::from(value)
+                        } else {
+                            #default_value
+                        }
                     }
                 }
             }
         } else {
-            quote! {
-                #[allow(missing_docs)]
-                pub fn #ident(&self) -> #field_type {
-                    use juniper::LookAheadMethods;
+            if !field_is_nullable {
+                quote! {
+                    #[allow(missing_docs)]
+                    pub fn #ident(&self) -> #field_type {
+                        use juniper::LookAheadMethods;
 
-                    // these `expect`s are fine since these methods you can only obtain
-                    // arguments from walked query trails
-                    let lh = &self
-                        .0
-                        .look_ahead
-                        .expect("look_ahead")
-                        .select_child(#field_name)
-                        .expect("select child");
+                        // these `expect`s are fine since these methods you can only obtain
+                        // arguments from walked query trails
+                        let lh = &self
+                            .0
+                            .look_ahead
+                            .expect("look_ahead")
+                            .select_child(#field_name)
+                            .expect("select child");
 
-                    let arg = lh.arguments().iter().find(|arg| { arg.name() == #name }).expect("no argument with name");
-                    let value = arg.value();
-                    FromLookAheadValue::<#field_type>::from(value)
+                        let arg = lh.arguments().iter().find(|arg| { arg.name() == #name }).expect("no argument with name");
+                        let value = arg.value();
+                        FromLookAheadValue::<#field_type>::from(value)
+                    }
+                }
+            } else {
+                quote! {
+                    #[allow(missing_docs)]
+                    pub fn #ident(&self) -> #field_type {
+                        use juniper::LookAheadMethods;
+
+                        if let Some(lh) = &self.0.look_ahead.and_then(|lh| lh.select_child(#field_name)) {
+                            let arg = lh.arguments().iter().find(|arg| {
+                                arg.name() == #name
+                            });
+                            arg.and_then(|arg| {
+                                let value = arg.value();
+                                FromLookAheadValue::<#field_type>::from(value)
+                            })
+                        } else {
+                            None
+                        }
+                    }
                 }
             }
         }

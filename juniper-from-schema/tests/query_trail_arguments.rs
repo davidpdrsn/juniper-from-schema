@@ -76,7 +76,7 @@ graphql_schema! {
     scalar DateTimeUtc
 }
 
-pub struct Query;
+pub struct Query(bool);
 
 impl QueryFields for Query {
     fn field_a(
@@ -85,12 +85,16 @@ impl QueryFields for Query {
         trail: &QueryTrail<'_, A, Walked>,
     ) -> FieldResult<A> {
         if let Some(c) = trail.b().c().walk() {
+            if self.0 {
+                assert_eq!(None, c.field_with_arg_args().nullable_arg2());
+            } else {
+                assert_eq!(
+                    Some("bar".to_string()),
+                    c.field_with_arg_args().nullable_arg2()
+                );
+            }
             assert_eq!("foo".to_string(), c.field_with_arg_args().string_arg());
             assert_eq!(None, c.field_with_arg_args().nullable_arg());
-            assert_eq!(
-                Some("bar".to_string()),
-                c.field_with_arg_args().nullable_arg2()
-            );
             assert_eq!(1, c.field_with_arg_args().int_arg());
             assert_eq!("2.5", c.field_with_arg_args().float_arg().to_string());
             assert_eq!(false, c.field_with_arg_args().bool_arg());
@@ -241,7 +245,49 @@ fn scalar_values() {
                 }
             }
         }
-    }"#,
+    }"#, false,
+    );
+    assert_json_include!(
+        actual: value,
+        expected: json!({
+            "a": { "b": { "c": {} } }
+        })
+    );
+}
+
+#[test]
+fn scalar_values_opt() {
+    let value = run_query(
+        r#"query {
+        a {
+            b {
+                c {
+                    fieldWithArg(
+                        stringArg: "foo",
+                        nullableArg: null,
+                        intArg: 1,
+                        floatArg: 2.5,
+                        boolArg: false,
+                        listArg: [1, 2, 3],
+                        enumArg: RED,
+                        objectArg: { value: "baz" },
+                        cursorArg: "cursor-value",
+                        idArg: "id-value",
+                        urlArg: "https://example.net",
+                        uuidArg: "46ebd0ee-0e6d-43c9-b90d-ccc35a913f3e",
+                        dateArg: "2019-01-01",
+                        dateTimeArg: "1996-12-19T16:39:57-08:00",
+                        defaultArg2: "value set in query",
+                    )
+                    fieldWithArgReturningType(
+                        stringArg: "qux",
+                    ) {
+                      value
+                    }
+                }
+            }
+        }
+    }"#, true,
     );
     assert_json_include!(
         actual: value,
@@ -253,11 +299,11 @@ fn scalar_values() {
 
 type Context = ();
 
-fn run_query(query: &str) -> Value {
+fn run_query(query: &str, opt_check: bool) -> Value {
     let (res, _errors) = juniper::execute(
         query,
         None,
-        &Schema::new(Query, juniper::EmptyMutation::new()),
+        &Schema::new(Query(opt_check), juniper::EmptyMutation::new()),
         &Variables::new(),
         &(),
     )
