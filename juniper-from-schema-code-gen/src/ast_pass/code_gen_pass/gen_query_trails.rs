@@ -662,7 +662,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                 pub fn #opt_ident(&self) -> Option<#field_type> {
                     use juniper::LookAheadMethods;
 
-                    let arg = if let Some(lh) = &self.0.look_head.flat_map(|lh| lh.select_child(#field_name)) {
+                    let arg = if let Some(lh) = &self.0.look_ahead.and_then(|lh| lh.select_child(#field_name)) {
                         lh.arguments().iter().find(|arg| {
                             arg.name() == #name
                         })
@@ -670,12 +670,13 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                         None
                     };
 
-                    if let Some(arg) = arg {
+                    let r = if let Some(arg) = arg {
                         let value = arg.value();
                         FromLookAheadValue::<#field_type>::from(value)
                     } else {
                         #default_value
-                    }
+                    };
+                    Some(r)
                 }
             }
         } else {
@@ -702,11 +703,11 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                 pub fn #opt_ident(&self) -> Option<#field_type> {
                     use juniper::LookAheadMethods;
 
-                    if let Some(lh) = &self.0.look_head.flat_map(|lh| lh.select_child(#field_name)) {
+                    if let Some(lh) = &self.0.look_ahead.and_then(|lh| lh.select_child(#field_name)) {
                         let arg = lh.arguments().iter().find(|arg| {
                             arg.name() == #name
                         });
-                        arg.flat_map(|arg| {
+                        arg.map(|arg| {
                             let value = arg.value();
                             FromLookAheadValue::<#field_type>::from(value)
                         })

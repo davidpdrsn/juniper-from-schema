@@ -85,7 +85,7 @@ impl QueryFields for Query {
         trail: &QueryTrail<'_, A, Walked>,
     ) -> FieldResult<A> {
         if let Some(c) = trail.b().c().walk() {
-            if opt_check {
+            if self.0 {
                 assert_eq!(None, c.field_with_arg_args().nullable_arg2());
             } else {
                 assert_eq!(
