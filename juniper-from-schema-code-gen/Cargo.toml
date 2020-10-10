@@ -13,13 +13,13 @@ readme = "README.md"
 repository = "https://github.com/davidpdrsn/juniper-from-schema.git"
 
 [dependencies]
-syn = { version = "1.0.5", features = ["extra-traits"] }
-quote = "1.0.2"
-graphql-parser = "0.2.2"
-proc-macro2 = "1.0.5"
-heck = "0.3.0"
-rustfmt-nightly = { version = "1.0.1", optional = true }
-colored = "1.8.0"
+syn = { version = "1", features = ["extra-traits"] }
+quote = "1"
+graphql-parser = "0.2"
+proc-macro2 = "1"
+heck = "0.3"
+rustfmt-nightly = { version = "1", optional = true }
+colored = "1.8"
 
 [features]
 default = []
@@ -27,7 +27,7 @@ format-debug-output = ["rustfmt-nightly"]
 
 [dev_dependencies]
 version-sync = "0.8"
-juniper = "^0.14"
+juniper = "0.14"
 
 [lib]
 proc-macro = true

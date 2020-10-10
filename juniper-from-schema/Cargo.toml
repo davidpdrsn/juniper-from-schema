@@ -17,12 +17,12 @@ juniper-from-schema-code-gen = { version = "0.5.2", path = "../juniper-from-sche
 juniper = "^0.14"
 
 [dev_dependencies]
-serde_json = "1.0.33"
-assert-json-diff = "0.2.1"
-maplit = "1.0.1"
+serde_json = "1"
+assert-json-diff = "0.2"
+maplit = "1"
 version-sync = "0.8"
-trybuild = "1.0.3"
+trybuild = "1"
 rustversion = "0.1"
-uuid = { version = "^0.7.4", features = ["v4"] }
-url = "^2"
-chrono = "0.4.9"
+uuid = { version = "0.7", features = ["v4"] }
+url = "2"
+chrono = "0.4"
