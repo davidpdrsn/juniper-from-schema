@@ -3,6 +3,7 @@ pub mod code_gen_pass;
 pub mod directive_parsing;
 pub mod error;
 pub mod schema_visitor;
+pub mod validations;
 
 pub use self::{code_gen_pass::CodeGenPass, error::ErrorKind};
 use graphql_parser::Pos;

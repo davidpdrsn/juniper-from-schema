@@ -55,19 +55,19 @@ impl QueryFields for Query {
     }
 }
 
-fn verify_entity_query_trail<'a>(trail: &QueryTrail<'a, Entity, Walked>) {
+fn verify_entity_query_trail(trail: &QueryTrail<Entity, Walked>) {
     if !trail.id() {
         panic!("Entity.id missing from trail")
     }
 }
 
-fn verify_search_result_query_trail<'a>(trail: &QueryTrail<'a, SearchResult, Walked>) {
+fn verify_search_result_query_trail(trail: &QueryTrail<SearchResult, Walked>) {
     if !trail.id() {
         panic!("id missing from trail")
     }
 }
 
-fn verify_user_query_trail<'a>(trail: &QueryTrail<'a, User, Walked>) {
+fn verify_user_query_trail(trail: &QueryTrail<User, Walked>) {
     if !trail.id() {
         panic!("User.id missing from trail")
     }

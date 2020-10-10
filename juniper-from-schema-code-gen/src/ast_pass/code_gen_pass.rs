@@ -1,6 +1,8 @@
 mod gen_query_trails;
 
 use super::schema_visitor::visit_document;
+use super::validations::FieldNameCaseValidator;
+use super::validations::UuidNameCaseValidator;
 use super::{
     error::{Error, ErrorKind},
     ident, quote_ident, type_name, EmitError, TypeKind,
@@ -1364,70 +1366,6 @@ fn doc_tokens(doc: &Option<String>) -> TokenStream {
     }
 }
 
-struct FieldNameCaseValidator<'pass, 'doc> {
-    pass: &'pass mut CodeGenPass<'doc>,
-}
-
-impl<'pass, 'doc> FieldNameCaseValidator<'pass, 'doc> {
-    fn new(pass: &'pass mut CodeGenPass<'doc>) -> Self {
-        Self { pass }
-    }
-}
-
-impl<'pass, 'doc> SchemaVisitor<'doc> for FieldNameCaseValidator<'pass, 'doc> {
-    fn visit_object_type(&mut self, ty: &'doc schema::ObjectType) {
-        self.validate_fields(&ty.fields);
-    }
-
-    fn visit_interface_type(&mut self, ty: &'doc schema::InterfaceType) {
-        self.validate_fields(&ty.fields);
-    }
-
-    fn visit_input_object_type(&mut self, ty: &'doc schema::InputObjectType) {
-        for field in &ty.fields {
-            self.validate_field(&field.name, field.position);
-        }
-    }
-}
-
-impl FieldNameCaseValidator<'_, '_> {
-    fn validate_fields(&mut self, fields: &[Field]) {
-        for field in fields {
-            self.validate_field(&field.name, field.position);
-        }
-    }
-
-    fn validate_field(&mut self, name: &str, pos: Pos) {
-        if is_snake_case(name) {
-            self.pass
-                .emit_non_fatal_error(pos, ErrorKind::FieldNameInSnakeCase);
-        }
-    }
-}
-
-struct UuidNameCaseValidator<'pass, 'doc> {
-    pass: &'pass mut CodeGenPass<'doc>,
-}
-
-impl<'pass, 'doc> UuidNameCaseValidator<'pass, 'doc> {
-    fn new(pass: &'pass mut CodeGenPass<'doc>) -> Self {
-        Self { pass }
-    }
-}
-
-impl<'pass, 'doc> SchemaVisitor<'doc> for UuidNameCaseValidator<'pass, 'doc> {
-    fn visit_scalar_type(&mut self, scalar: &'doc ScalarType) {
-        if &scalar.name == "UUID" {
-            self.pass
-                .emit_non_fatal_error(scalar.position, ErrorKind::UppercaseUuidScalar);
-        }
-    }
-}
-
-fn is_snake_case(s: &str) -> bool {
-    s.contains('_') && s.to_snake_case() == s
-}
-
 impl<'doc> EmitError<'doc> for CodeGenPass<'doc> {
     fn emit_non_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) {
         let error = Error {
@@ -1436,21 +1374,5 @@ impl<'doc> EmitError<'doc> for CodeGenPass<'doc> {
             raw_schema: &self.raw_schema,
         };
         self.errors.insert(error);
-    }
-}
-
-#[cfg(test)]
-mod test {
-    #[allow(unused_imports)]
-    use super::*;
-
-    #[test]
-    fn test_is_snake_case() {
-        assert!(is_snake_case("foo_bar"));
-        assert!(is_snake_case("foo_bar_baz"));
-
-        assert!(!is_snake_case("foo"));
-        assert!(!is_snake_case("fooBar"));
-        assert!(!is_snake_case("FooBar"));
     }
 }
