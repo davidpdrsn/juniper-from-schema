@@ -10,13 +10,18 @@ error: proc macro panicked
 10 | | }
    | |_^
    |
-   = help: message: 
-           
+   = help: message:
+
            error: Unknown directive
             --> schema:1:32
              |
            1 |    type Query { string : String ! @ someDirectiveThatIsntNotSupported } schema
              |                                   ^
-           
-           
+
            aborting due to previous error
+
+error[E0405]: cannot find trait `QueryFields` in this scope
+  --> $DIR/unknown_directive.rs:14:6
+   |
+14 | impl QueryFields for Query {
+   |      ^^^^^^^^^^^ not found in this scope

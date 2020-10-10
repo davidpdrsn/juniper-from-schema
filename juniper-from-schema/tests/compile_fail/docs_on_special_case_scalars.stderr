@@ -10,34 +10,36 @@ error: proc macro panicked
 26 | | }
    | |_^
    |
-   = help: message: 
-           
+   = help: message:
+
            error: Special case scalars don't support having descriptions because the Rust types are defined in external crates
-            --> schema:2:63
+            --> schema:2:62
              |
-           2 |    { foo : String ! @ juniper (ownership : "owned") } "Url docs" scalar Url
-             |                                                                  ^
-           
-           
+           2 |    { foo : String ! @ juniper(ownership : "owned") } "Url docs" scalar Url
+             |                                                                 ^
+
            error: Special case scalars don't support having descriptions because the Rust types are defined in external crates
             --> schema:3:20
              |
            3 |    "DateTimeUtc docs" scalar DateTimeUtc "Date docs" scalar Date "Uuid docs"
              |                       ^
-           
-           
+
            error: Special case scalars don't support having descriptions because the Rust types are defined in external crates
             --> schema:3:51
              |
            3 |    "DateTimeUtc docs" scalar DateTimeUtc "Date docs" scalar Date "Uuid docs"
              |                                                      ^
-           
-           
+
            error: Special case scalars don't support having descriptions because the Rust types are defined in external crates
             --> schema:4:1
              |
            4 |    scalar Uuid
              |    ^
-           
-           
+
            aborting due to 4 errors
+
+error[E0405]: cannot find trait `QueryFields` in this scope
+  --> $DIR/docs_on_special_case_scalars.rs:30:6
+   |
+30 | impl QueryFields for Query {
+   |      ^^^^^^^^^^^ not found in this scope

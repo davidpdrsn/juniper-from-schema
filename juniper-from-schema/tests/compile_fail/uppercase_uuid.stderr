@@ -10,15 +10,20 @@ error: proc macro panicked
 16 | | }
    | |_^
    |
-   = help: message: 
-           
+   = help: message:
+
            error: The UUID must be named `Uuid`
-            --> schema:2:51
+            --> schema:2:50
              |
-           2 |    { uuid : UUID ! @ juniper (ownership : "owned") } scalar UUID
-             |                                                      ^
-           
+           2 |    { uuid : UUID ! @ juniper(ownership : "owned") } scalar UUID
+             |                                                     ^
+
            This is to be consistent with the naming the "uuid" crate
-           
-           
+
            aborting due to previous error
+
+error[E0405]: cannot find trait `QueryFields` in this scope
+  --> $DIR/uppercase_uuid.rs:20:6
+   |
+20 | impl QueryFields for Query {
+   |      ^^^^^^^^^^^ not found in this scope

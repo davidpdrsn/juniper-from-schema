@@ -10,15 +10,60 @@ error: proc macro panicked
 14 | | }
    | |_^
    |
-   = help: message: 
-           
+   = help: message:
+
            error: Field names must be camelCase, not snake_case
             --> schema:2:17
              |
            2 |    SomeInterface { snake_cased : String ! }
              |                    ^
-           
+
            This is because Juniper always converts all field names to camelCase
-           
-           
+
            aborting due to previous error
+
+error[E0405]: cannot find trait `QueryFields` in this scope
+  --> $DIR/snake_cased_fields_on_interfaces.rs:18:6
+   |
+18 | impl QueryFields for Query {
+   |      ^^^^^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `QueryTrail` in this scope
+  --> $DIR/snake_cased_fields_on_interfaces.rs:22:13
+   |
+22 |         _: &QueryTrail<'a, SomeInterface, Walked>,
+   |             ^^^^^^^^^^ not found in this scope
+   |
+help: consider importing this struct
+   |
+1  | use juniper_from_schema::QueryTrail;
+   |
+
+error[E0412]: cannot find type `SomeInterface` in this scope
+  --> $DIR/snake_cased_fields_on_interfaces.rs:22:28
+   |
+18 | impl QueryFields for Query {
+   |     - help: you might be missing a type parameter: `<SomeInterface>`
+...
+22 |         _: &QueryTrail<'a, SomeInterface, Walked>,
+   |                            ^^^^^^^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Walked` in this scope
+  --> $DIR/snake_cased_fields_on_interfaces.rs:22:43
+   |
+22 |         _: &QueryTrail<'a, SomeInterface, Walked>,
+   |                                           ^^^^^^ not found in this scope
+   |
+help: consider importing this struct
+   |
+1  | use juniper_from_schema::Walked;
+   |
+
+error[E0412]: cannot find type `SomeInterface` in this scope
+  --> $DIR/snake_cased_fields_on_interfaces.rs:23:23
+   |
+18 | impl QueryFields for Query {
+   |     - help: you might be missing a type parameter: `<SomeInterface>`
+...
+23 |     ) -> FieldResult<&SomeInterface> {
+   |                       ^^^^^^^^^^^^^ not found in this scope

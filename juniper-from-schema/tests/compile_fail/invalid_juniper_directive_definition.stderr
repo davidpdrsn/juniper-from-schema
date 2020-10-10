@@ -10,76 +10,74 @@ error: proc macro panicked
 17 | | }
    | |_^
    |
-   = help: message: 
-           
+   = help: message:
+
            error: Invalid location for @juniper directive: `FIELD`
             --> schema:1:59
              |
-           1 |    type Query { string : String ! } schema { query : Query } directive @ juniper
+           1 |    type Query { string : String ! } schema { query : Query } directive @
              |                                                              ^
-           
+
            Location must be `FIELD_DEFINITION`
-           
-           
+
            error: Missing default value for `ownership` argument. Must be `"borrowed"`
-            --> schema:2:2
+            --> schema:2:9
              |
-           2 |    (ownership : Boolean, infallible : String = "foo", with_time_zone : [String] =
-             |     ^
-           
-           
-           error: `ownership` argument must have type `String`
-            --> schema:2:2
-             |
-           2 |    (ownership : Boolean, infallible : String = "foo", with_time_zone : [String] =
-             |     ^
-           
-           Got `Boolean`
-           
-           
-           error: Invalid default value for `infallible` argument. Must be `false`
-            --> schema:2:23
-             |
-           2 |    (ownership : Boolean, infallible : String = "foo", with_time_zone : [String] =
-             |                          ^
-           
-           Got `"foo"`
-           
-           
-           error: `infallible` argument must have type `Boolean`
-            --> schema:2:23
-             |
-           2 |    (ownership : Boolean, infallible : String = "foo", with_time_zone : [String] =
-             |                          ^
-           
-           Got `String`
-           
-           
-           error: Invalid default value for `with_time_zone` argument. Must be `true`
-            --> schema:2:52
-             |
-           2 |    (ownership : Boolean, infallible : String = "foo", with_time_zone : [String] =
-             |                                                       ^
-           
-           Got `false`
-           
-           
-           error: `with_time_zone` argument must have type `Boolean`
-            --> schema:2:52
-             |
-           2 |    (ownership : Boolean, infallible : String = "foo", with_time_zone : [String] =
-             |                                                       ^
-           
-           Got `[String]`
-           
-           
-           error: Invalid argument for @juniper directive: `bar`
-            --> schema:3:9
-             |
-           3 |     false, bar : [Boolean]) on FIELD
+           2 |    juniper(ownership : Boolean, infallible : String = "foo", with_time_zone :
              |            ^
-           
+
+           error: `ownership` argument must have type `String`
+            --> schema:2:9
+             |
+           2 |    juniper(ownership : Boolean, infallible : String = "foo", with_time_zone :
+             |            ^
+
+           Got `Boolean`
+
+           error: Invalid default value for `infallible` argument. Must be `false`
+            --> schema:2:30
+             |
+           2 |    juniper(ownership : Boolean, infallible : String = "foo", with_time_zone :
+             |                                 ^
+
+           Got `"foo"`
+
+           error: `infallible` argument must have type `Boolean`
+            --> schema:2:30
+             |
+           2 |    juniper(ownership : Boolean, infallible : String = "foo", with_time_zone :
+             |                                 ^
+
+           Got `String`
+
+           error: Invalid default value for `with_time_zone` argument. Must be `true`
+            --> schema:2:59
+             |
+           2 |    juniper(ownership : Boolean, infallible : String = "foo", with_time_zone :
+             |                                                              ^
+
+           Got `false`
+
+           error: `with_time_zone` argument must have type `Boolean`
+            --> schema:2:59
+             |
+           2 |    juniper(ownership : Boolean, infallible : String = "foo", with_time_zone :
+             |                                                              ^
+
+           Got `[String]`
+
+           error: Invalid argument for @juniper directive: `bar`
+            --> schema:3:27
+             |
+           3 |            [String] = false, bar : [Boolean]) on FIELD
+             |                              ^
+
            Supported arguments are `ownership`, `infallible`, and `with_time_zone`
-           
-           
+
            aborting due to 8 errors
+
+error[E0405]: cannot find trait `QueryFields` in this scope
+  --> $DIR/invalid_juniper_directive_definition.rs:21:6
+   |
+21 | impl QueryFields for Query {
+   |      ^^^^^^^^^^^ not found in this scope

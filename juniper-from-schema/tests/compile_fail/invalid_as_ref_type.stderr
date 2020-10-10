@@ -10,13 +10,18 @@ error: proc macro panicked
 12 | | }
    | |_^
    |
-   = help: message: 
-           
+   = help: message:
+
            error: @juniper(ownership: "as_ref") is only supported on `Option` and `Vec` types
             --> schema:1:14
              |
-           1 |    type Query { asRefString : String ! @ juniper (ownership : "as_ref") } schema
+           1 |    type Query { asRefString : String ! @ juniper(ownership : "as_ref") } schema
              |                 ^
-           
-           
+
            aborting due to previous error
+
+error[E0405]: cannot find trait `QueryFields` in this scope
+  --> $DIR/invalid_as_ref_type.rs:16:6
+   |
+16 | impl QueryFields for Query {
+   |      ^^^^^^^^^^^ not found in this scope

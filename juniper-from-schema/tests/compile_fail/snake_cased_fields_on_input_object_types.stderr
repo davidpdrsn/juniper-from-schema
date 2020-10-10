@@ -10,15 +10,20 @@ error: proc macro panicked
 14 | | }
    | |_^
    |
-   = help: message: 
-           
+   = help: message:
+
            error: Field names must be camelCase, not snake_case
             --> schema:2:3
              |
            2 |    { snake_cased : String ! }
              |      ^
-           
+
            This is because Juniper always converts all field names to camelCase
-           
-           
+
            aborting due to previous error
+
+error[E0405]: cannot find trait `QueryFields` in this scope
+  --> $DIR/snake_cased_fields_on_input_object_types.rs:18:6
+   |
+18 | impl QueryFields for Query {
+   |      ^^^^^^^^^^^ not found in this scope

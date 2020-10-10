@@ -10,15 +10,20 @@ error: proc macro panicked
 16 | | }
    | |_^
    |
-   = help: message: 
-           
+   = help: message:
+
            error: Unsupported directive.
-            --> schema:3:13
+            --> schema:3:1
              |
-           3 |    DateTimeUtc @ juniper (with_time_zone : "foobar")
-             |                ^
-           
+           3 |    @ juniper(with_time_zone : "foobar")
+             |    ^
+
            Invalid type. Expected `Boolean`, got `String`
-           
-           
+
            aborting due to previous error
+
+error[E0405]: cannot find trait `QueryFields` in this scope
+  --> $DIR/invalid_date_time_scalar_directive.rs:20:6
+   |
+20 | impl QueryFields for Query {
+   |      ^^^^^^^^^^^ not found in this scope
