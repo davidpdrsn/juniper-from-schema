@@ -1,31 +1,15 @@
-use graphql_parser::schema::{Name, Type};
+use graphql_parser::schema::Type;
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum NullableType<'a> {
-    NamedType(&'a Name),
+    NamedType(&'a str),
     ListType(Box<NullableType<'a>>),
     NullableType(Box<NullableType<'a>>),
 }
 
 impl<'a> NullableType<'a> {
-    pub fn from_schema_type(type_: &'a Type) -> Self {
-        map(&type_)
-    }
-
-    pub fn remove_one_layer_of_nullability(self) -> Self {
-        match self {
-            ty @ NullableType::NamedType(_) => ty,
-            ty @ NullableType::ListType(_) => ty,
-            NullableType::NullableType(inner) => *inner,
-        }
-    }
-
-    pub fn is_nullable(&self) -> bool {
-        match self {
-            NullableType::NamedType(_) => false,
-            NullableType::ListType(_) => false,
-            NullableType::NullableType(_) => true,
-        }
+    pub fn from_schema_type(ty: &Type<'a, &'a str>) -> Self {
+        map(&ty)
     }
 }
 
@@ -40,8 +24,8 @@ impl<'a> NullableType<'a> {
     }
 }
 
-fn map(type_: &Type) -> NullableType {
-    match type_ {
+fn map<'a>(ty: &Type<'a, &'a str>) -> NullableType<'a> {
+    match ty {
         inner @ Type::NamedType(_) => map_inner(inner, false),
         Type::ListType(item_type) => {
             let item_type = map_inner(&*item_type, false);
@@ -52,8 +36,8 @@ fn map(type_: &Type) -> NullableType {
     }
 }
 
-fn map_inner(type_: &Type, inside_non_null: bool) -> NullableType {
-    match type_ {
+fn map_inner<'a>(ty: &Type<'a, &'a str>, inside_non_null: bool) -> NullableType<'a> {
+    match ty {
         Type::NamedType(name) => {
             let inner_mapped = NullableType::NamedType(&name);
             if inside_non_null {
@@ -80,33 +64,31 @@ mod test {
 
     #[test]
     fn named_type() {
-        let input = Type::NonNullType(Box::new(Type::NamedType("Int".to_string())));
+        let input = Type::NonNullType(Box::new(Type::NamedType("Int")));
         let expected = "Int".to_string();
         assert_eq!(map(&input).debug_print(), expected);
 
-        let input = Type::NamedType("Int".to_string());
+        let input = Type::NamedType("Int");
         let expected = "Nullable(Int)".to_string();
         assert_eq!(map(&input).debug_print(), expected);
 
         let input = Type::NonNullType(Box::new(Type::ListType(Box::new(Type::NonNullType(
-            Box::new(Type::NamedType("Int".to_string())),
+            Box::new(Type::NamedType("Int")),
         )))));
         let expected = "List(Int)".to_string();
         assert_eq!(map(&input).debug_print(), expected);
 
         let input = Type::ListType(Box::new(Type::NonNullType(Box::new(Type::NamedType(
-            "Int".to_string(),
+            "Int",
         )))));
         let expected = "Nullable(List(Int))".to_string();
         assert_eq!(map(&input).debug_print(), expected);
 
-        let input = Type::NonNullType(Box::new(Type::ListType(Box::new(Type::NamedType(
-            "Int".to_string(),
-        )))));
+        let input = Type::NonNullType(Box::new(Type::ListType(Box::new(Type::NamedType("Int")))));
         let expected = "List(Nullable(Int))".to_string();
         assert_eq!(map(&input).debug_print(), expected);
 
-        let input = Type::ListType(Box::new(Type::NamedType("Int".to_string())));
+        let input = Type::ListType(Box::new(Type::NamedType("Int")));
         let expected = "Nullable(List(Nullable(Int)))".to_string();
         assert_eq!(map(&input).debug_print(), expected);
     }

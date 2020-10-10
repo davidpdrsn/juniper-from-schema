@@ -22,10 +22,10 @@ juniper_from_schema::graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_user<'a>(
+    fn field_user(
         &self,
-        executor: &Executor<'a, Context>,
-        trail: &QueryTrail<'a, User, Walked>,
+        executor: &Executor<Context>,
+        trail: &QueryTrail<User, Walked>,
     ) -> FieldResult<&User> {
         trail.club().walk();
         trail.club2().walk();
@@ -40,22 +40,22 @@ pub struct User {
 }
 
 impl UserFields for User {
-    fn field_id<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&i32> {
+    fn field_id(&self, executor: &Executor<Context>) -> FieldResult<&i32> {
         unimplemented!()
     }
 
-    fn field_club<'a>(
+    fn field_club(
         &self,
-        executor: &Executor<'a, Context>,
-        trail: &QueryTrail<'a, Club, Walked>,
+        executor: &Executor<Context>,
+        trail: &QueryTrail<Club, Walked>,
     ) -> FieldResult<&Option<Club>> {
         unimplemented!()
     }
 
-    fn field_club2<'a>(
+    fn field_club2(
         &self,
-        executor: &Executor<'a, Context>,
-        trail: &QueryTrail<'a, Club, Walked>,
+        executor: &Executor<Context>,
+        trail: &QueryTrail<Club, Walked>,
     ) -> FieldResult<&Club> {
         unimplemented!()
     }
@@ -66,7 +66,7 @@ pub struct Club {
 }
 
 impl ClubFields for Club {
-    fn field_id<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&i32> {
+    fn field_id(&self, executor: &Executor<Context>) -> FieldResult<&i32> {
         unimplemented!()
     }
 }

@@ -20,7 +20,7 @@ impl juniper::IntoFieldError for MyError {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_string<'a>(&self, executor: &Executor<'a, Context>) -> Result<&String, MyError> {
+    fn field_string(&self, executor: &Executor<Context>) -> Result<&String, MyError> {
         unimplemented!()
     }
 }

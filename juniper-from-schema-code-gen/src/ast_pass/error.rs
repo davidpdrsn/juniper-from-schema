@@ -91,19 +91,18 @@ pub enum ValueType {
     Object,
 }
 
-impl<'doc> From<&'doc Value> for ValueType {
-    fn from(value: &'doc Value) -> Self {
-        use ValueType::*;
+impl<'doc> From<&'doc Value<'doc, &'doc str>> for ValueType {
+    fn from(value: &'doc Value<'doc, &'doc str>) -> Self {
         match value {
-            Value::String(_) => String,
-            Value::Variable(_) => Variable,
-            Value::Int(_) => Int,
-            Value::Float(_) => Float,
-            Value::Boolean(_) => Boolean,
-            Value::Null => Null,
-            Value::Enum(_) => Enum,
-            Value::List(_) => List,
-            Value::Object(_) => Object,
+            Value::String(_) => ValueType::String,
+            Value::Variable(_) => ValueType::Variable,
+            Value::Int(_) => ValueType::Int,
+            Value::Float(_) => ValueType::Float,
+            Value::Boolean(_) => ValueType::Boolean,
+            Value::Null => ValueType::Null,
+            Value::Enum(_) => ValueType::Enum,
+            Value::List(_) => ValueType::List,
+            Value::Object(_) => ValueType::Object,
         }
     }
 }
@@ -179,6 +178,7 @@ impl<'doc> fmt::Display for UnsupportedDirectiveKind<'doc> {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum ErrorKind<'doc> {
     DateTimeScalarNotDefined,

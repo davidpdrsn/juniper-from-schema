@@ -12,16 +12,16 @@ juniper_from_schema::graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_string<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&String> {
+    fn field_string(&self, executor: &Executor<Context>) -> FieldResult<&String> {
         unimplemented!()
     }
 }
 
 fn this_should_compile() {
-    let _ = juniper::execute(
+    let _ = juniper::execute_sync(
         "query Foo { string }",
         None,
-        &Schema::new(Query, EmptyMutation::new()),
+        &Schema::new(Query, EmptyMutation::new(), EmptySubscription::new()),
         &Variables::new(),
         &Context,
     )

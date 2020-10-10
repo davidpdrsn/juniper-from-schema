@@ -1,392 +1,1752 @@
 mod gen_query_trails;
 
-use super::schema_visitor::visit_document;
-use super::validations::FieldNameCaseValidator;
-use super::validations::UuidNameCaseValidator;
-use super::{
-    error::{Error, ErrorKind},
-    ident, quote_ident, type_name, EmitError, TypeKind,
-};
-use crate::{
-    ast_pass::{
-        ast_data_pass::{AstData, DateTimeScalarDefinition},
-        directive_parsing::{Deprecation, FieldArguments, Ownership, ParseDirective},
-        schema_visitor::SchemaVisitor,
-    },
-    nullable_type::NullableType,
-};
-use graphql_parser::{
-    query::{Name, Type},
-    schema::{self, *},
-    Pos,
-};
-use heck::{CamelCase, SnakeCase};
-use proc_macro2::{TokenStream, TokenTree};
-use quote::quote;
-use std::{
-    collections::{BTreeMap, BTreeSet, HashSet},
-    iter::Extend,
-    string::ToString,
-};
+use super::ast_data_pass::AstData;
+use super::ast_data_pass::DateTimeScalarDefinition;
+use super::directive_parsing::*;
+use super::error::Error;
+use super::schema_visitor::*;
+use super::type_name;
+use super::validations::*;
+use super::EmitError;
+use super::ErrorKind;
+use super::TypeKind;
+use crate::nullable_type::NullableType;
+use graphql_parser::schema;
+use graphql_parser::schema::Value;
+use graphql_parser::Pos;
+use heck::CamelCase;
+use heck::SnakeCase;
+use proc_macro2::TokenStream;
+use quote::ToTokens;
+use quote::{format_ident, quote};
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+use std::collections::HashSet;
+use std::convert::TryFrom;
+use std::rc::Rc;
 use syn::Ident;
 
 #[derive(Debug)]
 pub struct CodeGenPass<'doc> {
-    tokens: TokenStream,
-    error_type: syn::Type,
-    context_type: syn::Type,
+    error_type: Rc<syn::Type>,
+    context_type: Rc<syn::Type>,
     errors: BTreeSet<Error<'doc>>,
     ast_data: AstData<'doc>,
     raw_schema: &'doc str,
+    scalars: Vec<Scalar<'doc>>,
+    objects: Vec<Object<'doc>>,
+    interfaces: Vec<Interface<'doc>>,
+    unions: Vec<Union<'doc>>,
+    enums: Vec<Enum<'doc>>,
+    input_objects: Vec<InputObject<'doc>>,
+    schema_type: Option<SchemaType>,
+}
+
+impl<'doc> CodeGenPass<'doc> {
+    pub fn new(
+        raw_schema: &'doc str,
+        error_type: syn::Type,
+        context_type: syn::Type,
+        ast_data: AstData<'doc>,
+    ) -> Self {
+        Self {
+            error_type: Rc::new(error_type),
+            context_type: Rc::new(context_type),
+            ast_data,
+            errors: BTreeSet::new(),
+            raw_schema,
+            scalars: Vec::new(),
+            objects: Vec::new(),
+            interfaces: Vec::new(),
+            unions: Vec::new(),
+            enums: Vec::new(),
+            input_objects: Vec::new(),
+            schema_type: None,
+        }
+    }
+
+    pub fn gen_juniper_code(
+        mut self,
+        doc: &'doc schema::Document<'doc, &'doc str>,
+    ) -> Result<TokenStream, BTreeSet<Error<'doc>>> {
+        self.validate_doc(doc);
+        self.check_for_errors()?;
+
+        let query_trail_tokens = self.gen_query_trails(doc);
+        visit_document(&mut self, doc);
+
+        self.check_for_errors()?;
+
+        let Self {
+            scalars,
+            objects,
+            interfaces,
+            unions,
+            enums,
+            input_objects,
+            schema_type,
+
+            error_type: _,
+            context_type: _,
+            errors: _,
+            ast_data: _,
+            raw_schema: _,
+        } = self;
+
+        let tokens = quote! {
+            #query_trail_tokens
+            #(#scalars)*
+            #(#objects)*
+            #(#interfaces)*
+            #(#unions)*
+            #(#enums)*
+            #(#input_objects)*
+            #schema_type
+        };
+
+        // eprintln!("{}", tokens);
+
+        Ok(tokens)
+    }
+
+    fn validate_doc(&mut self, doc: &'doc schema::Document<'doc, &'doc str>) {
+        visit_document(&mut FieldNameCaseValidator::new(self), doc);
+        visit_document(&mut UuidNameCaseValidator::new(self), doc);
+    }
+
+    fn check_for_errors(&self) -> Result<(), BTreeSet<Error<'doc>>> {
+        if self.errors.is_empty() {
+            Ok(())
+        } else {
+            Err(self.errors.clone())
+        }
+    }
+}
+
+impl<'doc> EmitError<'doc> for CodeGenPass<'doc> {
+    fn emit_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) {
+        let error = Error {
+            pos,
+            kind,
+            raw_schema: &self.raw_schema,
+        };
+        self.errors.insert(error);
+    }
 }
 
 impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
-    fn visit_schema_definition(&mut self, schema_def: &'doc SchemaDefinition) {
-        if schema_def.subscription.is_some() {
-            self.emit_non_fatal_error(schema_def.position, ErrorKind::SubscriptionsNotSupported);
+    fn visit_schema_definition(&mut self, node: &'doc schema::SchemaDefinition<'doc, &'doc str>) {
+        let schema::SchemaDefinition {
+            position,
+            directives: _,
+            query,
+            mutation,
+            subscription,
+        } = node;
+
+        if subscription.is_some() {
+            self.emit_error(*position, ErrorKind::SubscriptionsNotSupported);
         }
 
-        self.parse_directives(schema_def);
-
-        let query = match &schema_def.query {
-            Some(query) => ident(query),
+        let query_type = match query {
+            Some(query) => {
+                let ident = format_ident!("{}", query);
+                syn::parse2(quote! { #ident }).unwrap()
+            }
             None => {
-                self.emit_non_fatal_error(schema_def.position, ErrorKind::NoQueryType);
+                self.emit_error(*position, ErrorKind::NoQueryType);
                 return;
             }
         };
 
-        let mutation = match &schema_def.mutation {
-            Some(mutation) => quote_ident(mutation),
+        let context_type = &self.context_type;
+
+        let mutation_type = match mutation {
+            Some(mutation) => {
+                let ident = format_ident!("{}", mutation);
+                syn::parse2(quote! { #ident }).unwrap()
+            }
             None => {
                 let context_type = &self.context_type;
-                quote! { juniper::EmptyMutation<#context_type> }
+                syn::parse2(quote! { juniper::EmptyMutation<#context_type> }).unwrap()
             }
         };
 
-        self.extend(quote! {
-            /// The GraphQL schema type generated by `juniper-from-schema`.
-            pub type Schema = juniper::RootNode<'static, #query, #mutation>;
+        let subscription_type =
+            syn::parse2(quote! { juniper::EmptySubscription<#context_type> }).unwrap();
+
+        self.schema_type = Some(SchemaType {
+            query_type,
+            mutation_type,
+            subscription_type,
         });
     }
 
-    fn visit_scalar_type(&mut self, scalar_type: &'doc ScalarType) {
-        match &*scalar_type.name {
-            name if name == crate::DATE_TIME_SCALAR_NAME => {
-                // We don't need to parse and check the directives here because that is done by
-                // `AstData::visit_scalar_type`
+    fn visit_directive_definition(
+        &mut self,
+        node: &'doc schema::DirectiveDefinition<'doc, &'doc str>,
+    ) {
+        if node.name == "juniper" {
+            self.validate_juniper_directive_definition(node)
+        }
+    }
 
-                if scalar_type.description.is_some() {
-                    self.emit_non_fatal_error(
-                        scalar_type.position,
-                        ErrorKind::SpecialCaseScalarWithDescription,
-                    );
+    fn visit_scalar_type(&mut self, node: &'doc schema::ScalarType<'doc, &'doc str>) {
+        match &*node.name {
+            name if name == crate::DATE_TIME_SCALAR_NAME => {
+                // This case is special because it supports a directive. We don't need to parse and
+                // check the it though that is done by `AstData::visit_scalar_type`
+
+                if node.description.is_some() {
+                    self.emit_error(node.position, ErrorKind::SpecialCaseScalarWithDescription);
                 }
             }
             name if name == crate::DATE_SCALAR_NAME
                 || name == crate::URL_SCALAR_NAME
                 || name == crate::UUID_SCALAR_NAME =>
             {
-                self.parse_directives(scalar_type);
+                let () = self.parse_directives(node);
 
-                if scalar_type.description.is_some() {
-                    self.emit_non_fatal_error(
-                        scalar_type.position,
-                        ErrorKind::SpecialCaseScalarWithDescription,
-                    );
+                if node.description.is_some() {
+                    self.emit_error(node.position, ErrorKind::SpecialCaseScalarWithDescription);
                 }
             }
-            name => {
-                self.parse_directives(scalar_type);
+            _ => {
+                let schema::ScalarType {
+                    position: _,
+                    description,
+                    name,
+                    directives: _,
+                } = node;
 
-                let name = ident(name);
-                let description = &scalar_type
-                    .description
-                    .as_ref()
-                    .map(|desc| quote! { description: #desc })
-                    .unwrap_or_else(TokenStream::new);
+                let () = self.parse_directives(node);
 
-                self.gen_scalar_type_with_data(&name, &description);
-            }
-        };
-    }
-
-    fn visit_object_type(&mut self, obj_type: &'doc ObjectType) {
-        self.parse_directives(obj_type);
-
-        let struct_name = ident(&obj_type.name);
-
-        let trait_name = trait_map_for_struct_name(&struct_name);
-
-        let field_tokens = obj_type
-            .fields
-            .iter()
-            .map(|field| self.collect_data_for_field_gen(field))
-            .collect::<Vec<_>>();
-
-        let trait_methods = field_tokens
-            .iter()
-            .map(|field| {
-                let field_name = &field.field_method;
-                let args = &field.trait_args;
-                let context_type = &self.context_type;
-                let return_type = self.field_return_type_tokens(&field);
-
-                match field.type_kind {
-                    TypeKind::Scalar => {
-                        quote! {
-                            /// Field method generated by `juniper-from-schema`.
-                            fn #field_name<'a>(
-                                &self,
-                                executor: &juniper::Executor<'a, #context_type>,
-                                #(#args),*
-                            ) -> #return_type;
-                        }
-                    }
-                    TypeKind::Type => {
-                        let query_trail_type = ident(&field.inner_type);
-                        let trail = quote! {
-                            &QueryTrail<'a, #query_trail_type, juniper_from_schema::Walked>
-                        };
-
-                        quote! {
-                            /// Field method generated by `juniper-from-schema`.
-                            fn #field_name<'a>(
-                                &self,
-                                executor: &juniper::Executor<'a, #context_type>,
-                                trail: #trail, #(#args),*
-                            ) -> #return_type;
-                        }
-                    }
-                }
-            })
-            .collect::<Vec<_>>();
-
-        self.extend(quote! {
-            /// Trait for GraphQL field methods generated by `juniper-from-schema`.
-            pub trait #trait_name {
-                #(#trait_methods)*
-            }
-        });
-
-        let fields = field_tokens
-            .iter()
-            .map(|field| self.gen_field(field, &struct_name, &trait_name))
-            .collect::<Vec<_>>();
-
-        let description = obj_type
-            .description
-            .as_ref()
-            .map(|d| quote! { description: #d })
-            .unwrap_or_else(empty_token_stream);
-
-        let interfaces = if obj_type.implements_interfaces.is_empty() {
-            empty_token_stream()
-        } else {
-            let interface_names = obj_type.implements_interfaces.iter().map(|name| {
-                let name = ident(name);
-                quote! { &#name }
-            });
-            quote! { interfaces: [#(#interface_names),*] }
-        };
-
-        let context_type = &self.context_type;
-
-        let code = quote! {
-            juniper::graphql_object!(#struct_name: #context_type |&self| {
-                #description
-                #(#fields)*
-                #interfaces
-            });
-        };
-        self.extend(code)
-    }
-
-    fn visit_interface_type(&mut self, interface: &'doc InterfaceType) {
-        self.parse_directives(interface);
-
-        let interface_name = ident(&interface.name);
-
-        let description = &interface
-            .description
-            .as_ref()
-            .map(ToString::to_string)
-            .unwrap_or_else(String::new);
-
-        let implementors = self.ast_data.get_implementors_of_interface(&interface.name);
-
-        let implementors = if let Some(implementors) = implementors {
-            implementors
-        } else {
-            return;
-        };
-
-        let implementors = implementors.iter().map(ident).collect::<Vec<_>>();
-
-        // Enum
-        let variants = implementors.iter().map(|name| {
-            quote! { #name(#name) }
-        });
-        self.extend(quote! {
-            pub enum #interface_name {
-                #(#variants),*
-            }
-        });
-
-        // From implementations
-        for variant in &implementors {
-            self.extend(quote! {
-                impl std::convert::From<#variant> for #interface_name {
-                    fn from(x: #variant) -> #interface_name {
-                        #interface_name::#variant(x)
-                    }
-                }
-            });
-        }
-
-        // Resolvers
-        let instance_resolvers = implementors.iter().map(|name| {
-            quote! {
-                &#name => match *self { #interface_name::#name(ref h) => Some(h), _ => None }
-            }
-        });
-
-        let field_tokens: Vec<FieldTokens> = interface
-            .fields
-            .iter()
-            .map(|field| self.collect_data_for_field_gen(field))
-            .collect::<Vec<_>>();
-
-        let field_token_streams = field_tokens
-            .iter()
-            .map(|field| {
-                let field_name = &field.name;
-                let args = &field.macro_args;
-
-                let description = doc_tokens(&field.description);
-
-                let arms = implementors.iter().map(|variant| {
-                    let trait_name = trait_map_for_struct_name(&variant);
-                    let struct_name = variant;
-
-                    let body = gen_field_body(&field, &quote! {inner}, &struct_name, &trait_name);
-
-                    quote! {
-                        #interface_name::#struct_name(ref inner) => {
-                            #body
-                        }
-                    }
+                self.scalars.push(Scalar {
+                    name: format_ident!("{}", name),
+                    description: description.as_ref(),
                 });
+            }
+        };
+    }
 
-                let all_args = to_field_args_list(&args);
-                let deprecation = &field.deprecation;
-                let return_type = self.field_return_type_tokens(&field);
+    fn visit_object_type(&mut self, node: &'doc schema::ObjectType<'doc, &'doc str>) {
+        let schema::ObjectType {
+            position: _,
+            description,
+            name,
+            implements_interfaces,
+            directives: _,
+            fields,
+        } = node;
 
-                quote! {
-                    #description
-                    #deprecation
-                    field #field_name(#all_args) -> #return_type {
-                        match *self {
-                            #(#arms),*
-                        }
-                    }
+        let () = self.parse_directives(node);
+
+        let fields = fields
+            .iter()
+            .map(|field| self.graphql_field_to_rust_field(field))
+            .collect();
+
+        let implements_interfaces = implements_interfaces
+            .iter()
+            .map(|name| format_ident!("{}", name))
+            .collect();
+
+        self.objects.push(Object {
+            name: format_ident!("{}", name),
+            description: description.as_ref(),
+            context_type: self.context_type.clone(),
+            fields,
+            implements_interfaces,
+        });
+    }
+
+    fn visit_interface_type(&mut self, node: &'doc schema::InterfaceType<'doc, &'doc str>) {
+        let schema::InterfaceType {
+            description,
+            name,
+            fields,
+            position: _,
+            directives: _,
+        } = node;
+
+        let () = self.parse_directives(node);
+
+        let implementors = self
+            .ast_data
+            .get_implementors_of_interface(name)
+            .cloned()
+            .unwrap_or_else(Vec::new)
+            .into_iter()
+            .map(|name| format_ident!("{}", name))
+            .collect::<Vec<_>>();
+
+        let name = format_ident!("{}", name);
+        let fields = fields
+            .iter()
+            .map(|field| self.graphql_field_to_rust_field(field))
+            .collect();
+
+        self.interfaces.push(Interface {
+            description: description.as_ref(),
+            trait_name: format_ident!("{}Interface", name),
+            name,
+            fields,
+            implementors,
+            context_type: self.context_type.clone(),
+        });
+    }
+
+    fn visit_union_type(&mut self, node: &'doc schema::UnionType<'doc, &'doc str>) {
+        let schema::UnionType {
+            position,
+            description,
+            name,
+            types,
+            directives: _,
+        } = node;
+
+        let () = self.parse_directives(node);
+
+        let name = format_ident!("{}", name);
+
+        let variants = types
+            .iter()
+            .map(|variant_name| {
+                let graphql_type: schema::Type<'doc, &'doc str> =
+                    schema::Type::NamedType(*variant_name);
+                let type_inside = self
+                    .graphql_type_to_rust_type(&graphql_type, false, *position)
+                    .remove_one_layer_of_nullability_by_value();
+                let ident = format_ident!("{}", variant_name);
+                UnionVariant {
+                    graphql_name: ident.clone(),
+                    rust_name: ident,
+                    type_inside,
                 }
             })
             .collect::<Vec<_>>();
 
-        let context_type = &self.context_type;
-
-        let code = quote! {
-            juniper::graphql_interface!(#interface_name: #context_type |&self| {
-                description: #description
-
-                #(#field_token_streams)*
-
-                instance_resolvers: |_| {
-                    #(#instance_resolvers),*
-                }
-            });
-        };
-        self.extend(code);
+        self.unions.push(Union {
+            name,
+            variants,
+            description: description.as_ref(),
+        })
     }
 
-    fn visit_union_type(&mut self, union: &'doc UnionType) {
-        self.parse_directives(union);
+    fn visit_enum_type(&mut self, node: &'doc schema::EnumType<'doc, &'doc str>) {
+        let schema::EnumType {
+            description,
+            name,
+            values,
+            position: _,
+            directives: _,
+        } = node;
 
-        let union_name = ident(&union.name);
-        let implementors = union.types.iter().map(ident).collect::<Vec<_>>();
+        let () = self.parse_directives(node);
 
-        // Enum
-        let variants = implementors.iter().map(|name| {
-            quote! { #name(#name) }
+        let name = format_ident!("{}", name);
+
+        let variants = values
+            .iter()
+            .map(|value| {
+                let schema::EnumValue {
+                    name,
+                    description,
+                    position: _,
+                    directives: _,
+                } = value;
+
+                let graphql_name = *name;
+                let name = format_ident!("{}", name.to_camel_case());
+                let deprecation = self.parse_directives(value);
+
+                Variant {
+                    name,
+                    deprecation,
+                    description: description.as_ref(),
+                    graphql_name,
+                }
+            })
+            .collect();
+
+        self.enums.push(Enum {
+            name,
+            variants,
+            description: description.as_ref(),
+        })
+    }
+
+    fn visit_input_object_type(&mut self, node: &'doc schema::InputObjectType<'doc, &'doc str>) {
+        let schema::InputObjectType {
+            description,
+            name,
+            fields,
+
+            position: _,
+            directives: _,
+        } = node;
+
+        let () = self.parse_directives(node);
+
+        let name = format_ident!("{}", name);
+        let fields = fields
+            .iter()
+            .map(|field| {
+                let schema::InputValue {
+                    description,
+                    name,
+                    value_type,
+                    default_value,
+                    position,
+                    directives: _,
+                } = field;
+
+                let () = self.parse_directives(field);
+
+                if default_value.is_some() {
+                    self.emit_error(*position, ErrorKind::InputTypeFieldWithDefaultValue);
+                }
+
+                let ty = self.graphql_type_to_rust_type(value_type, false, *position);
+
+                let name = format_ident!("{}", name.to_snake_case());
+
+                InputObjectField {
+                    name,
+                    ty,
+                    description: description.as_ref(),
+                }
+            })
+            .collect::<Vec<_>>();
+
+        self.input_objects.push(InputObject {
+            name,
+            description: description.as_ref(),
+            fields,
         });
-        self.extend(quote! {
-            pub enum #union_name {
-                #(#variants),*
+    }
+
+    fn visit_scalar_type_extension(
+        &mut self,
+        inner: &'doc schema::ScalarTypeExtension<'doc, &'doc str>,
+    ) {
+        self.emit_error(inner.position, ErrorKind::TypeExtensionNotSupported)
+    }
+
+    fn visit_object_type_extension(
+        &mut self,
+        inner: &'doc schema::ObjectTypeExtension<'doc, &'doc str>,
+    ) {
+        self.emit_error(inner.position, ErrorKind::TypeExtensionNotSupported)
+    }
+
+    fn visit_interface_type_extension(
+        &mut self,
+        inner: &'doc schema::InterfaceTypeExtension<'doc, &'doc str>,
+    ) {
+        self.emit_error(inner.position, ErrorKind::TypeExtensionNotSupported)
+    }
+
+    fn visit_union_type_extension(
+        &mut self,
+        inner: &'doc schema::UnionTypeExtension<'doc, &'doc str>,
+    ) {
+        self.emit_error(inner.position, ErrorKind::TypeExtensionNotSupported)
+    }
+
+    fn visit_enum_type_extension(
+        &mut self,
+        inner: &'doc schema::EnumTypeExtension<'doc, &'doc str>,
+    ) {
+        self.emit_error(inner.position, ErrorKind::TypeExtensionNotSupported)
+    }
+
+    fn visit_input_object_type_extension(
+        &mut self,
+        inner: &'doc schema::InputObjectTypeExtension<'doc, &'doc str>,
+    ) {
+        self.emit_error(inner.position, ErrorKind::TypeExtensionNotSupported)
+    }
+}
+
+impl<'doc> CodeGenPass<'doc> {
+    fn graphql_field_to_rust_field(
+        &mut self,
+        field: &'doc schema::Field<'doc, &'doc str>,
+    ) -> Field<'doc> {
+        let schema::Field {
+            position,
+            description,
+            name,
+            arguments,
+            field_type,
+            directives: _,
+        } = field;
+
+        let field_directives = self.parse_directives(field);
+
+        let args = arguments
+            .iter()
+            .map(|arg| {
+                let schema::InputValue {
+                    position,
+                    description,
+                    name,
+                    value_type,
+                    default_value,
+                    directives: _,
+                } = arg;
+
+                let () = self.parse_directives(arg);
+
+                let default_value = default_value
+                    .as_ref()
+                    .map(|v| self.quote_value(v, type_name(value_type), *position));
+
+                let ty = self.graphql_type_to_rust_type(value_type, false, *position);
+
+                if default_value.is_some() && !ty.is_nullable() {
+                    self.emit_error(*position, ErrorKind::NonnullableFieldWithDefaultValue);
+                }
+
+                FieldArg {
+                    name: format_ident!("r#{}", name.to_snake_case()),
+                    description: description.as_ref(),
+                    ty,
+                    default_value,
+                }
+            })
+            .collect();
+
+        let return_type = self.graphql_type_to_rust_type(
+            field_type,
+            field_directives.ownership.is_as_ref(),
+            *position,
+        );
+
+        if field_directives.ownership == Ownership::AsRef && !return_type.supports_as_ref() {
+            self.emit_error(*position, ErrorKind::AsRefOwnershipForNamedType);
+        }
+
+        Field {
+            description: description.as_ref(),
+            name: format_ident!("r#{}", name.to_snake_case()),
+            context_type: self.context_type.clone(),
+            error_type: self.error_type.clone(),
+            args,
+            return_type,
+            directives: field_directives,
+        }
+    }
+
+    fn graphql_type_to_rust_type(
+        &mut self,
+        graphql_type: &schema::Type<'doc, &'doc str>,
+        as_ref: bool,
+        pos: Pos,
+    ) -> Type {
+        fn gen_leaf<'doc>(pass: &CodeGenPass<'doc>, name: &'doc str) -> Type {
+            match &*name {
+                "String" => Type::Scalar(Either::A(
+                    syn::parse2(quote! { std::string::String }).unwrap(),
+                )),
+                "Float" => Type::Scalar(Either::A(syn::parse2(quote! { f64 }).unwrap())),
+                "Int" => Type::Scalar(Either::A(syn::parse2(quote! { i32 }).unwrap())),
+                "Boolean" => Type::Scalar(Either::A(syn::parse2(quote! { bool }).unwrap())),
+                "ID" => Type::Scalar(Either::A(syn::parse2(quote! { juniper::ID }).unwrap())),
+                name => {
+                    if pass.ast_data.is_scalar(name) {
+                        Type::Scalar(Either::B(format_ident!("{}", name)))
+                    } else if pass.ast_data.is_enum_type(name) {
+                        Type::Enum(format_ident!("{}", name))
+                    } else if pass.ast_data.is_union_type(name) {
+                        Type::Union(format_ident!("{}", name))
+                    } else if pass.ast_data.is_interface_type(name) {
+                        Type::Interface(format_ident!("{}", name))
+                    } else {
+                        Type::Object(format_ident!("{}", name))
+                    }
+                }
+            }
+        }
+
+        fn gen_node<'doc>(
+            pass: &mut CodeGenPass<'doc>,
+            ty: &NullableType<'doc>,
+            as_ref: bool,
+            pos: Pos,
+        ) -> Type {
+            match ty {
+                NullableType::NamedType(inner) => match &**inner {
+                    name if name == crate::URL_SCALAR_NAME => {
+                        if !pass.ast_data.url_scalar_defined() {
+                            pass.emit_error(pos, ErrorKind::UrlScalarNotDefined);
+                        }
+                        Type::Scalar(Either::A(syn::parse2(quote! { url::Url }).unwrap()))
+                    }
+
+                    name if name == crate::UUID_SCALAR_NAME => {
+                        if !pass.ast_data.uuid_scalar_defined() {
+                            pass.emit_error(pos, ErrorKind::UuidScalarNotDefined);
+                        }
+                        Type::Scalar(Either::A(syn::parse2(quote! { uuid::Uuid }).unwrap()))
+                    }
+
+                    name if name == crate::DATE_SCALAR_NAME => {
+                        if !pass.ast_data.date_scalar_defined() {
+                            pass.emit_error(pos, ErrorKind::DateScalarNotDefined);
+                        }
+                        Type::Scalar(Either::A(
+                            syn::parse2(quote! { chrono::naive::NaiveDate }).unwrap(),
+                        ))
+                    }
+
+                    name if name == crate::DATE_TIME_SCALAR_NAME => match pass
+                        .ast_data
+                        .date_time_scalar_definition()
+                    {
+                        Some(DateTimeScalarDefinition::WithTimeZone) => Type::Scalar(Either::A(
+                            syn::parse2(quote! { chrono::DateTime<chrono::offset::Utc> }).unwrap(),
+                        )),
+
+                        Some(DateTimeScalarDefinition::WithoutTimeZone) => Type::Scalar(Either::A(
+                            syn::parse2(quote! { chrono::naive::NaiveDateTime }).unwrap(),
+                        )),
+
+                        None => {
+                            pass.emit_error(pos, ErrorKind::DateTimeScalarNotDefined);
+
+                            Type::Scalar(Either::A(
+                                syn::parse2(quote! { chrono::DateTime<chrono::offset::Utc> })
+                                    .unwrap(),
+                            ))
+                        }
+                    },
+
+                    _ => gen_leaf(pass, inner),
+                },
+                NullableType::ListType(inner) => {
+                    if as_ref {
+                        Type::List(Box::new(Type::Ref(Box::new(gen_node(
+                            pass, &*inner, false, pos,
+                        )))))
+                    } else {
+                        Type::List(Box::new(gen_node(pass, &*inner, false, pos)))
+                    }
+                }
+                NullableType::NullableType(inner) => {
+                    if as_ref {
+                        Type::Nullable(Box::new(Type::Ref(Box::new(gen_node(
+                            pass, &*inner, false, pos,
+                        )))))
+                    } else {
+                        Type::Nullable(Box::new(gen_node(pass, &*inner, false, pos)))
+                    }
+                }
+            }
+        }
+
+        let nullable_type = NullableType::from_schema_type(graphql_type);
+        gen_node(self, &nullable_type, as_ref, pos)
+    }
+
+    fn quote_value(
+        &mut self,
+        value: &'doc Value<'doc, &'doc str>,
+        type_name: &'doc str,
+        pos: Pos,
+    ) -> TokenStream {
+        match value {
+            Value::Float(inner) => quote! { #inner },
+            Value::Int(inner) => {
+                let number = inner
+                    .as_i64()
+                    .expect("failed to convert default number argument to i64");
+                let number = i32::try_from(number)
+                    .expect("failed to convert default number argument to i64");
+                quote! { #number }
+            }
+            Value::String(inner) => quote! { #inner.to_string() },
+            Value::Boolean(inner) => quote! { #inner },
+
+            Value::Enum(variant_name) => {
+                let type_name = format_ident!("{}", type_name.to_camel_case());
+                let variant_name = format_ident!("{}", variant_name.to_camel_case());
+                quote! { #type_name::#variant_name }
+            }
+
+            Value::List(list) => {
+                let mut acc = quote! { let mut vec = Vec::new(); };
+                for value in list {
+                    let value_quoted = self.quote_value(value, type_name, pos);
+                    acc.extend(quote! { vec.push(#value_quoted); });
+                }
+                acc.extend(quote! { vec });
+                quote! { { #acc } }
+            }
+
+            Value::Object(map) => self.quote_object_value(map, type_name, pos),
+
+            Value::Variable(_) => {
+                self.emit_error(pos, ErrorKind::VariableDefaultValue);
+                quote! {}
+            }
+
+            Value::Null => quote! { None },
+        }
+    }
+
+    fn quote_object_value(
+        &mut self,
+        map: &'doc BTreeMap<&'doc str, Value<'doc, &'doc str>>,
+        type_name: &'doc str,
+        pos: Pos,
+    ) -> TokenStream {
+        let name = format_ident!("{}", type_name);
+
+        let mut fields_seen: HashSet<&'doc str> = HashSet::new();
+
+        // Set fields given in `map`
+        let mut field_assigments = map
+            .iter()
+            .map(|(key, value)| {
+                fields_seen.insert(key);
+                let field_name = format_ident!("{}", key.to_snake_case());
+
+                let field_type_name = self
+                    .ast_data
+                    .input_object_field_type_name(&type_name, &key)
+                    .unwrap_or_else(|| {
+                        panic!("input_object_field_type_name {} {}", type_name, key)
+                    });
+
+                let value_quote = self.quote_value(value, field_type_name, pos);
+                match self
+                    .ast_data
+                    .input_object_field_is_nullable(&type_name, &key)
+                {
+                    Some(true) | None => {
+                        if value == &Value::Null {
+                            quote! { #field_name: #value_quote }
+                        } else {
+                            quote! { #field_name: Some(#value_quote) }
+                        }
+                    }
+                    Some(false) => quote! { #field_name: #value_quote },
+                }
+            })
+            .collect::<Vec<_>>();
+
+        // Set fields not given in map to `None`
+        if let Some(fields) = self.ast_data.input_object_field_names(&type_name) {
+            for field_name in fields {
+                if !fields_seen.contains(field_name) {
+                    let field_name = format_ident!("{}", field_name.to_snake_case());
+                    field_assigments.push(quote! {
+                        #field_name: None
+                    });
+                }
+            }
+        }
+
+        let tokens = quote! {
+            #name {
+                #(#field_assigments),*,
+            }
+        };
+
+        quote! { { #tokens } }
+    }
+
+    fn validate_juniper_directive_definition(
+        &mut self,
+        directive: &'doc schema::DirectiveDefinition<'doc, &'doc str>,
+    ) {
+        use schema::{DirectiveLocation, InputValue, Type as GraphqlType};
+
+        assert_eq!(directive.name, "juniper");
+
+        for location in directive.locations.iter() {
+            match location {
+                DirectiveLocation::FieldDefinition | DirectiveLocation::Scalar => {
+                    // valid
+                }
+                other => self.emit_error(
+                    directive.position,
+                    ErrorKind::InvalidJuniperDirective(
+                        format!(
+                            "Invalid location for @juniper directive: `{}`",
+                            other.as_str()
+                        ),
+                        Some("Location must be `FIELD_DEFINITION` or `SCALAR`".to_string()),
+                    ),
+                ),
+            }
+        }
+
+        let no_directives = |this: &mut Self, arg: &InputValue<'doc, &'doc str>, name: &str| {
+            for dir in arg.directives.iter() {
+                this.emit_error(
+                    dir.position,
+                    ErrorKind::InvalidJuniperDirective(
+                        format!("`{}` argument doesn't support directives", name),
+                        None,
+                    ),
+                )
+            }
+        };
+
+        let of_type = |this: &mut Self,
+                       arg: &InputValue<'doc, &'doc str>,
+                       ty: GraphqlType<'doc, &'doc str>,
+                       name: &str| {
+            if arg.value_type != ty {
+                this.emit_error(
+                    arg.position,
+                    ErrorKind::InvalidJuniperDirective(
+                        format!("`{}` argument must have type `{}`", name, ty),
+                        Some(format!("Got `{}`", arg.value_type)),
+                    ),
+                )
+            }
+        };
+
+        let default_value = |this: &mut Self,
+                             arg: &InputValue<'doc, &'doc str>,
+                             value: Value<'doc, &'doc str>,
+                             name: &str| {
+            if let Some(default) = &arg.default_value {
+                if default == &value {
+                    // ok
+                } else {
+                    this.emit_error(
+                        arg.position,
+                        ErrorKind::InvalidJuniperDirective(
+                            format!(
+                                "Invalid default value for `{}` argument. Must be `{}`",
+                                name, value
+                            ),
+                            Some(format!("Got `{}`", default)),
+                        ),
+                    )
+                }
+            } else {
+                this.emit_error(
+                    arg.position,
+                    ErrorKind::InvalidJuniperDirective(
+                        format!(
+                            "Missing default value for `{}` argument. Must be `{}`",
+                            name, value
+                        ),
+                        None,
+                    ),
+                )
+            }
+        };
+
+        let mut ownership_present = false;
+        let mut infallible_present = false;
+        let mut with_time_zone_present = false;
+
+        for arg in directive.arguments.iter() {
+            match arg.name {
+                name @ "ownership" => {
+                    ownership_present = true;
+                    of_type(self, arg, GraphqlType::NamedType("String"), name);
+                    no_directives(self, arg, name);
+                    default_value(self, arg, Value::String("borrowed".to_string()), name);
+                }
+                name @ "infallible" => {
+                    infallible_present = true;
+                    of_type(self, arg, GraphqlType::NamedType("Boolean"), name);
+                    no_directives(self, arg, name);
+                    default_value(self, arg, Value::Boolean(false), name);
+                }
+                name @ "with_time_zone" => {
+                    with_time_zone_present = true;
+                    of_type(self, arg, GraphqlType::NamedType("Boolean"), name);
+                    no_directives(self, arg, name);
+                    default_value(self, arg, Value::Boolean(true), name);
+                }
+                name => {
+                    self.emit_error(
+                        arg.position,
+                        ErrorKind::InvalidJuniperDirective(
+                            format!("Invalid argument for @juniper directive: `{}`", name),
+                            Some("Supported arguments are `ownership`, `infallible`, and `with_time_zone`".to_string()),
+                        ),
+                    )
+                }
+            }
+        }
+
+        if !ownership_present {
+            self.emit_error(
+                directive.position,
+                ErrorKind::InvalidJuniperDirective(
+                    "Missing argument `ownership`".to_string(),
+                    None,
+                ),
+            )
+        }
+
+        if !infallible_present {
+            self.emit_error(
+                directive.position,
+                ErrorKind::InvalidJuniperDirective(
+                    "Missing argument `infallible`".to_string(),
+                    None,
+                ),
+            )
+        }
+
+        if !with_time_zone_present {
+            self.emit_error(
+                directive.position,
+                ErrorKind::InvalidJuniperDirective(
+                    "Missing argument `with_time_zone`".to_string(),
+                    None,
+                ),
+            )
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Either<A, B> {
+    A(A),
+    B(B),
+}
+
+impl<A, B> ToTokens for Either<A, B>
+where
+    A: ToTokens,
+    B: ToTokens,
+{
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            Either::A(a) => a.to_tokens(tokens),
+            Either::B(b) => b.to_tokens(tokens),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Type {
+    Scalar(Either<syn::Type, Ident>),
+    Enum(Ident),
+    Union(Ident),
+    Interface(Ident),
+    Object(Ident),
+    Ref(Box<Type>),
+    List(Box<Type>),
+    Nullable(Box<Type>),
+}
+
+impl Type {
+    fn is_nullable(&self) -> bool {
+        matches!(self, Type::Nullable(_))
+    }
+
+    fn supports_as_ref(&self) -> bool {
+        match self {
+            Type::Scalar(_) => false,
+            Type::Enum(_) => false,
+            Type::Union(_) => false,
+            Type::Interface(_) => false,
+            Type::Object(_) => false,
+            Type::Ref(_) => false,
+            Type::List(_) => true,
+            Type::Nullable(_) => true,
+        }
+    }
+
+    fn remove_one_layer_of_nullability_by_value(self) -> Box<Type> {
+        match self {
+            Type::Nullable(inner) => inner,
+            other => Box::new(other),
+        }
+    }
+
+    fn remove_one_layer_of_nullability(&self) -> &Type {
+        match self {
+            Type::Nullable(inner) => inner,
+            other => other,
+        }
+    }
+
+    fn kind(&self) -> TypeKind {
+        match self {
+            Type::Scalar(_) => TypeKind::Scalar,
+            Type::Enum(_) => TypeKind::Scalar,
+            Type::Union(_) => TypeKind::Type,
+            Type::Object(_) => TypeKind::Type,
+            Type::Interface { .. } => TypeKind::Type,
+            Type::Ref(inner) => inner.kind(),
+            Type::List(inner) => inner.kind(),
+            Type::Nullable(inner) => inner.kind(),
+        }
+    }
+
+    fn innermost_type(&self) -> &Type {
+        match self {
+            Type::Scalar(_) => self,
+            Type::Enum(_) => self,
+            Type::Union(_) => self,
+            Type::Object(_) => self,
+            Type::Interface { .. } => self,
+            Type::Ref(inner) => inner.innermost_type(),
+            Type::List(inner) => inner.innermost_type(),
+            Type::Nullable(inner) => inner.innermost_type(),
+        }
+    }
+}
+
+impl ToTokens for Type {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let code = match self {
+            Type::Scalar(inner) => {
+                quote! { #inner }
+            }
+            Type::Enum(inner) => {
+                quote! { #inner }
+            }
+            Type::Union(inner) => {
+                quote! { #inner }
+            }
+            Type::Object(inner) => {
+                quote! { #inner }
+            }
+            Type::Interface(inner) => {
+                quote! { #inner }
+            }
+            Type::Ref(inner) => {
+                quote! { &#inner }
+            }
+            Type::List(inner) => {
+                quote! { std::vec::Vec<#inner> }
+            }
+            Type::Nullable(inner) => {
+                quote! { std::option::Option<#inner> }
+            }
+        };
+        tokens.extend(code);
+    }
+}
+
+#[derive(Debug, Default)]
+struct Output {}
+
+#[derive(Debug)]
+struct Scalar<'doc> {
+    name: Ident,
+    description: Option<&'doc String>,
+}
+
+impl<'doc> ToTokens for Scalar<'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Scalar { name, description } = self;
+
+        let attrs = if let Some(description) = description {
+            quote! {
+                #[derive(juniper::GraphQLScalarValue)]
+                #[graphql(
+                    transparent,
+                    description = #description,
+                )]
+            }
+        } else {
+            quote! {
+                #[derive(juniper::GraphQLScalarValue)]
+                #[graphql(transparent)]
+            }
+        };
+
+        let code = quote! {
+            #attrs
+            pub struct #name(pub std::string::String);
+
+            impl #name {
+                pub fn new<S>(s: S) -> Self
+                where
+                    Self: std::convert::From<S>,
+                {
+                    #name::from(s)
+                }
+            }
+
+            impl std::convert::From<std::string::String> for #name {
+                fn from(s: std::string::String) -> #name {
+                    #name(s)
+                }
+            }
+
+            impl std::convert::From<&str> for #name {
+                fn from(s: &str) -> #name {
+                    #name(s.to_string())
+                }
+            }
+
+            impl<'a, 'b> query_trails::FromLookAheadValue<#name>
+                for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+            {
+                fn from(self) -> #name {
+                    let s = query_trails::FromLookAheadValue::<String>::from(self);
+                    #name(s)
+                }
+            }
+        };
+
+        tokens.extend(code);
+    }
+}
+
+#[derive(Debug)]
+struct Object<'doc> {
+    name: Ident,
+    description: Option<&'doc String>,
+    context_type: Rc<syn::Type>,
+    fields: Vec<Field<'doc>>,
+    implements_interfaces: Vec<Ident>,
+}
+
+impl<'doc> ToTokens for Object<'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Object {
+            name,
+            context_type,
+            description,
+            fields,
+            implements_interfaces,
+        } = self;
+
+        let mut graphql_attrs = Vec::new();
+
+        if let Some(description) = description {
+            graphql_attrs.push(quote! { description = #description });
+        }
+
+        graphql_attrs.push(quote! { Context = #context_type });
+
+        if !implements_interfaces.is_empty() {
+            graphql_attrs.push(quote! { impl = #(#implements_interfaces),* });
+        }
+
+        let trait_name = fields_trait_name(name);
+
+        let fields_for_impl = fields
+            .iter()
+            .map(|field| field.to_tokens_for_graphql_object_impl(&trait_name));
+
+        let fields_for_trait = fields.iter().map(|field| field.to_tokens_for_trait());
+
+        let code = quote! {
+            #[juniper::graphql_object( #(#graphql_attrs),* )]
+            #[allow(clippy::unnecessary_lazy_evaluations)]
+            impl #name {
+                #(#fields_for_impl)*
+            }
+
+            #[allow(clippy::unnecessary_lazy_evaluations)]
+            pub trait #trait_name {
+                #(#fields_for_trait)*
+            }
+        };
+
+        tokens.extend(code);
+    }
+}
+
+fn fields_trait_name(name: &Ident) -> Ident {
+    format_ident!("{}Fields", name)
+}
+
+#[derive(Debug)]
+struct Field<'doc> {
+    description: Option<&'doc String>,
+    name: Ident,
+    error_type: Rc<syn::Type>,
+    context_type: Rc<syn::Type>,
+    args: Vec<FieldArg<'doc>>,
+    return_type: Type,
+    directives: FieldDirectives,
+}
+
+impl<'doc> Field<'doc> {
+    fn to_tokens_for_graphql_object_impl<'a>(
+        &'a self,
+        trait_name: &'a Ident,
+    ) -> FieldToTokensGraphqlObject<'a, 'doc> {
+        FieldToTokensGraphqlObject {
+            field: self,
+            trait_name,
+        }
+    }
+
+    fn to_tokens_for_trait<'a>(&'a self) -> FieldToTokensTrait<'a, 'doc> {
+        FieldToTokensTrait { field: self }
+    }
+
+    fn to_tokens_for_interface<'a>(&'a self) -> FieldToTokensInterface<'a, 'doc> {
+        FieldToTokensInterface { field: self }
+    }
+
+    fn to_tokens_for_interface_impl<'a>(
+        &'a self,
+        trait_name: &'a Ident,
+    ) -> FieldToTokensInterfaceImpl<'a, 'doc> {
+        FieldToTokensInterfaceImpl {
+            field: self,
+            trait_name,
+        }
+    }
+
+    fn trait_field_name(&self) -> Ident {
+        format_ident!("field_{}", self.name)
+    }
+
+    fn full_return_type(&self) -> syn::Type {
+        let return_type = &self.return_type;
+        let error_type = &self.error_type;
+
+        let inner_ty = match &self.directives.ownership {
+            Ownership::Owned => {
+                quote! { #return_type }
+            }
+            Ownership::Borrowed => {
+                quote! { &#return_type }
+            }
+            Ownership::AsRef => {
+                // this case is handled in `graphql_type_to_rust_type`
+                quote! { #return_type }
+            }
+        };
+
+        if self.directives.infallible.value {
+            syn::parse2(inner_ty).unwrap()
+        } else {
+            syn::parse2(quote! {
+                std::result::Result<#inner_ty, #error_type>
+            })
+            .unwrap()
+        }
+    }
+
+    fn query_trail_type(&self) -> &Type {
+        self.return_type.innermost_type()
+    }
+
+    fn query_trail_param(&self) -> Option<TokenStream> {
+        match self.return_type.kind() {
+            TypeKind::Type => {
+                let query_trail_type = self.query_trail_type();
+                Some(quote! {
+                    trail: &juniper_from_schema::QueryTrail<'a, #query_trail_type, juniper_from_schema::Walked>,
+                })
+            }
+            TypeKind::Scalar => None,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct FieldToTokensGraphqlObject<'a, 'doc> {
+    field: &'a Field<'doc>,
+    trait_name: &'a Ident,
+}
+
+impl<'a, 'doc> ToTokens for FieldToTokensGraphqlObject<'a, 'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Field {
+            description,
+            name,
+            error_type: _,
+            context_type: _,
+            args,
+            return_type: _,
+            directives,
+        } = self.field;
+
+        let mut graphql_attrs = Vec::new();
+
+        if !args.is_empty() {
+            let parts = args.iter().filter_map(|arg| {
+                let name = &arg.name;
+
+                if let Some(description) = &arg.description {
+                    Some(quote! {
+                        #name(description = #description)
+                    })
+                } else {
+                    None
+                }
+            });
+
+            graphql_attrs.push(quote! { arguments( #(#parts,)* ) });
+        };
+
+        if let Some(Deprecation::Deprecated(reason)) = &directives.deprecated {
+            if let Some(reason) = reason {
+                graphql_attrs.push(quote! { deprecated = #reason });
+            } else {
+                graphql_attrs.push(quote! { deprecated });
+            }
+        }
+
+        if let Some(description) = description {
+            graphql_attrs.push(quote! { description = #description });
+        };
+
+        let trait_name = self.trait_name;
+        let trait_field_name = self.field.trait_field_name();
+        let arg_names = args.iter().map(|arg| &arg.name);
+        let full_return_type = self.field.full_return_type();
+
+        let args_for_signature = args
+            .iter()
+            .map(|arg| arg.to_tokens_for_graphql_object_impl());
+
+        let rebind_args_with_default_values = args.iter().filter_map(|arg| {
+            if let Some(default_value) = &arg.default_value {
+                let name = &arg.name;
+                Some(quote! { let #name = #name.unwrap_or_else(|| #default_value); })
+            } else {
+                None
             }
         });
 
-        // From implementations
-        for variant in &implementors {
-            self.extend(quote! {
-                impl std::convert::From<#variant> for #union_name {
-                    fn from(x: #variant) -> #union_name {
-                        #union_name::#variant(x)
-                    }
+        let query_trail_arg = if self.field.query_trail_param().is_some() {
+            let query_trail_type = self.field.query_trail_type();
+            quote! {
+                &juniper_from_schema::QueryTrail::<
+                    #query_trail_type,
+                    juniper_from_schema::Walked,
+                >::new(&executor.look_ahead()),
+            }
+        } else {
+            quote! {}
+        };
+
+        tokens.extend(quote! {
+            #[graphql(
+                #(#graphql_attrs,)*
+            )]
+            #[allow(clippy::unnecessary_lazy_evaluations)]
+            fn #name(
+                &self,
+                executor: &Executor,
+                #(#args_for_signature,)*
+            ) -> #full_return_type {
+                #(#rebind_args_with_default_values)*
+                <Self as #trait_name>::#trait_field_name(self, executor, #query_trail_arg #(#arg_names,)*)
+            }
+        });
+    }
+}
+
+#[derive(Debug)]
+struct FieldToTokensTrait<'a, 'doc> {
+    field: &'a Field<'doc>,
+}
+
+impl<'a, 'doc> ToTokens for FieldToTokensTrait<'a, 'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Field {
+            description: _,
+            name: _,
+            error_type: _,
+            context_type,
+            args,
+            return_type: _,
+            directives: _,
+        } = self.field;
+
+        let name = self.field.trait_field_name();
+        let full_return_type = self.field.full_return_type();
+
+        let args = args.iter().map(|arg| arg.to_tokens_for_trait());
+
+        let query_trail_param = self.field.query_trail_param();
+
+        tokens.extend(quote! {
+            fn #name<'r, 'a>(
+                &self,
+                executor: &juniper::Executor<'r, 'a, #context_type>,
+                #query_trail_param
+                #(#args,)*
+            ) -> #full_return_type;
+        });
+    }
+}
+
+#[derive(Debug)]
+struct FieldToTokensInterface<'a, 'doc> {
+    field: &'a Field<'doc>,
+}
+
+impl<'a, 'doc> ToTokens for FieldToTokensInterface<'a, 'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Field {
+            description: _,
+            name,
+            error_type: _,
+            context_type,
+            args,
+            return_type: _,
+            directives: _,
+        } = self.field;
+
+        let full_return_type = self.field.full_return_type();
+
+        let args = args.iter().map(|arg| arg.to_tokens_for_interface());
+
+        tokens.extend(quote! {
+            fn #name<'a, 'r>(
+                &self,
+                executor: &juniper::Executor<
+                    'a,
+                    'r,
+                    #context_type,
+                    juniper::DefaultScalarValue,
+                >,
+                #(#args,)*
+            ) -> #full_return_type;
+        })
+    }
+}
+
+#[derive(Debug)]
+struct FieldToTokensInterfaceImpl<'a, 'doc> {
+    field: &'a Field<'doc>,
+    trait_name: &'a Ident,
+}
+
+impl<'a, 'doc> ToTokens for FieldToTokensInterfaceImpl<'a, 'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let FieldToTokensInterfaceImpl {
+            field:
+                Field {
+                    description: _,
+                    name,
+                    error_type: _,
+                    context_type,
+                    args,
+                    return_type: _,
+                    directives: _,
+                },
+            trait_name,
+        } = self;
+
+        // TODO: Remove duplication between this and the object version
+
+        let trait_field_name = self.field.trait_field_name();
+        let arg_names = args.iter().map(|arg| &arg.name);
+        let full_return_type = self.field.full_return_type();
+
+        let args_for_signature = args
+            .iter()
+            .map(|arg| arg.to_tokens_for_graphql_object_impl());
+
+        let rebind_args_with_default_values = args.iter().filter_map(|arg| {
+            if let Some(default_value) = &arg.default_value {
+                let name = &arg.name;
+                Some(quote! { let #name = #name.unwrap_or_else(|| #default_value); })
+            } else {
+                None
+            }
+        });
+
+        let query_trail_arg = if self.field.query_trail_param().is_some() {
+            let query_trail_type = self.field.query_trail_type();
+            quote! {
+                &juniper_from_schema::QueryTrail::<
+                    #query_trail_type,
+                    juniper_from_schema::Walked,
+                >::new(&executor.look_ahead()),
+            }
+        } else {
+            quote! {}
+        };
+
+        let code = quote! {
+            #[allow(clippy::unnecessary_lazy_evaluations)]
+            fn #name<'a, 'r>(
+                &self,
+                executor: &juniper::Executor<
+                    'a,
+                    'r,
+                    #context_type,
+                    juniper::DefaultScalarValue,
+                >,
+                #(#args_for_signature),*
+            ) -> #full_return_type {
+                #(#rebind_args_with_default_values)*
+                <Self as #trait_name>::#trait_field_name(self, executor, #query_trail_arg #(#arg_names,)*)
+            }
+        };
+        tokens.extend(code)
+    }
+}
+
+#[derive(Debug)]
+struct FieldArg<'doc> {
+    name: Ident,
+    description: Option<&'doc String>,
+    ty: Type,
+    default_value: Option<TokenStream>,
+}
+
+impl<'doc> FieldArg<'doc> {
+    fn to_tokens_for_graphql_object_impl<'a>(&'a self) -> FieldArgToTokensGraphqlObject<'a, 'doc> {
+        FieldArgToTokensGraphqlObject(self)
+    }
+
+    fn to_tokens_for_trait<'a>(&'a self) -> FieldArgsToTokensTrait<'a, 'doc> {
+        FieldArgsToTokensTrait(self)
+    }
+
+    fn to_tokens_for_interface<'a>(&'a self) -> FieldArgsToTokensInterface<'a, 'doc> {
+        FieldArgsToTokensInterface(self)
+    }
+}
+
+struct FieldArgToTokensGraphqlObject<'a, 'doc>(&'a FieldArg<'doc>);
+
+impl<'a, 'doc> ToTokens for FieldArgToTokensGraphqlObject<'a, 'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let FieldArg {
+            name,
+            description: _,
+            ty,
+            default_value: _,
+        } = self.0;
+
+        tokens.extend(quote! {
+            #name: #ty
+        });
+    }
+}
+
+struct FieldArgsToTokensTrait<'a, 'doc>(&'a FieldArg<'doc>);
+
+impl<'a, 'doc> ToTokens for FieldArgsToTokensTrait<'a, 'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let FieldArg {
+            name,
+            description: _,
+            ty,
+            default_value,
+        } = self.0;
+
+        let ty = if default_value.is_some() {
+            ty.remove_one_layer_of_nullability()
+        } else {
+            ty
+        };
+
+        tokens.extend(quote! {
+            #name: #ty
+        });
+    }
+}
+
+struct FieldArgsToTokensInterface<'a, 'doc>(&'a FieldArg<'doc>);
+
+impl<'a, 'doc> ToTokens for FieldArgsToTokensInterface<'a, 'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let FieldArg {
+            name,
+            description: _,
+            ty,
+            default_value: _,
+        } = self.0;
+
+        tokens.extend(quote! {
+            #name: #ty
+        });
+    }
+}
+
+#[derive(Debug)]
+struct Interface<'doc> {
+    description: Option<&'doc String>,
+    name: Ident,
+    trait_name: Ident,
+    fields: Vec<Field<'doc>>,
+    implementors: Vec<Ident>,
+    context_type: Rc<syn::Type>,
+}
+
+impl<'doc> ToTokens for Interface<'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Interface {
+            description,
+            name,
+            trait_name: interface_trait_name,
+            implementors,
+            context_type,
+            fields,
+        } = self;
+
+        let mut graphql_attrs = Vec::new();
+        graphql_attrs.push(quote! { for = [ #(#implementors),* ] });
+        graphql_attrs.push(quote! { Context = #context_type });
+        graphql_attrs.push(quote! { Scalar = juniper::DefaultScalarValue });
+        graphql_attrs.push(quote! { enum = #name });
+
+        if let Some(description) = description {
+            graphql_attrs.push(quote! { description=#description });
+        }
+
+        let fields_for_impl = fields.iter().map(|field| field.to_tokens_for_interface());
+
+        tokens.extend(quote! {
+            #[juniper::graphql_interface(
+                #(#graphql_attrs),*
+            )]
+            pub trait #interface_trait_name {
+                #(#fields_for_impl)*
+            }
+        });
+
+        for implementor in implementors {
+            let trait_name = fields_trait_name(implementor);
+
+            let fields_for_impl = fields
+                .iter()
+                .map(|field| field.to_tokens_for_interface_impl(&trait_name));
+
+            tokens.extend(quote! {
+                #[allow(clippy::unnecessary_lazy_evaluations)]
+                impl #interface_trait_name for #implementor {
+                    #(#fields_for_impl)*
                 }
             })
         }
+    }
+}
 
-        // Resolvers
-        let instance_resolvers = implementors.iter().map(|name| {
+#[derive(Debug)]
+struct Union<'doc> {
+    name: Ident,
+    variants: Vec<UnionVariant>,
+    description: Option<&'doc String>,
+}
+
+impl<'doc> ToTokens for Union<'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Union {
+            name,
+            variants,
+            description,
+        } = self;
+
+        let graphql_attr = description
+            .map(|description| {
+                quote! {
+                    #[graphql(
+                        description=#description,
+                        Context = Context,
+                        Scalar = juniper::DefaultScalarValue,
+                    )]
+                }
+            })
+            .unwrap_or_else(|| {
+                quote! {
+                        #[graphql(
+                            Context = Context,
+                            Scalar = juniper::DefaultScalarValue,
+                        )]
+                }
+            });
+
+        let from_impls = variants.iter().map(|variant| {
+            let inner_ty = &variant.type_inside;
+            let rust_variant = &variant.rust_name;
             quote! {
-                &#name => match *self { #union_name::#name(ref h) => Some(h), _ => None }
+                impl std::convert::From<#inner_ty> for #name {
+                    fn from(inner: #inner_ty) -> #name {
+                        #name::#rust_variant(inner)
+                    }
+                }
             }
         });
 
-        let description = union
-            .description
-            .as_ref()
-            .map(ToString::to_string)
-            .unwrap_or_else(String::new);
+        tokens.extend(quote! {
+            #[derive(juniper::GraphQLUnion)]
+            #graphql_attr
+            pub enum #name {
+                #(#variants,)*
+            }
 
-        let context_type = &self.context_type;
-
-        let code = quote! {
-            juniper::graphql_union!(#union_name: #context_type |&self| {
-                description: #description
-
-                instance_resolvers: |_| {
-                    #(#instance_resolvers),*
-                }
-            });
-        };
-        self.extend(code);
+            #(#from_impls)*
+        });
     }
+}
 
-    fn visit_enum_type(&mut self, enum_type: &'doc EnumType) {
-        self.parse_directives(enum_type);
+#[derive(Debug)]
+struct UnionVariant {
+    graphql_name: Ident,
+    rust_name: Ident,
+    type_inside: Box<Type>,
+}
 
-        let name = to_enum_name(&enum_type.name);
+impl ToTokens for UnionVariant {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let UnionVariant {
+            graphql_name: _,
+            rust_name,
+            type_inside,
+        } = self;
 
-        let values = enum_type
-            .values
-            .iter()
-            .map(|enum_value| self.gen_enum_value(enum_value));
+        tokens.extend(quote! {
+            #rust_name(#type_inside)
+        });
+    }
+}
 
-        let description = doc_tokens(&enum_type.description);
+#[derive(Debug)]
+struct Enum<'doc> {
+    name: Ident,
+    variants: Vec<Variant<'doc>>,
+    description: Option<&'doc String>,
+}
 
-        let string_to_enum_value_mappings = enum_type.values.iter().map(|enum_value| {
-            let graphql_name = &enum_value.name;
-            let variant = to_enum_name(&graphql_name);
-            quote! { &#graphql_name => #name::#variant, }
+impl<'doc> ToTokens for Enum<'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Enum {
+            name,
+            variants,
+            description,
+        } = self;
+
+        let graphql_attr = description.map(|description| {
+            quote! {
+                #[graphql(description=#description)]
+            }
         });
 
-        let code = quote! {
-            #description
-            #[derive(juniper::GraphQLEnum, Debug, Eq, PartialEq, Copy, Clone, Hash)]
+        let string_to_enum_value_mappings = variants.iter().map(|variant| {
+            let graphql_name = variant.graphql_name;
+            let variant_name = &variant.name;
+            quote! { &#graphql_name => #name::#variant_name }
+        });
+
+        tokens.extend(quote! {
+            #[derive(
+                juniper::GraphQLEnum,
+                Debug,
+                Eq,
+                PartialEq,
+                Ord,
+                PartialOrd,
+                Copy,
+                Clone,
+                Hash,
+            )]
+            #graphql_attr
             pub enum #name {
-                #(#values)*
+                #(#variants),*
             }
 
             impl<'a, 'b> query_trails::FromLookAheadValue<#name>
@@ -396,7 +1756,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                     match self {
                         juniper::LookAheadValue::Enum(name) => {
                             match name {
-                                #(#string_to_enum_value_mappings)*
+                                #(#string_to_enum_value_mappings,)*
                                 other => panic!("Invalid enum name: {}", other),
                             }
                         },
@@ -415,72 +1775,80 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                     }
                 }
             }
-        };
-        self.extend(code);
+        });
     }
+}
 
-    fn visit_input_object_type(&mut self, input_object: &'doc InputObjectType) {
-        self.parse_directives(input_object);
+#[derive(Debug)]
+struct Variant<'doc> {
+    name: Ident,
+    deprecation: Deprecation,
+    description: Option<&'doc String>,
+    graphql_name: &'doc str,
+}
 
-        let name = ident(&input_object.name);
+impl<'doc> ToTokens for Variant<'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Variant {
+            name,
+            description,
+            deprecation,
+            graphql_name,
+        } = self;
 
-        let fields = input_object
-            .fields
+        let mut graphql_attrs = Vec::new();
+        graphql_attrs.push(quote! { name=#graphql_name });
+
+        match deprecation {
+            Deprecation::NoDeprecation => graphql_attrs.push(quote! {}),
+            Deprecation::Deprecated(None) => graphql_attrs.push(quote! { deprecated }),
+            Deprecation::Deprecated(Some(reason)) => {
+                graphql_attrs.push(quote! { deprecated=#reason })
+            }
+        };
+
+        if let Some(description) = description {
+            graphql_attrs.push(quote! { description=#description });
+        }
+
+        tokens.extend(quote! {
+            #[allow(missing_docs)]
+            #[graphql( #(#graphql_attrs),* )]
+            #name
+        })
+    }
+}
+
+#[derive(Debug)]
+struct InputObject<'doc> {
+    name: Ident,
+    description: Option<&'doc String>,
+    fields: Vec<InputObjectField<'doc>>,
+}
+
+impl<'doc> ToTokens for InputObject<'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let InputObject {
+            name,
+            description,
+            fields,
+        } = self;
+
+        let graphql_attr = description.map(|description| {
+            quote! { #[graphql(description=#description)] }
+        });
+
+        let field_names = fields
             .iter()
-            .map(|field| {
-                if field.default_value.is_some() {
-                    self.emit_non_fatal_error(
-                        field.position,
-                        ErrorKind::InputTypeFieldWithDefaultValue,
-                    );
-                }
-
-                let arg = self.argument_to_name_and_rust_type(&field);
-                let name = ident(arg.name);
-                let rust_type = arg.macro_type;
-
-                let description = doc_tokens(&field.description);
-
-                quote! {
-                    #[allow(missing_docs)]
-                    #description
-                    pub #name: #rust_type
-                }
-            })
+            .map(|field| format_ident!("{}_temp", field.name))
             .collect::<Vec<_>>();
 
-        let description = doc_tokens(&input_object.description);
-
-        let field_names = input_object
-            .fields
+        let temp_field_setters = fields
             .iter()
             .map(|field| {
-                let arg = self.argument_to_name_and_rust_type(&field);
-                ident(&format!("{}_temp", arg.name))
-            })
-            .collect::<Vec<_>>();
-
-        let field_setters = input_object
-            .fields
-            .iter()
-            .map(|field| {
-                let arg = self.argument_to_name_and_rust_type(&field);
-                let name = ident(&arg.name);
-                let temp_name = ident(&format!("{}_temp", arg.name));
-                quote! {
-                    #name: #temp_name.unwrap_or_else(|| panic!("Field `{}` was not set", stringify!(#name))),
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let temp_field_setters = input_object
-            .fields
-            .iter()
-            .map(|field| {
-                let arg = self.argument_to_name_and_rust_type(&field);
-                let name = &arg.name;
-                let temp_name = ident(&format!("{}_temp", arg.name));
-                let rust_type = arg.macro_type;
+                let name = &field.name;
+                let temp_name = format_ident!("{}_temp", field.name);
+                let rust_type = &field.ty;
                 quote! {
                     #name => {
                         #temp_name = Some(
@@ -493,9 +1861,20 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
             })
             .collect::<Vec<_>>();
 
-        let code = quote! {
-            #[derive(juniper::GraphQLInputObject, Debug, Clone)]
-            #description
+        let field_setters = fields
+            .iter()
+            .map(|field| {
+                let name = &field.name;
+                let temp_name = format_ident!("{}_temp", &field.name);
+                quote! {
+                    #name: #temp_name.unwrap_or_else(|| panic!("Field `{}` was not set", stringify!(#name))),
+                }
+            })
+            .collect::<Vec<_>>();
+
+        tokens.extend(quote! {
+            #[derive(juniper::GraphQLInputObject, Clone, Debug)]
+            #graphql_attr
             pub struct #name {
                 #(#fields),*
             }
@@ -534,845 +1913,59 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                     }
                 }
             }
-        };
-        self.extend(code)
-    }
-
-    fn visit_directive_definition(&mut self, directive: &'doc schema::DirectiveDefinition) {
-        if &directive.name == "juniper" {
-            self.validate_juniper_directive_definition(directive)
-        }
-    }
-
-    fn visit_scalar_type_extension(&mut self, inner: &'doc schema::ScalarTypeExtension) {
-        self.emit_non_fatal_error(inner.position, ErrorKind::TypeExtensionNotSupported)
-    }
-
-    fn visit_object_type_extension(&mut self, inner: &'doc schema::ObjectTypeExtension) {
-        self.emit_non_fatal_error(inner.position, ErrorKind::TypeExtensionNotSupported)
-    }
-
-    fn visit_interface_type_extension(&mut self, inner: &'doc schema::InterfaceTypeExtension) {
-        self.emit_non_fatal_error(inner.position, ErrorKind::TypeExtensionNotSupported)
-    }
-
-    fn visit_union_type_extension(&mut self, inner: &'doc schema::UnionTypeExtension) {
-        self.emit_non_fatal_error(inner.position, ErrorKind::TypeExtensionNotSupported)
-    }
-
-    fn visit_enum_type_extension(&mut self, inner: &'doc schema::EnumTypeExtension) {
-        self.emit_non_fatal_error(inner.position, ErrorKind::TypeExtensionNotSupported)
-    }
-
-    fn visit_input_object_type_extension(&mut self, inner: &'doc schema::InputObjectTypeExtension) {
-        self.emit_non_fatal_error(inner.position, ErrorKind::TypeExtensionNotSupported)
+        });
     }
 }
 
-impl<'doc> CodeGenPass<'doc> {
-    pub fn new(
-        raw_schema: &'doc str,
-        error_type: syn::Type,
-        context_type: syn::Type,
-        ast_data: AstData<'doc>,
-    ) -> Self {
-        CodeGenPass {
-            tokens: quote! {},
-            error_type,
-            context_type,
-            ast_data,
-            errors: BTreeSet::new(),
-            raw_schema,
-        }
-    }
+#[derive(Debug)]
+struct InputObjectField<'doc> {
+    name: Ident,
+    ty: Type,
+    description: Option<&'doc String>,
+}
 
-    pub fn gen_juniper_code(
-        mut self,
-        doc: &'doc Document,
-    ) -> Result<TokenStream, BTreeSet<Error<'doc>>> {
-        self.validate_doc(doc);
-        self.check_for_errors()?;
+impl<'doc> ToTokens for InputObjectField<'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let InputObjectField {
+            name,
+            ty,
+            description,
+        } = self;
 
-        self.gen_query_trails(doc);
-        visit_document(&mut self, doc);
+        let graphql_attr = description.map(|description| {
+            quote! { #[graphql(description=#description)] }
+        });
 
-        self.check_for_errors()?;
-        Ok(self.tokens)
-    }
-
-    fn validate_doc(&mut self, doc: &'doc Document) {
-        visit_document(&mut FieldNameCaseValidator::new(self), doc);
-        visit_document(&mut UuidNameCaseValidator::new(self), doc);
-    }
-
-    fn check_for_errors(&self) -> Result<(), BTreeSet<Error<'doc>>> {
-        if self.errors.is_empty() {
-            Ok(())
-        } else {
-            Err(self.errors.clone())
-        }
-    }
-
-    pub fn emit_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) -> Result<(), ()> {
-        self.emit_non_fatal_error(pos, kind);
-        Err(())
-    }
-
-    fn gen_scalar_type_with_data(&mut self, name: &Ident, description: &TokenStream) {
-        // We explicity don't implement `From<T> where T: Into<String>` because then users wouldn't
-        // be able to add their own `From` implementations, since `From<T>` overlaps with other
-        // implementations.
-        self.extend(quote! {
-            /// Custom scalar type generated by `juniper-from-schema`.
-            #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Hash)]
-            pub struct #name(pub String);
-
-            juniper::graphql_scalar!(#name {
-                #description
-
-                resolve(&self) -> juniper::Value {
-                    juniper::Value::scalar(juniper::DefaultScalarValue::from(self.0.as_ref()))
-                }
-
-                from_input_value(v: &InputValue) -> Option<#name> {
-                    let scalar = v.as_scalar_value();
-                    match scalar {
-                        Some(juniper::DefaultScalarValue::String(s)) => {
-                            Some(#name::new(s.to_owned()))
-                        }
-                        Some(_) => None,
-                        None => None,
-                    }
-                }
-
-                from_str<'a>(value: ScalarToken<'a>) -> juniper::ParseScalarResult<'a> {
-                    <String as juniper::ParseScalarValue>::from_str(value)
-                }
-            });
-
-            impl #name {
-                fn new<T: Into<String>>(t: T) -> Self {
-                    #name(t.into())
-                }
-            }
-
-            impl std::ops::Deref for #name {
-                type Target = str;
-
-                fn deref(&self) -> &Self::Target {
-                    &self.0
-                }
-            }
-
-            impl std::ops::DerefMut for #name {
-                fn deref_mut(&mut self) -> &mut Self::Target {
-                    &mut self.0
-                }
-            }
-
-            impl<'a, 'b> query_trails::FromLookAheadValue<#name>
-                for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
-            {
-                fn from(self) -> #name {
-                    let s = query_trails::FromLookAheadValue::<String>::from(self);
-                    #name(s)
-                }
-            }
+        tokens.extend(quote! {
+            #graphql_attr
+            pub #name: #ty
         })
     }
-
-    fn argument_to_name_and_rust_type(&mut self, arg: &'doc InputValue) -> FieldArgument<'doc> {
-        self.parse_directives(arg);
-
-        let default_value_tokens = arg
-            .default_value
-            .as_ref()
-            .map(|value| self.quote_value(&value, type_name(&arg.value_type), arg.position));
-
-        let arg_name = arg.name.to_snake_case();
-
-        let (macro_type, _) = self.gen_field_type(
-            &arg.value_type,
-            &FieldTypeDestination::Argument,
-            false,
-            arg.position,
-        );
-
-        let (trait_type, _) = self.gen_field_type(
-            &arg.value_type,
-            &FieldTypeDestination::Argument,
-            default_value_tokens.is_some(),
-            arg.position,
-        );
-
-        FieldArgument {
-            name: arg_name,
-            macro_type,
-            trait_type,
-            default_value: default_value_tokens,
-            description: &arg.description,
-        }
-    }
-
-    fn gen_field_type(
-        &mut self,
-        field_type: &Type,
-        destination: &FieldTypeDestination,
-        has_default_value: bool,
-        pos: Pos,
-    ) -> (TokenStream, TypeKind) {
-        let field_type = NullableType::from_schema_type(field_type);
-
-        if has_default_value && !field_type.is_nullable() {
-            self.emit_non_fatal_error(pos, ErrorKind::NonnullableFieldWithDefaultValue);
-        }
-
-        let field_type = if has_default_value {
-            field_type.remove_one_layer_of_nullability()
-        } else {
-            field_type
-        };
-
-        let as_ref = match destination {
-            FieldTypeDestination::Return(attrs) => match attrs.ownership {
-                Ownership::AsRef => true,
-                Ownership::Borrowed => false,
-                Ownership::Owned => false,
-            },
-            FieldTypeDestination::Argument => false,
-        };
-
-        let (tokens, ty) = self.gen_nullable_field_type(field_type, as_ref, pos);
-
-        match (destination, ty) {
-            (FieldTypeDestination::Return(attrs), ref ty) => match attrs.ownership {
-                Ownership::Owned | Ownership::AsRef => (tokens, *ty),
-                Ownership::Borrowed => (quote! { &#tokens }, *ty),
-            },
-
-            (FieldTypeDestination::Argument, ty @ TypeKind::Scalar) => (tokens, ty),
-            (FieldTypeDestination::Argument, ty @ TypeKind::Type) => (tokens, ty),
-        }
-    }
-
-    fn gen_nullable_field_type(
-        &mut self,
-        field_type: NullableType,
-        as_ref: bool,
-        pos: Pos,
-    ) -> (TokenStream, TypeKind) {
-        use crate::nullable_type::NullableType::*;
-
-        match field_type {
-            NamedType(name) => {
-                if as_ref {
-                    self.emit_non_fatal_error(pos, ErrorKind::AsRefOwnershipForNamedType);
-                }
-
-                self.graphql_scalar_type_to_rust_type(&name, pos)
-            }
-            ListType(item_type) => {
-                let (item_type, ty) = self.gen_nullable_field_type(*item_type, false, pos);
-                let tokens = if as_ref {
-                    quote! { Vec<&#item_type> }
-                } else {
-                    quote! { Vec<#item_type> }
-                };
-                (tokens, ty)
-            }
-            NullableType(item_type) => {
-                let (item_type, ty) = self.gen_nullable_field_type(*item_type, false, pos);
-                let tokens = if as_ref {
-                    quote! { Option<&#item_type> }
-                } else {
-                    quote! { Option<#item_type> }
-                };
-                (tokens, ty)
-            }
-        }
-    }
-
-    fn collect_data_for_field_gen(&mut self, field: &'doc Field) -> FieldTokens<'doc> {
-        let name = ident(&field.name);
-
-        let inner_type = type_name(&field.field_type).to_camel_case();
-
-        let attributes = self.parse_directives(field);
-        let deprecation = attributes
-            .deprecated
-            .as_ref()
-            .map(quote_deprecation)
-            .unwrap_or_else(empty_token_stream);
-
-        let (field_type, type_kind) = self.gen_field_type(
-            &field.field_type,
-            &FieldTypeDestination::Return(&attributes),
-            false,
-            field.position,
-        );
-
-        let field_method = ident(format!("field_{}", name.to_string().to_snake_case()));
-
-        let args_data = field
-            .arguments
-            .iter()
-            .map(|input_value| self.argument_to_name_and_rust_type(&input_value))
-            .collect::<Vec<_>>();
-
-        let macro_args = args_data
-            .iter()
-            .map(|arg| {
-                let name = ident(&arg.name);
-                let arg_type = &arg.macro_type;
-                let description = doc_tokens(&arg.description);
-                quote! {
-                    #description
-                    #name: #arg_type
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let trait_args = args_data
-            .iter()
-            .map(|arg| {
-                let name = ident(&arg.name);
-                let arg_type = &arg.trait_type;
-                quote! { #name: #arg_type }
-            })
-            .collect::<Vec<_>>();
-
-        let params = args_data
-            .iter()
-            .map(|arg| {
-                let name = ident(&arg.name);
-                if let Some(default_value) = &arg.default_value {
-                    quote! {
-                        #name.unwrap_or_else(|| #default_value)
-                    }
-                } else {
-                    quote! { #name }
-                }
-            })
-            .collect::<Vec<_>>();
-
-        FieldTokens {
-            name,
-            macro_args,
-            trait_args,
-            field_type,
-            field_method,
-            params,
-            description: &field.description,
-            type_kind,
-            inner_type,
-            deprecation,
-            infallible: attributes.infallible.value,
-        }
-    }
-
-    fn gen_enum_value(&mut self, enum_value: &'doc EnumValue) -> TokenStream {
-        let graphql_name = &enum_value.name;
-        let name = to_enum_name(&graphql_name);
-        let description = doc_tokens(&enum_value.description);
-
-        let graphql_attr = match self.parse_directives(enum_value) {
-            Deprecation::NoDeprecation => {
-                quote! { #[graphql(name=#graphql_name)] }
-            }
-            Deprecation::Deprecated(None) => {
-                quote! { #[graphql(name=#graphql_name, deprecated="")] }
-            }
-            Deprecation::Deprecated(Some(reason)) => {
-                quote! { #[graphql(name=#graphql_name, deprecated=#reason)] }
-            }
-        };
-
-        quote! {
-            #[allow(missing_docs)]
-            #graphql_attr
-            #description
-            #name,
-        }
-    }
-
-    fn quote_value(&mut self, value: &Value, type_name: &str, pos: Pos) -> TokenStream {
-        match value {
-            Value::Float(inner) => quote! { #inner },
-            Value::Int(inner) => {
-                let number = inner
-                    .as_i64()
-                    .expect("failed to convert default number argument to i64");
-                let number =
-                    i32_from_i64(number).expect("failed to convert default number argument to i64");
-                quote! { #number }
-            }
-            Value::String(inner) => quote! { #inner.to_string() },
-            Value::Boolean(inner) => quote! { #inner },
-
-            Value::Enum(variant_name) => {
-                let type_name = to_enum_name(type_name);
-                let variant_name = to_enum_name(variant_name);
-                quote! { #type_name::#variant_name }
-            }
-
-            Value::List(list) => {
-                let mut acc = quote! { let mut vec = Vec::new(); };
-                for value in list {
-                    let value_quoted = self.quote_value(value, type_name, pos);
-                    acc.extend(quote! { vec.push(#value_quoted); });
-                }
-                acc.extend(quote! { vec });
-                quote! { { #acc } }
-            }
-
-            Value::Object(map) => self.quote_object_value(map, type_name, pos),
-
-            Value::Variable(_) => {
-                self.emit_non_fatal_error(pos, ErrorKind::VariableDefaultValue);
-                quote! {}
-            }
-
-            Value::Null => quote! { None },
-        }
-    }
-
-    fn quote_object_value(
-        &mut self,
-        map: &BTreeMap<Name, Value>,
-        type_name: &str,
-        pos: Pos,
-    ) -> TokenStream {
-        let name = ident(&type_name);
-
-        let mut fields_seen = HashSet::new();
-
-        // Set fields given in `map`
-        let mut field_assigments = map
-            .iter()
-            .map(|(key, value)| {
-                fields_seen.insert(key);
-                let field_name = ident(key.to_snake_case());
-
-                let field_type_name = self
-                    .ast_data
-                    .input_object_field_type_name(&type_name, &key)
-                    .unwrap_or_else(|| {
-                        panic!("input_object_field_type_name {} {}", type_name, key)
-                    });
-
-                let value_quote = self.quote_value(value, field_type_name, pos);
-                match self
-                    .ast_data
-                    .input_object_field_is_nullable(&type_name, &key)
-                {
-                    Some(true) | None => {
-                        if value == &Value::Null {
-                            quote! { #field_name: #value_quote }
-                        } else {
-                            quote! { #field_name: Some(#value_quote) }
-                        }
-                    }
-                    Some(false) => quote! { #field_name: #value_quote },
-                }
-            })
-            .collect::<Vec<_>>();
-
-        // Set fields not given in map to `None`
-        if let Some(fields) = self.ast_data.input_object_field_names(&type_name) {
-            for field_name in fields {
-                if !fields_seen.contains(field_name) {
-                    let field_name = ident(field_name.to_snake_case());
-                    field_assigments.push(quote! {
-                        #field_name: None
-                    });
-                }
-            }
-        }
-
-        let tokens = quote! {
-            #name {
-                #(#field_assigments),*,
-            }
-        };
-
-        quote! { { #tokens } }
-    }
-
-    // Type according to https://graphql.org/learn/schema/#scalar-types
-    pub fn graphql_scalar_type_to_rust_type(
-        &mut self,
-        name: &str,
-        pos: Pos,
-    ) -> (TokenStream, TypeKind) {
-        match name {
-            "Int" => (quote! { i32 }, TypeKind::Scalar),
-            "Float" => (quote! { f64 }, TypeKind::Scalar),
-            "String" => (quote! { String }, TypeKind::Scalar),
-            "Boolean" => (quote! { bool }, TypeKind::Scalar),
-            "ID" => (quote! { juniper::ID }, TypeKind::Scalar),
-            name if name == crate::DATE_SCALAR_NAME => {
-                if !self.ast_data.date_scalar_defined() {
-                    self.emit_fatal_error(pos, ErrorKind::DateScalarNotDefined)
-                        .ok();
-                }
-                (quote! { chrono::naive::NaiveDate }, TypeKind::Scalar)
-            }
-            name if name == crate::DATE_TIME_SCALAR_NAME => {
-                let tokens = match self.ast_data.date_time_scalar_definition() {
-                    Some(DateTimeScalarDefinition::WithTimeZone) => {
-                        quote! { chrono::DateTime<chrono::offset::Utc> }
-                    }
-                    Some(DateTimeScalarDefinition::WithoutTimeZone) => {
-                        quote! { chrono::naive::NaiveDateTime }
-                    }
-                    None => {
-                        self.emit_fatal_error(pos, ErrorKind::DateTimeScalarNotDefined)
-                            .ok();
-                        quote! { chrono::DateTime<chrono::offset::Utc> }
-                    }
-                };
-
-                (tokens, TypeKind::Scalar)
-            }
-            name if name == crate::UUID_SCALAR_NAME => {
-                if !self.ast_data.uuid_scalar_defined() {
-                    self.emit_fatal_error(pos, ErrorKind::UuidScalarNotDefined)
-                        .ok();
-                }
-                (quote! { uuid::Uuid }, TypeKind::Scalar)
-            }
-            name if name == crate::URL_SCALAR_NAME => {
-                if !self.ast_data.url_scalar_defined() {
-                    self.emit_fatal_error(pos, ErrorKind::UrlScalarNotDefined)
-                        .ok();
-                }
-                (quote! { url::Url }, TypeKind::Scalar)
-            }
-            name => {
-                if self.ast_data.is_scalar(name) || self.ast_data.is_enum_variant(name) {
-                    (quote_ident(name.to_camel_case()), TypeKind::Scalar)
-                } else {
-                    (quote_ident(name.to_camel_case()), TypeKind::Type)
-                }
-            }
-        }
-    }
-
-    fn field_return_type_tokens(&self, field: &FieldTokens) -> TokenStream {
-        let field_type = &field.field_type;
-
-        if field.infallible {
-            quote! { #field_type }
-        } else {
-            let error_type = &self.error_type;
-            quote! { std::result::Result<#field_type, #error_type> }
-        }
-    }
-
-    fn gen_field(
-        &self,
-        field: &FieldTokens,
-        struct_name: &Ident,
-        trait_name: &Ident,
-    ) -> TokenStream {
-        let field_name = &field.name;
-        let args = &field.macro_args;
-
-        let body = gen_field_body(&field, &quote! { &self }, struct_name, trait_name);
-
-        let description = field
-            .description
-            .as_ref()
-            .map(ToString::to_string)
-            .unwrap_or_else(String::new);
-
-        let all_args = to_field_args_list(args);
-        let deprecation = &field.deprecation;
-        let return_type = self.field_return_type_tokens(&field);
-
-        quote! {
-            #[doc = #description]
-            #deprecation
-            field #field_name(#all_args) -> #return_type {
-                #body
-            }
-        }
-    }
-
-    fn validate_juniper_directive_definition(
-        &mut self,
-        directive: &'doc schema::DirectiveDefinition,
-    ) {
-        assert_eq!(directive.name, "juniper");
-
-        for location in directive.locations.iter() {
-            match location {
-                DirectiveLocation::FieldDefinition => {
-                    // valid
-                }
-                other => self.emit_non_fatal_error(
-                    directive.position,
-                    ErrorKind::InvalidJuniperDirective(
-                        format!(
-                            "Invalid location for @juniper directive: `{}`",
-                            other.as_str()
-                        ),
-                        Some("Location must be `FIELD_DEFINITION`".to_string()),
-                    ),
-                ),
-            }
-        }
-
-        let no_directives = |this: &mut Self, arg: &InputValue, name: &str| {
-            for dir in arg.directives.iter() {
-                this.emit_non_fatal_error(
-                    dir.position,
-                    ErrorKind::InvalidJuniperDirective(
-                        format!("`{}` argument doesn't support directives", name),
-                        None,
-                    ),
-                )
-            }
-        };
-
-        let of_type = |this: &mut Self, arg: &InputValue, ty: Type, name: &str| {
-            if arg.value_type != ty {
-                this.emit_non_fatal_error(
-                    arg.position,
-                    ErrorKind::InvalidJuniperDirective(
-                        format!("`{}` argument must have type `{}`", name, ty),
-                        Some(format!("Got `{}`", arg.value_type)),
-                    ),
-                )
-            }
-        };
-
-        let default_value = |this: &mut Self, arg: &InputValue, value: Value, name: &str| {
-            if let Some(default) = &arg.default_value {
-                if default == &value {
-                    // ok
-                } else {
-                    this.emit_non_fatal_error(
-                        arg.position,
-                        ErrorKind::InvalidJuniperDirective(
-                            format!(
-                                "Invalid default value for `{}` argument. Must be `{}`",
-                                name, value
-                            ),
-                            Some(format!("Got `{}`", default)),
-                        ),
-                    )
-                }
-            } else {
-                this.emit_non_fatal_error(
-                    arg.position,
-                    ErrorKind::InvalidJuniperDirective(
-                        format!(
-                            "Missing default value for `{}` argument. Must be `{}`",
-                            name, value
-                        ),
-                        None,
-                    ),
-                )
-            }
-        };
-
-        let mut ownership_present = false;
-        let mut infallible_present = false;
-        let mut with_time_zone_present = false;
-
-        for arg in directive.arguments.iter() {
-            match arg.name.as_str() {
-                name @ "ownership" => {
-                    ownership_present = true;
-                    of_type(self, arg, Type::NamedType("String".to_string()), name);
-                    no_directives(self, arg, name);
-                    default_value(self, arg, Value::String("borrowed".to_string()), name);
-                }
-                name @ "infallible" => {
-                    infallible_present = true;
-                    of_type(self, arg, Type::NamedType("Boolean".to_string()), name);
-                    no_directives(self, arg, name);
-                    default_value(self, arg, Value::Boolean(false), name);
-                }
-                name @ "with_time_zone" => {
-                    with_time_zone_present = true;
-                    of_type(self, arg, Type::NamedType("Boolean".to_string()), name);
-                    no_directives(self, arg, name);
-                    default_value(self, arg, Value::Boolean(true), name);
-                }
-                name => {
-                    self.emit_non_fatal_error(
-                        arg.position,
-                        ErrorKind::InvalidJuniperDirective(
-                            format!("Invalid argument for @juniper directive: `{}`", name),
-                            Some("Supported arguments are `ownership`, `infallible`, and `with_time_zone`".to_string()),
-                        ),
-                    )
-                }
-            }
-        }
-
-        if !ownership_present {
-            self.emit_non_fatal_error(
-                directive.position,
-                ErrorKind::InvalidJuniperDirective(
-                    "Missing argument `ownership`".to_string(),
-                    None,
-                ),
-            )
-        }
-
-        if !infallible_present {
-            self.emit_non_fatal_error(
-                directive.position,
-                ErrorKind::InvalidJuniperDirective(
-                    "Missing argument `infallible`".to_string(),
-                    None,
-                ),
-            )
-        }
-
-        if !with_time_zone_present {
-            self.emit_non_fatal_error(
-                directive.position,
-                ErrorKind::InvalidJuniperDirective(
-                    "Missing argument `with_time_zone`".to_string(),
-                    None,
-                ),
-            )
-        }
-    }
 }
 
-fn quote_deprecation(deprecated: &Deprecation) -> TokenStream {
-    match deprecated {
-        Deprecation::NoDeprecation => empty_token_stream(),
-        Deprecation::Deprecated(Some(reason)) => {
-            quote! { #[deprecated(note = #reason)] }
-        }
-        Deprecation::Deprecated(None) => {
-            quote! { #[deprecated] }
-        }
-    }
+#[derive(Debug)]
+struct SchemaType {
+    query_type: syn::Type,
+    mutation_type: syn::Type,
+    subscription_type: syn::Type,
 }
 
-impl Extend<TokenTree> for CodeGenPass<'_> {
-    fn extend<T: IntoIterator<Item = TokenTree>>(&mut self, iter: T) {
-        self.tokens.extend(iter);
-    }
-}
+impl ToTokens for SchemaType {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let SchemaType {
+            query_type,
+            mutation_type,
+            subscription_type,
+        } = self;
 
-impl Extend<TokenStream> for CodeGenPass<'_> {
-    fn extend<T: IntoIterator<Item = TokenStream>>(&mut self, iter: T) {
-        self.tokens.extend(iter);
-    }
-}
-
-fn to_enum_name(name: &str) -> Ident {
-    ident(name.to_camel_case())
-}
-
-fn trait_map_for_struct_name(struct_name: &Ident) -> Ident {
-    ident(format!("{}Fields", struct_name))
-}
-
-fn gen_field_body(
-    field: &FieldTokens,
-    self_tokens: &TokenStream,
-    struct_name: &Ident,
-    trait_name: &Ident,
-) -> TokenStream {
-    let field_method = &field.field_method;
-    let params = &field.params;
-
-    match field.type_kind {
-        TypeKind::Scalar => {
-            quote! {
-                <#struct_name as self::#trait_name>::#field_method(#self_tokens, &executor, #(#params),*)
-            }
-        }
-        TypeKind::Type => {
-            let query_trail_type = ident(&field.inner_type);
-            quote! {
-                let look_ahead = executor.look_ahead();
-                let trail = juniper_from_schema::QueryTrail::<
-                    #query_trail_type,
-                    juniper_from_schema::Walked,
-                >::new(&look_ahead);
-                <#struct_name as self::#trait_name>::#field_method(#self_tokens, &executor, &trail, #(#params),*)
-            }
-        }
-    }
-}
-
-fn to_field_args_list(args: &[TokenStream]) -> TokenStream {
-    if args.is_empty() {
-        quote! { &executor }
-    } else {
-        quote! { &executor, #(#args),* }
-    }
-}
-
-fn empty_token_stream() -> TokenStream {
-    quote! {}
-}
-
-#[derive(Debug, Clone)]
-struct FieldTokens<'a> {
-    name: Ident,
-    macro_args: Vec<TokenStream>,
-    trait_args: Vec<TokenStream>,
-    field_type: TokenStream,
-    field_method: Ident,
-    params: Vec<TokenStream>,
-    description: &'a Option<String>,
-    type_kind: TypeKind,
-    inner_type: Name,
-    deprecation: TokenStream,
-    infallible: bool,
-}
-
-struct FieldArgument<'a> {
-    name: Name,
-    macro_type: TokenStream,
-    trait_type: TokenStream,
-    default_value: Option<TokenStream>,
-    description: &'a Option<String>,
-}
-
-// This can also be with TryInto, but that requires 1.34
-#[allow(clippy::cast_lossless)]
-fn i32_from_i64(i: i64) -> Option<i32> {
-    if i > std::i32::MAX as i64 {
-        None
-    } else {
-        Some(i as i32)
-    }
-}
-
-enum FieldTypeDestination<'a> {
-    Argument,
-    Return(&'a FieldArguments),
-}
-
-fn doc_tokens(doc: &Option<String>) -> TokenStream {
-    if let Some(doc) = doc {
-        quote! {
-            #[doc = #doc]
-        }
-    } else {
-        quote! {}
-    }
-}
-
-impl<'doc> EmitError<'doc> for CodeGenPass<'doc> {
-    fn emit_non_fatal_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) {
-        let error = Error {
-            pos,
-            kind,
-            raw_schema: &self.raw_schema,
-        };
-        self.errors.insert(error);
+        tokens.extend(quote! {
+            /// The GraphQL schema type generated by `juniper-from-schema`.
+            pub type Schema = juniper::RootNode<
+                'static,
+                #query_type,
+                #mutation_type,
+                #subscription_type,
+            >;
+        });
     }
 }

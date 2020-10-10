@@ -72,7 +72,7 @@
 //! impl QueryFields for Query {
 //!     fn field_hello_world(
 //!         &self,
-//!         executor: &juniper::Executor<'_, Context>,
+//!         executor: &juniper::Executor<Context>,
 //!         name: String,
 //!     ) -> juniper::FieldResult<String> {
 //!         Ok(format!("Hello, {}!", name))
@@ -82,7 +82,7 @@
 //! pub struct Mutation;
 //!
 //! impl MutationFields for Mutation {
-//!     fn field_noop(&self, executor: &juniper::Executor<'_, Context>) -> juniper::FieldResult<&bool> {
+//!     fn field_noop(&self, executor: &juniper::Executor<Context>) -> juniper::FieldResult<&bool> {
 //!         Ok(&true)
 //!     }
 //! }
@@ -92,10 +92,10 @@
 //!
 //!     let query = "query { helloWorld(name: \"Ferris\") }";
 //!
-//!     let (result, errors) = juniper::execute(
+//!     let (result, errors) = juniper::execute_sync(
 //!         query,
 //!         None,
-//!         &Schema::new(Query, Mutation),
+//!         &Schema::new(Query, Mutation, juniper::EmptySubscription::new()),
 //!         &juniper::Variables::new(),
 //!         &ctx,
 //!     )
@@ -117,7 +117,7 @@
 //!
 //! And with `graphql_schema_from_file!` expanded your code would look something like this:
 //!
-//! ```
+//! ```ignore
 //! #[macro_use]
 //! extern crate juniper;
 //!
@@ -135,7 +135,7 @@
 //! trait QueryFields {
 //!     fn field_hello_world(
 //!         &self,
-//!         executor: &juniper::Executor<'_, Context>,
+//!         executor: &juniper::Executor<Context>,
 //!         name: String,
 //!     ) -> juniper::FieldResult<String>;
 //! }
@@ -143,7 +143,7 @@
 //! impl QueryFields for Query {
 //!     fn field_hello_world(
 //!         &self,
-//!         executor: &juniper::Executor<'_, Context>,
+//!         executor: &juniper::Executor<Context>,
 //!         name: String,
 //!     ) -> juniper::FieldResult<String> {
 //!         Ok(format!("Hello, {}!", name))
@@ -159,11 +159,11 @@
 //! });
 //!
 //! trait MutationFields {
-//!     fn field_noop(&self, executor: &juniper::Executor<'_, Context>) -> juniper::FieldResult<&bool>;
+//!     fn field_noop(&self, executor: &juniper::Executor<Context>) -> juniper::FieldResult<&bool>;
 //! }
 //!
 //! impl MutationFields for Mutation {
-//!     fn field_noop(&self, executor: &juniper::Executor<'_, Context>) -> juniper::FieldResult<&bool> {
+//!     fn field_noop(&self, executor: &juniper::Executor<Context>) -> juniper::FieldResult<&bool> {
 //!         Ok(&true)
 //!     }
 //! }
@@ -289,22 +289,22 @@
 //! # impl ArticleFields for Article {
 //! #     fn field_id(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&ID> { unimplemented!() }
 //! #     fn field_text(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&String> { unimplemented!() }
 //! # }
 //! # pub struct Tweet { id: ID, text: String }
 //! # impl TweetFields for Tweet {
 //! #     fn field_id(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&ID> { unimplemented!() }
 //! #     fn field_text(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&String> { unimplemented!() }
 //! # }
 //! #
@@ -338,8 +338,8 @@
 //! impl QueryFields for Query {
 //!     fn field_search(
 //!         &self,
-//!         executor: &Executor<'_, Context>,
-//!         trail: &QueryTrail<'_, SearchResult, juniper_from_schema::Walked>,
+//!         executor: &Executor<Context>,
+//!         trail: &QueryTrail<SearchResult, juniper_from_schema::Walked>,
 //!         query: String,
 //!     ) -> FieldResult<Vec<SearchResult>> {
 //!         let article: Article = Article { id: ID::new("1"), text: "Business".to_string() };
@@ -376,22 +376,22 @@
 //! # impl ArticleFields for Article {
 //! #     fn field_id(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&ID> { unimplemented!() }
 //! #     fn field_text(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&String> { unimplemented!() }
 //! # }
 //! # pub struct Tweet { id: ID, text: String }
 //! # impl TweetFields for Tweet {
 //! #     fn field_id(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&ID> { unimplemented!() }
 //! #     fn field_text(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&String> { unimplemented!() }
 //! # }
 //! #
@@ -422,8 +422,8 @@
 //! impl QueryFields for Query {
 //!     fn field_search(
 //!         &self,
-//!         executor: &Executor<'_, Context>,
-//!         trail: &QueryTrail<'_, SearchResult, juniper_from_schema::Walked>,
+//!         executor: &Executor<Context>,
+//!         trail: &QueryTrail<SearchResult, juniper_from_schema::Walked>,
 //!         query: String,
 //!     ) -> FieldResult<Vec<SearchResult>> {
 //!         let article: Article = Article { id: ID::new("1"), text: "Business".to_string() };
@@ -457,13 +457,13 @@
 //! # impl PostFields for Post {
 //! #     fn field_id(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&ID> {
 //! #         unimplemented!()
 //! #     }
 //! #     fn field_title(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&String> {
 //! #         unimplemented!()
 //! #     }
@@ -472,7 +472,7 @@
 //! # impl QueryFields for Query {
 //! #     fn field_noop(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&bool> {
 //! #         unimplemented!()
 //! #     }
@@ -504,8 +504,8 @@
 //! impl MutationFields for Mutation {
 //!     fn field_create_post(
 //!         &self,
-//!         executor: &Executor<'_, Context>,
-//!         trail: &QueryTrail<'_, Post, juniper_from_schema::Walked>,
+//!         executor: &Executor<Context>,
+//!         trail: &QueryTrail<Post, juniper_from_schema::Walked>,
 //!         input: CreatePost,
 //!     ) -> FieldResult<Option<Post>> {
 //!         let title: String = input.title;
@@ -542,7 +542,7 @@
 //! # impl PostFields for Post {
 //! #     fn field_id(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&ID> {
 //! #         Ok(&self.id)
 //! #     }
@@ -572,8 +572,8 @@
 //! impl QueryFields for Query {
 //!     fn field_all_posts(
 //!         &self,
-//!         executor: &Executor<'_, Context>,
-//!         trail: &QueryTrail<'_, Post, juniper_from_schema::Walked>,
+//!         executor: &Executor<Context>,
+//!         trail: &QueryTrail<Post, juniper_from_schema::Walked>,
 //!         status: Status,
 //!     ) -> FieldResult<Vec<Post>> {
 //!         match status {
@@ -612,7 +612,7 @@
 //! # impl PostFields for Post {
 //! #     fn field_id(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&ID> {
 //! #         Ok(&self.id)
 //! #     }
@@ -650,8 +650,8 @@
 //! impl QueryFields for Query {
 //!     fn field_all_posts(
 //!         &self,
-//!         executor: &Executor<'_, Context>,
-//!         trail: &QueryTrail<'_, Post, juniper_from_schema::Walked>,
+//!         executor: &Executor<Context>,
+//!         trail: &QueryTrail<Post, juniper_from_schema::Walked>,
 //!         status: Status,
 //!         pagination: Pagination,
 //!     ) -> FieldResult<Vec<Post>> {
@@ -728,7 +728,7 @@
 //!     ownership: String = "borrowed",
 //!     infallible: Boolean = false,
 //!     with_time_zone: Boolean = true
-//! ) on FIELD_DEFINITION
+//! ) on FIELD_DEFINITION | SCALAR
 //! ```
 //!
 //! This directive definition is allowed in your schema, as well as any other directive definition.
@@ -784,17 +784,17 @@
 //! pub struct Query;
 //!
 //! impl QueryFields for Query {
-//!     fn field_borrowed(&self, _: &Executor<'_, Context>) -> FieldResult<&String> {
+//!     fn field_borrowed(&self, _: &Executor<Context>) -> FieldResult<&String> {
 //!         // ...
 //!         # unimplemented!()
 //!     }
 //!
-//!     fn field_owned(&self, _: &Executor<'_, Context>) -> FieldResult<String> {
+//!     fn field_owned(&self, _: &Executor<Context>) -> FieldResult<String> {
 //!         // ...
 //!         # unimplemented!()
 //!     }
 //!
-//!     fn field_as_ref(&self, _: &Executor<'_, Context>) -> FieldResult<Option<&String>> {
+//!     fn field_as_ref(&self, _: &Executor<Context>) -> FieldResult<Option<&String>> {
 //!         // ...
 //!         # unimplemented!()
 //!     }
@@ -833,17 +833,17 @@
 //! pub struct Query;
 //!
 //! impl QueryFields for Query {
-//!     fn field_can_error(&self, _: &Executor<'_, Context>) -> FieldResult<&String> {
+//!     fn field_can_error(&self, _: &Executor<Context>) -> FieldResult<&String> {
 //!         // ...
 //!         # unimplemented!()
 //!     }
 //!
-//!     fn field_cannot_error(&self, _: &Executor<'_, Context>) -> &String {
+//!     fn field_cannot_error(&self, _: &Executor<Context>) -> &String {
 //!         // ...
 //!         # unimplemented!()
 //!     }
 //!
-//!     fn field_cannot_error_and_owned(&self, _: &Executor<'_, Context>) -> String {
+//!     fn field_cannot_error_and_owned(&self, _: &Executor<Context>) -> String {
 //!         // ...
 //!         # unimplemented!()
 //!     }
@@ -938,8 +938,8 @@
 //! impl QueryFields for Query {
 //!     fn field_all_posts(
 //!         &self,
-//!         executor: &Executor<'_, Context>,
-//!         trail: &QueryTrail<'_, Post, juniper_from_schema::Walked>,
+//!         executor: &Executor<Context>,
+//!         trail: &QueryTrail<Post, juniper_from_schema::Walked>,
 //!     ) -> FieldResult<Vec<Post>> {
 //!         // Check if the query includes the author
 //!         if let Some(_) = trail.author().walk() {
@@ -963,14 +963,14 @@
 //! }
 //!
 //! impl PostFields for Post {
-//!     fn field_id(&self, executor: &Executor<'_, Context>) -> FieldResult<&i32> {
+//!     fn field_id(&self, executor: &Executor<Context>) -> FieldResult<&i32> {
 //!         Ok(&self.id)
 //!     }
 //!
 //!     fn field_author(
 //!         &self,
-//!         executor: &Executor<'_, Context>,
-//!         trail: &QueryTrail<'_, User, juniper_from_schema::Walked>,
+//!         executor: &Executor<Context>,
+//!         trail: &QueryTrail<User, juniper_from_schema::Walked>,
 //!     ) -> FieldResult<&User> {
 //!         Ok(&self.author)
 //!     }
@@ -983,7 +983,7 @@
 //! impl UserFields for User {
 //!     fn field_id(
 //!         &self,
-//!         executor: &Executor<'_, Context>,
+//!         executor: &Executor<Context>,
 //!     ) -> FieldResult<&i32> {
 //!         Ok(&self.id)
 //!     }
@@ -1056,14 +1056,14 @@
 //! # impl ArticleFields for Article {
 //! #     fn field_id(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&ID> { unimplemented!() }
 //! # }
 //! # pub struct Tweet { id: ID, text: String }
 //! # impl TweetFields for Tweet {
 //! #     fn field_id(
 //! #         &self,
-//! #         executor: &Executor<'_, Context>,
+//! #         executor: &Executor<Context>,
 //! #     ) -> FieldResult<&ID> { unimplemented!() }
 //! # }
 //! #
@@ -1094,12 +1094,12 @@
 //! impl QueryFields for Query {
 //!     fn field_search(
 //!         &self,
-//!         executor: &Executor<'_, Context>,
-//!         trail: &QueryTrail<'_, SearchResult, juniper_from_schema::Walked>,
+//!         executor: &Executor<Context>,
+//!         trail: &QueryTrail<SearchResult, juniper_from_schema::Walked>,
 //!         query: String,
 //!     ) -> FieldResult<&Vec<SearchResult>> {
-//!         let article_trail: QueryTrail<'_, Article, Walked> = trail.downcast();
-//!         let tweet_trail: QueryTrail<'_, Tweet, Walked> = trail.downcast();
+//!         let article_trail: QueryTrail<Article, Walked> = trail.downcast();
+//!         let tweet_trail: QueryTrail<Tweet, Walked> = trail.downcast();
 //!
 //!         // ...
 //!         # unimplemented!()
@@ -1116,7 +1116,7 @@
 //! ```ignore
 //! fn preload_users(
 //!     mut users: Vec<User>,
-//!     query_trail: &QueryTrail<'_, User, Walked>,
+//!     query_trail: &QueryTrail<User, Walked>,
 //!     db: &Database,
 //! ) -> Vec<User> {
 //!     // ...
@@ -1173,9 +1173,9 @@
 //! # fn main() {}
 //! # pub struct Country {}
 //! # impl CountryFields for Country {
-//! #     fn field_users<'a>(
+//! #     fn field_users<'a, 'r>(
 //! #         &self,
-//! #         executor: &juniper::Executor<'a, Context>,
+//! #         executor: &juniper::Executor<'a, 'r, Context>,
 //! #         trail: &QueryTrail<'a, User, Walked>,
 //! #         active_since: DateTime<Utc>,
 //! #     ) -> juniper::FieldResult<Vec<User>> {
@@ -1184,9 +1184,9 @@
 //! # }
 //! # pub struct User {}
 //! # impl UserFields for User {
-//! #     fn field_id<'a>(
+//! #     fn field_id<'a, 'r>(
 //! #         &self,
-//! #         executor: &juniper::Executor<'a, Context>,
+//! #         executor: &juniper::Executor<'a, 'r, Context>,
 //! #     ) -> juniper::FieldResult<&juniper::ID> {
 //! #         unimplemented!()
 //! #     }
@@ -1216,9 +1216,9 @@
 //! pub struct Query;
 //!
 //! impl QueryFields for Query {
-//!     fn field_countries<'a>(
+//!     fn field_countries<'a, 'r>(
 //!         &self,
-//!         executor: &'a juniper::Executor<'a, Context>,
+//!         executor: &'a juniper::Executor<'a, 'r, Context>,
 //!         trail: &'a QueryTrail<'a, Country, Walked>
 //!     ) -> juniper::FieldResult<Vec<Country>> {
 //!         // Get struct that has all arguments passed to `Country.users`
@@ -1247,10 +1247,10 @@
 //! # fn main() {}
 //! # pub struct Country {}
 //! # impl CountryFields for Country {
-//! #     fn field_users<'a>(
+//! #     fn field_users(
 //! #         &self,
-//! #         executor: &juniper::Executor<'a, Context>,
-//! #         trail: &QueryTrail<'a, User, Walked>,
+//! #         executor: &juniper::Executor<Context>,
+//! #         trail: &QueryTrail<User, Walked>,
 //! #         active_since: DateTime<Utc>,
 //! #     ) -> juniper::FieldResult<Vec<User>> {
 //! #         unimplemented!()
@@ -1258,9 +1258,9 @@
 //! # }
 //! # pub struct User {}
 //! # impl UserFields for User {
-//! #     fn field_id<'a>(
+//! #     fn field_id(
 //! #         &self,
-//! #         executor: &juniper::Executor<'a, Context>,
+//! #         executor: &juniper::Executor<Context>,
 //! #     ) -> juniper::FieldResult<&juniper::ID> {
 //! #         unimplemented!()
 //! #     }
@@ -1286,8 +1286,8 @@
 //! impl QueryFields for Query {
 //!     fn field_countries(
 //!         &self,
-//!         executor: &juniper::Executor<'_, Context>,
-//!         trail: &QueryTrail<'_, Country, Walked>
+//!         executor: &juniper::Executor<Context>,
+//!         trail: &QueryTrail<Country, Walked>
 //!     ) -> juniper::FieldResult<Vec<Country>> {
 //!         let args: CountryUsersArgs = trail.users_args();
 //!
@@ -1341,7 +1341,7 @@
 //! # impl juniper::Context for Context {}
 //! # pub struct Mutation;
 //! # impl MutationFields for Mutation {
-//! #     fn field_noop(&self, executor: &Executor<'_, Context>) -> Result<&bool, MyError> {
+//! #     fn field_noop(&self, executor: &Executor<Context>) -> Result<&bool, MyError> {
 //! #         Ok(&true)
 //! #     }
 //! # }
@@ -1361,7 +1361,7 @@
 //! impl QueryFields for Query {
 //!     fn field_hello_world(
 //!         &self,
-//!         executor: &Executor<'_, Context>,
+//!         executor: &Executor<Context>,
 //!         name: String,
 //!     ) -> Result<String, MyError> {
 //!         Ok(format!("Hello, {}!", name))
@@ -1392,7 +1392,7 @@
 //! # fn main() {}
 //! # pub struct Mutation;
 //! # impl MutationFields for Mutation {
-//! #     fn field_noop(&self, executor: &Executor<'_, MyContext>) -> juniper::FieldResult<&bool> {
+//! #     fn field_noop(&self, executor: &Executor<MyContext>) -> juniper::FieldResult<&bool> {
 //! #         Ok(&true)
 //! #     }
 //! # }
@@ -1406,7 +1406,7 @@
 //! impl QueryFields for Query {
 //!     fn field_hello_world(
 //!         &self,
-//!         executor: &Executor<'_, MyContext>,
+//!         executor: &Executor<MyContext>,
 //!         name: String,
 //!     ) -> juniper::FieldResult<String> {
 //!         Ok(format!("Hello, {}!", name))

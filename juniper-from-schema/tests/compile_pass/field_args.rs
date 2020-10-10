@@ -13,13 +13,13 @@ juniper_from_schema::graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_single<'a>(&self, executor: &Executor<'a, Context>, arg: i32) -> FieldResult<&i32> {
+    fn field_single(&self, executor: &Executor<Context>, arg: i32) -> FieldResult<&i32> {
         unimplemented!()
     }
 
-    fn field_multiple<'a>(
+    fn field_multiple(
         &self,
-        executor: &Executor<'a, Context>,
+        executor: &Executor<Context>,
         one: i32,
         two: Option<String>,
         three: Option<Vec<Option<f64>>>,

@@ -9,7 +9,7 @@ juniper_from_schema::graphql_schema_from_file!(
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_foo<'a>(&self, _: &Executor<'a, Context>) -> FieldResult<&String> {
+    fn field_foo(&self, _: &Executor<Context>) -> FieldResult<&String> {
         unimplemented!()
     }
 }

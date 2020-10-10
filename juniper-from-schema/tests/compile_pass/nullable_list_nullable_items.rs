@@ -12,9 +12,9 @@ juniper_from_schema::graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_field<'a>(
+    fn field_field(
         &self,
-        executor: &Executor<'a, Context>,
+        executor: &Executor<Context>,
     ) -> FieldResult<&Option<Vec<Option<i32>>>> {
         unimplemented!()
     }

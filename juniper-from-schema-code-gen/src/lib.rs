@@ -19,7 +19,7 @@ mod parse_input;
 mod pretty_print;
 
 use self::{
-    ast_pass::{ast_data_pass::AstData, error::Error, CodeGenPass},
+    ast_pass::{ast_data_pass::AstData, error::Error},
     parse_input::{default_context_type, default_error_type, GraphqlSchemaFromFileInput},
 };
 use graphql_parser::parse_schema;
@@ -93,7 +93,7 @@ fn include_literal_schema(tokens: &mut proc_macro::TokenStream, schema_path: &Pa
 /// impl QueryFields for Query {
 ///     fn field_hello_world(
 ///         &self,
-///         executor: &Executor<'_, Context>,
+///         executor: &Executor<Context>,
 ///     ) -> FieldResult<String> {
 ///         Ok("Hello, World!".to_string())
 ///     }
@@ -121,7 +121,7 @@ fn parse_and_gen_schema(
         Err(errors) => print_and_panic_if_errors(errors),
     };
 
-    let output = CodeGenPass::new(schema, error_type, context_type, ast_data);
+    let output = ast_pass::CodeGenPass::new(schema, error_type, context_type, ast_data);
 
     match output.gen_juniper_code(&doc) {
         Ok(tokens) => {

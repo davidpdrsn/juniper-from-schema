@@ -1,4 +1,4 @@
-use juniper::{EmptyMutation, Executor, FieldResult, Variables, ID};
+use juniper::{EmptyMutation, EmptySubscription, Executor, FieldResult, Variables, ID};
 
 pub struct Context;
 impl juniper::Context for Context {}
@@ -12,5 +12,6 @@ fn __use_all_the_imports(
     _: FieldResult<(), ()>,
     _: Variables,
     _: ID,
+    _: EmptySubscription<()>,
 ) {
 }

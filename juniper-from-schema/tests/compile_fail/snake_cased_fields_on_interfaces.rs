@@ -16,10 +16,10 @@ juniper_from_schema::graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_field<'a>(
+    fn field_field(
         &self,
-        _: &Executor<'a, Context>,
-        _: &QueryTrail<'a, SomeInterface, Walked>,
+        _: &Executor<Context>,
+        _: &QueryTrail<SomeInterface, Walked>,
     ) -> FieldResult<&SomeInterface> {
         unimplemented!()
     }

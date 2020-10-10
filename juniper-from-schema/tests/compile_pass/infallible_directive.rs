@@ -24,15 +24,15 @@ juniper_from_schema::graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_unowned(&self, _: &Executor<'_, Context>) -> &String {
+    fn field_unowned(&self, _: &Executor<Context>) -> &String {
         unimplemented!()
     }
 
-    fn field_owned(&self, _: &Executor<'_, Context>) -> String {
+    fn field_owned(&self, _: &Executor<Context>) -> String {
         unimplemented!()
     }
 
-    fn field_owned_reordered(&self, _: &Executor<'_, Context>) -> String {
+    fn field_owned_reordered(&self, _: &Executor<Context>) -> String {
         unimplemented!()
     }
 }
@@ -40,7 +40,7 @@ impl QueryFields for Query {
 pub struct User;
 
 impl UserFields for User {
-    fn field_id(&self, _: &Executor<'_, Context>) -> &ID {
+    fn field_id(&self, _: &Executor<Context>) -> &ID {
         unimplemented!()
     }
 }

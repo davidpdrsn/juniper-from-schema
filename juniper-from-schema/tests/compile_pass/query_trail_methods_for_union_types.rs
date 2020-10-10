@@ -40,10 +40,10 @@ juniper_from_schema::graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_posts<'a>(
+    fn field_posts(
         &self,
-        executor: &Executor<'a, Context>,
-        trail: &QueryTrail<'a, Post, Walked>,
+        executor: &Executor<Context>,
+        trail: &QueryTrail<Post, Walked>,
     ) -> FieldResult<Vec<Post>> {
         unimplemented!()
     }
@@ -54,10 +54,10 @@ pub struct Post {
 }
 
 impl PostFields for Post {
-    fn field_comments<'a>(
+    fn field_comments(
         &self,
-        executor: &Executor<'a, Context>,
-        trail: &QueryTrail<'a, Comment, Walked>,
+        executor: &Executor<Context>,
+        trail: &QueryTrail<Comment, Walked>,
     ) -> FieldResult<Vec<Comment>> {
         unimplemented!()
     }
@@ -68,20 +68,20 @@ pub struct Comment {
 }
 
 impl CommentFields for Comment {
-    fn field_id<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<i32> {
+    fn field_id(&self, executor: &Executor<Context>) -> FieldResult<i32> {
         unimplemented!()
     }
 
-    fn field_author<'a>(
+    fn field_author(
         &self,
-        executor: &Executor<'a, Context>,
-        trail: &QueryTrail<'a, Entity, Walked>,
+        executor: &Executor<Context>,
+        trail: &QueryTrail<Entity, Walked>,
     ) -> FieldResult<Entity> {
         let _: bool = trail.id();
         let _: bool = trail.country().id();
-        let _: QueryTrail<'a, Country, NotWalked> = trail.country();
+        let _: QueryTrail<Country, NotWalked> = trail.country();
         let _: bool = trail.country_of_operation().id();
-        let _: QueryTrail<'a, Country, NotWalked> = trail.country_of_operation();
+        let _: QueryTrail<Country, NotWalked> = trail.country_of_operation();
         let _: bool = trail.name();
 
         unimplemented!()
@@ -93,14 +93,14 @@ pub struct User {
 }
 
 impl UserFields for User {
-    fn field_id<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<i32> {
+    fn field_id(&self, executor: &Executor<Context>) -> FieldResult<i32> {
         unimplemented!()
     }
 
-    fn field_country<'a>(
+    fn field_country(
         &self,
-        executor: &Executor<'a, Context>,
-        trail: &QueryTrail<'a, Country, Walked>,
+        executor: &Executor<Context>,
+        trail: &QueryTrail<Country, Walked>,
     ) -> FieldResult<Country> {
         unimplemented!()
     }
@@ -111,18 +111,18 @@ pub struct Company {
 }
 
 impl CompanyFields for Company {
-    fn field_id<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<i32> {
+    fn field_id(&self, executor: &Executor<Context>) -> FieldResult<i32> {
         unimplemented!()
     }
 
-    fn field_name<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<String> {
+    fn field_name(&self, executor: &Executor<Context>) -> FieldResult<String> {
         unimplemented!()
     }
 
-    fn field_country_of_operation<'a>(
+    fn field_country_of_operation(
         &self,
-        executor: &Executor<'a, Context>,
-        trail: &QueryTrail<'a, Country, Walked>,
+        executor: &Executor<Context>,
+        trail: &QueryTrail<Country, Walked>,
     ) -> FieldResult<Country> {
         unimplemented!()
     }
@@ -133,7 +133,7 @@ pub struct Country {
 }
 
 impl CountryFields for Country {
-    fn field_id<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<i32> {
+    fn field_id(&self, executor: &Executor<Context>) -> FieldResult<i32> {
         unimplemented!()
     }
 }

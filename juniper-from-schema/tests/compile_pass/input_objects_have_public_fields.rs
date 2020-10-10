@@ -21,9 +21,9 @@ mod schema {
 pub struct Query;
 
 impl schema::QueryFields for Query {
-    fn field_users_at_location<'a>(
+    fn field_users_at_location(
         &self,
-        executor: &Executor<'a, Context>,
+        executor: &Executor<Context>,
         coordinate: schema::Coordinate,
     ) -> FieldResult<&bool> {
         coordinate.lat;

@@ -18,7 +18,7 @@ error: proc macro panicked
            1 |    type Query { string : String ! } schema { query : Query } directive @
              |                                                              ^
 
-           Location must be `FIELD_DEFINITION`
+           Location must be `FIELD_DEFINITION` or `SCALAR`
 
            error: Missing default value for `ownership` argument. Must be `"borrowed"`
             --> schema:2:9

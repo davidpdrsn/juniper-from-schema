@@ -15,19 +15,19 @@ juniper_from_schema::graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_string<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&Option<String>> {
+    fn field_string(&self, executor: &Executor<Context>) -> FieldResult<&Option<String>> {
         unimplemented!()
     }
 
-    fn field_float<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&Option<f64>> {
+    fn field_float(&self, executor: &Executor<Context>) -> FieldResult<&Option<f64>> {
         unimplemented!()
     }
 
-    fn field_int<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&Option<i32>> {
+    fn field_int(&self, executor: &Executor<Context>) -> FieldResult<&Option<i32>> {
         unimplemented!()
     }
 
-    fn field_boolean<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&Option<bool>> {
+    fn field_boolean(&self, executor: &Executor<Context>) -> FieldResult<&Option<bool>> {
         unimplemented!()
     }
 }

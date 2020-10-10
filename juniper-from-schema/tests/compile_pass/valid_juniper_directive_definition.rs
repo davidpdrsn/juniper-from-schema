@@ -12,13 +12,13 @@ juniper_from_schema::graphql_schema! {
         ownership: String = "borrowed",
         infallible: Boolean = false,
         with_time_zone: Boolean = true
-    ) on FIELD_DEFINITION
+    ) on FIELD_DEFINITION | SCALAR
 }
 
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_string<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&String> {
+    fn field_string(&self, executor: &Executor<Context>) -> FieldResult<&String> {
         unimplemented!()
     }
 }

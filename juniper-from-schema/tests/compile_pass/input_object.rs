@@ -17,9 +17,9 @@ juniper_from_schema::graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_users_at_location<'a>(
+    fn field_users_at_location(
         &self,
-        executor: &Executor<'a, Context>,
+        executor: &Executor<Context>,
         coordinate: Option<Coordinate>,
     ) -> FieldResult<&bool> {
         unimplemented!()

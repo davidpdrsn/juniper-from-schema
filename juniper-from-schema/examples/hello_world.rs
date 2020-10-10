@@ -1,8 +1,5 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 
-#[macro_use]
-extern crate juniper;
-
 use juniper::*;
 use juniper_from_schema::graphql_schema;
 
@@ -30,11 +27,7 @@ impl juniper::Context for Context {}
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_hello_world(
-        &self,
-        executor: &Executor<'_, Context>,
-        name: String,
-    ) -> FieldResult<String> {
+    fn field_hello_world(&self, executor: &Executor<Context>, name: String) -> FieldResult<String> {
         Ok(format!("Hello, {}!", name))
     }
 }
@@ -42,7 +35,7 @@ impl QueryFields for Query {
 pub struct Mutation;
 
 impl MutationFields for Mutation {
-    fn field_noop(&self, executor: &Executor<'_, Context>) -> FieldResult<&bool> {
+    fn field_noop(&self, executor: &Executor<Context>) -> FieldResult<&bool> {
         Ok(&true)
     }
 }
@@ -52,10 +45,10 @@ fn main() {
 
     let query = "query { helloWorld(name: \"Ferris\") }";
 
-    let (result, errors) = juniper::execute(
+    let (result, errors) = juniper::execute_sync(
         query,
         None,
-        &Schema::new(Query, Mutation),
+        &Schema::new(Query, Mutation, juniper::EmptySubscription::new()),
         &Variables::new(),
         &ctx,
     )

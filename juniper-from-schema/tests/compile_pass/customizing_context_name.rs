@@ -12,7 +12,7 @@ impl juniper::Context for MyContext {}
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_foo<'a>(&self, _: &Executor<'a, MyContext>) -> FieldResult<&String> {
+    fn field_foo(&self, _: &Executor<MyContext>) -> FieldResult<&String> {
         unimplemented!()
     }
 }

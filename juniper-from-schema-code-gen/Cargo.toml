@@ -15,7 +15,7 @@ repository = "https://github.com/davidpdrsn/juniper-from-schema.git"
 [dependencies]
 syn = { version = "1", features = ["extra-traits"] }
 quote = "1"
-graphql-parser = "0.2"
+graphql-parser = "0.3"
 proc-macro2 = "1"
 heck = "0.3"
 rustfmt-nightly = { version = "1", optional = true }
@@ -27,7 +27,7 @@ format-debug-output = ["rustfmt-nightly"]
 
 [dev_dependencies]
 version-sync = "0.8"
-juniper = "0.14"
+juniper = { git = "https://github.com/graphql-rust/juniper.git", rev = "746aff34a57e5b846a21cdf981d066c0dddde13b" }
 
 [lib]
 proc-macro = true

@@ -18,7 +18,7 @@ juniper_from_schema::graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_uuid(&self, _: &Executor<'_, Context>) -> FieldResult<Uuid> {
+    fn field_uuid(&self, _: &Executor<Context>) -> FieldResult<Uuid> {
         Ok(Uuid::new_v4())
     }
 }

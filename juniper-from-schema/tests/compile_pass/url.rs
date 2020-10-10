@@ -18,7 +18,7 @@ juniper_from_schema::graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_url(&self, _: &Executor<'_, Context>) -> FieldResult<Url> {
+    fn field_url(&self, _: &Executor<Context>) -> FieldResult<Url> {
         let url = Url::parse("https://example.com").unwrap();
         Ok(url)
     }

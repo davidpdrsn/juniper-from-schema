@@ -16,7 +16,7 @@ pub struct Query;
 impl QueryFields for Query {
     fn field_field<'a>(
         &self,
-        executor: &Executor<'a, Context>,
+        executor: &Executor<Context>,
         arg: Cursor,
     ) -> FieldResult<&Cursor> {
         Cursor::new("123");

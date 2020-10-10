@@ -1,8 +1,5 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 
-#[macro_use]
-extern crate juniper;
-
 use juniper::*;
 use juniper_from_schema::graphql_schema;
 
@@ -17,7 +14,7 @@ graphql_schema! {
     }
 
     type Query {
-        allPosts(status: STATUS!): [Post!]! @juniper(ownership: "owned")
+        allPosts(status: Status!): [Post!]! @juniper(ownership: "owned")
     }
 
     type Post {
@@ -36,7 +33,7 @@ pub struct Post {
 }
 
 impl PostFields for Post {
-    fn field_id(&self, executor: &Executor<'_, Context>) -> FieldResult<&ID> {
+    fn field_id(&self, executor: &Executor<Context>) -> FieldResult<&ID> {
         Ok(&self.id)
     }
 }
@@ -46,8 +43,8 @@ pub struct Query;
 impl QueryFields for Query {
     fn field_all_posts(
         &self,
-        executor: &Executor<'_, Context>,
-        trail: &QueryTrail<'_, Post, Walked>,
+        executor: &Executor<Context>,
+        trail: &QueryTrail<Post, Walked>,
         status: Status,
     ) -> FieldResult<Vec<Post>> {
         match status {

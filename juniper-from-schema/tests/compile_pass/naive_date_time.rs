@@ -18,7 +18,7 @@ juniper_from_schema::graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_date_time(&self, _: &Executor<'_, Context>) -> FieldResult<NaiveDateTime> {
+    fn field_date_time(&self, _: &Executor<Context>) -> FieldResult<NaiveDateTime> {
         unimplemented!()
     }
 }

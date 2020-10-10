@@ -35,3 +35,5 @@ jobs:
       run: cargo build
     - name: Run tests
       run: cargo test
+    - name: Run examples
+      run: bin/run_all_examples

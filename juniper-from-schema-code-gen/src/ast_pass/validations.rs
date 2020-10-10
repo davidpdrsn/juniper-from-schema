@@ -1,5 +1,4 @@
 use super::schema_visitor::SchemaVisitor;
-use super::CodeGenPass;
 use super::EmitError;
 use super::ErrorKind;
 use graphql_parser::schema::{self, *};
@@ -23,15 +22,15 @@ impl<'pass, 'doc, T> SchemaVisitor<'doc> for FieldNameCaseValidator<'pass, T>
 where
     T: EmitError<'doc>,
 {
-    fn visit_object_type(&mut self, ty: &'doc schema::ObjectType) {
+    fn visit_object_type(&mut self, ty: &'doc schema::ObjectType<&'doc str>) {
         self.validate_fields(&ty.fields);
     }
 
-    fn visit_interface_type(&mut self, ty: &'doc schema::InterfaceType) {
+    fn visit_interface_type(&mut self, ty: &'doc schema::InterfaceType<&'doc str>) {
         self.validate_fields(&ty.fields);
     }
 
-    fn visit_input_object_type(&mut self, ty: &'doc schema::InputObjectType) {
+    fn visit_input_object_type(&mut self, ty: &'doc schema::InputObjectType<&'doc str>) {
         for field in &ty.fields {
             self.validate_field(&field.name, field.position);
         }
@@ -42,7 +41,7 @@ impl<'pass, 'doc, T> FieldNameCaseValidator<'pass, T>
 where
     T: EmitError<'doc>,
 {
-    fn validate_fields(&mut self, fields: &[Field]) {
+    fn validate_fields(&mut self, fields: &'doc [Field<&'doc str>]) {
         for field in fields {
             self.validate_field(&field.name, field.position);
         }
@@ -50,8 +49,7 @@ where
 
     fn validate_field(&mut self, name: &str, pos: Pos) {
         if is_snake_case(name) {
-            self.pass
-                .emit_non_fatal_error(pos, ErrorKind::FieldNameInSnakeCase);
+            self.pass.emit_error(pos, ErrorKind::FieldNameInSnakeCase);
         }
     }
 }
@@ -73,10 +71,10 @@ impl<'pass, 'doc, T> SchemaVisitor<'doc> for UuidNameCaseValidator<'pass, T>
 where
     T: EmitError<'doc>,
 {
-    fn visit_scalar_type(&mut self, scalar: &'doc ScalarType) {
-        if &scalar.name == "UUID" {
+    fn visit_scalar_type(&mut self, scalar: &'doc ScalarType<&'doc str>) {
+        if scalar.name == "UUID" {
             self.pass
-                .emit_non_fatal_error(scalar.position, ErrorKind::UppercaseUuidScalar);
+                .emit_error(scalar.position, ErrorKind::UppercaseUuidScalar);
         }
     }
 }

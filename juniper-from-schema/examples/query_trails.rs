@@ -1,9 +1,6 @@
 #![allow(clippy::redundant_pattern_matching)]
 #![allow(dead_code, unused_variables, unused_imports)]
 
-#[macro_use]
-extern crate juniper;
-
 use juniper::*;
 use juniper_from_schema::graphql_schema;
 
@@ -37,8 +34,8 @@ pub struct Query;
 impl QueryFields for Query {
     fn field_all_posts(
         &self,
-        executor: &Executor<'_, Context>,
-        trail: &QueryTrail<'_, Post, Walked>,
+        executor: &Executor<Context>,
+        trail: &QueryTrail<Post, Walked>,
     ) -> FieldResult<Vec<Post>> {
         // Check if the query includes the author
         if let Some(_) = trail.author().walk() {
@@ -62,14 +59,14 @@ pub struct Post {
 }
 
 impl PostFields for Post {
-    fn field_id(&self, executor: &Executor<'_, Context>) -> FieldResult<&i32> {
+    fn field_id(&self, executor: &Executor<Context>) -> FieldResult<&i32> {
         Ok(&self.id)
     }
 
     fn field_author(
         &self,
-        executor: &Executor<'_, Context>,
-        trail: &QueryTrail<'_, User, Walked>,
+        executor: &Executor<Context>,
+        trail: &QueryTrail<User, Walked>,
     ) -> FieldResult<&User> {
         Ok(&self.author)
     }
@@ -80,7 +77,7 @@ pub struct User {
 }
 
 impl UserFields for User {
-    fn field_id(&self, executor: &Executor<'_, Context>) -> FieldResult<&i32> {
+    fn field_id(&self, executor: &Executor<Context>) -> FieldResult<&i32> {
         Ok(&self.id)
     }
 }

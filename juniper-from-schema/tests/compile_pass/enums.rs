@@ -2,14 +2,14 @@
 include!("setup.rs");
 
 juniper_from_schema::graphql_schema! {
-    enum YES_NO {
+    enum YesNo {
         YES
         NO
         NOT_SURE
     }
 
     type Query {
-        yesNo(arg: YES_NO): YES_NO!
+        yesNo(arg: YesNo): YesNo!
     }
 
     schema { query: Query }
@@ -18,9 +18,9 @@ juniper_from_schema::graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_yes_no<'a>(
+    fn field_yes_no(
         &self,
-        executor: &Executor<'a, Context>,
+        executor: &Executor<Context>,
         arg: Option<YesNo>,
     ) -> FieldResult<&YesNo> {
         let _: YesNo = YesNo::No;

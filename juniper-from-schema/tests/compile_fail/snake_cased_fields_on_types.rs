@@ -12,7 +12,7 @@ juniper_from_schema::graphql_schema! {
 pub struct Query;
 
 impl QueryFields for Query {
-    fn field_snake_cased<'a>(&self, executor: &Executor<'a, Context>) -> FieldResult<&String> {
+    fn field_snake_cased(&self, executor: &Executor<Context>) -> FieldResult<&String> {
         unimplemented!()
     }
 }

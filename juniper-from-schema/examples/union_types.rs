@@ -1,8 +1,5 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 
-#[macro_use]
-extern crate juniper;
-
 use juniper::*;
 use juniper_from_schema::graphql_schema;
 
@@ -38,11 +35,11 @@ pub struct Article {
 }
 
 impl ArticleFields for Article {
-    fn field_id(&self, executor: &Executor<'_, Context>) -> FieldResult<&ID> {
+    fn field_id(&self, executor: &Executor<Context>) -> FieldResult<&ID> {
         unimplemented!()
     }
 
-    fn field_text(&self, executor: &Executor<'_, Context>) -> FieldResult<&String> {
+    fn field_text(&self, executor: &Executor<Context>) -> FieldResult<&String> {
         unimplemented!()
     }
 }
@@ -53,11 +50,11 @@ pub struct Tweet {
 }
 
 impl TweetFields for Tweet {
-    fn field_id(&self, executor: &Executor<'_, Context>) -> FieldResult<&ID> {
+    fn field_id(&self, executor: &Executor<Context>) -> FieldResult<&ID> {
         unimplemented!()
     }
 
-    fn field_text(&self, executor: &Executor<'_, Context>) -> FieldResult<&String> {
+    fn field_text(&self, executor: &Executor<Context>) -> FieldResult<&String> {
         unimplemented!()
     }
 }
@@ -67,8 +64,8 @@ pub struct Query;
 impl QueryFields for Query {
     fn field_search(
         &self,
-        executor: &Executor<'_, Context>,
-        trail: &QueryTrail<'_, SearchResult, Walked>,
+        executor: &Executor<Context>,
+        trail: &QueryTrail<SearchResult, Walked>,
         query: String,
     ) -> FieldResult<Vec<SearchResult>> {
         let article: Article = Article {
