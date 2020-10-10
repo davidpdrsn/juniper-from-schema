@@ -83,3 +83,9 @@ See the [crate documentation](https://docs.rs/juniper-from-schema/) for a usage 
 # N+1s
 
 If you're having issues with N+1 query bugs consider using [juniper-eager-loading](https://crates.io/crates/juniper-eager-loading). It was built to integrate seamlessly with juniper-from-schema.
+
+# Development
+
+## If you're seeing `No such file or directory (os error 2)` when running the tests
+
+This might be caused by setting `CARGO_TARGET_DIR`. Setting that env var changes the directory the [trybuild](https://crates.io/crates/trybuild) tests are run from which means all the paths to the test schemas no longer match. The only workaround is to unset `CARGO_TARGET_DIR` when working on juniper-from-schema. I recommend [direnv](https://github.com/direnv/direnv) to unset the env var only this directory and not globally.
