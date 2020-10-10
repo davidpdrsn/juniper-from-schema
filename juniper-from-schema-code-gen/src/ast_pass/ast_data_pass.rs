@@ -10,6 +10,8 @@ use graphql_parser::{
 };
 use std::collections::{BTreeSet, HashMap, HashSet};
 
+use super::schema_visitor::visit_document;
+
 #[derive(Debug)]
 pub struct AstData<'doc> {
     interface_implementors: HashMap<&'doc str, Vec<&'doc str>>,
@@ -68,7 +70,7 @@ impl<'doc> AstData<'doc> {
         doc: &'doc Document,
     ) -> Result<Self, BTreeSet<Error<'doc>>> {
         let mut data = Self::new(raw_schema);
-        data.visit_document(doc);
+        visit_document(&mut data, doc);
 
         if data.errors.is_empty() {
             Ok(data)

@@ -1,5 +1,6 @@
 mod gen_query_trails;
 
+use super::schema_visitor::visit_document;
 use super::{
     error::{Error, ErrorKind},
     ident, quote_ident, type_name, EmitError, TypeKind,
@@ -591,15 +592,15 @@ impl<'doc> CodeGenPass<'doc> {
         self.check_for_errors()?;
 
         self.gen_query_trails(doc);
-        self.visit_document(doc);
+        visit_document(&mut self, doc);
 
         self.check_for_errors()?;
         Ok(self.tokens)
     }
 
     fn validate_doc(&mut self, doc: &'doc Document) {
-        FieldNameCaseValidator::new(self).visit_document(doc);
-        UuidNameCaseValidator::new(self).visit_document(doc);
+        visit_document(&mut FieldNameCaseValidator::new(self), doc);
+        visit_document(&mut UuidNameCaseValidator::new(self), doc);
     }
 
     fn check_for_errors(&self) -> Result<(), BTreeSet<Error<'doc>>> {

@@ -1,4 +1,5 @@
 use super::{ident, type_name, CodeGenPass, EmitError, FieldTypeDestination, TypeKind};
+use crate::ast_pass::schema_visitor::visit_document;
 use crate::ast_pass::{error::ErrorKind, schema_visitor::SchemaVisitor};
 use graphql_parser::schema::*;
 use heck::{CamelCase, MixedCase, SnakeCase};
@@ -28,7 +29,7 @@ impl<'doc> CodeGenPass<'doc> {
         query_trail_pass.gen_query_trail();
         query_trail_pass.gen_from_default_scalar_value();
         query_trail_pass.gen_from_look_ahead_value();
-        query_trail_pass.visit_document(doc);
+        visit_document(&mut query_trail_pass, doc);
 
         let query_trail_tokens = &self.tokens;
 
