@@ -778,7 +778,7 @@ fn build_fields_map(doc: &Document) -> HashMap<&String, Vec<&Field>> {
         if let Definition::TypeDefinition(type_def) = def {
             if let TypeDefinition::Object(obj) = type_def {
                 for field in &obj.fields {
-                    let entry = map.entry(&obj.name).or_insert_with(|| vec![]);
+                    let entry = map.entry(&obj.name).or_insert_with(Vec::new);
                     entry.push(field);
                 }
             }

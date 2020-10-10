@@ -101,7 +101,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                     .description
                     .as_ref()
                     .map(|desc| quote! { description: #desc })
-                    .unwrap_or(quote! {});
+                    .unwrap_or_else(TokenStream::new);
 
                 self.gen_scalar_type_with_data(&name, &description);
             }
@@ -1133,7 +1133,7 @@ impl<'doc> CodeGenPass<'doc> {
         };
 
         let of_type = |this: &mut Self, arg: &InputValue, ty: Type, name: &str| {
-            if &arg.value_type != &ty {
+            if arg.value_type != ty {
                 this.emit_non_fatal_error(
                     arg.position,
                     ErrorKind::InvalidJuniperDirective(
@@ -1213,14 +1213,20 @@ impl<'doc> CodeGenPass<'doc> {
         if !ownership_present {
             self.emit_non_fatal_error(
                 directive.position,
-                ErrorKind::InvalidJuniperDirective(format!("Missing argument `ownership`"), None),
+                ErrorKind::InvalidJuniperDirective(
+                    "Missing argument `ownership`".to_string(),
+                    None,
+                ),
             )
         }
 
         if !infallible_present {
             self.emit_non_fatal_error(
                 directive.position,
-                ErrorKind::InvalidJuniperDirective(format!("Missing argument `infallible`"), None),
+                ErrorKind::InvalidJuniperDirective(
+                    "Missing argument `infallible`".to_string(),
+                    None,
+                ),
             )
         }
 
@@ -1228,7 +1234,7 @@ impl<'doc> CodeGenPass<'doc> {
             self.emit_non_fatal_error(
                 directive.position,
                 ErrorKind::InvalidJuniperDirective(
-                    format!("Missing argument `with_time_zone`"),
+                    "Missing argument `with_time_zone`".to_string(),
                     None,
                 ),
             )
