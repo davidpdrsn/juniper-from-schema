@@ -27,7 +27,7 @@ format-debug-output = ["rustfmt-nightly"]
 
 [dev_dependencies]
 version-sync = "0.8"
-juniper = { git = "https://github.com/graphql-rust/juniper.git", rev = "746aff34a57e5b846a21cdf981d066c0dddde13b" }
+juniper = { git = "https://github.com/graphql-rust/juniper.git", branch = "master" }
 
 [lib]
 proc-macro = true

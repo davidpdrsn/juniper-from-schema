@@ -11,6 +11,12 @@ removes most of the boilerplate involved in using Juniper.
 
 [macro calls]: https://graphql-rust.github.io/types/objects/complex_fields.html
 
+# Supporting juniper master (with subscriptions and async)
+
+The master branch of juniper-from-schema is currently tracking juniper's master branch because we're working on adding support for all the cool things things they've made including subscriptions and async resolvers.
+
+If you're looking for use juniper 0.14 use the version thats on [crates.io](https://crates.io/crates/juniper-from-schema).
+
 # Example
 
 Imagine you have a GraphQL schema like this:
@@ -43,7 +49,7 @@ pub struct Query;
 impl QueryFields for Query {
     fn field_hello_world(
         &self,
-        _executor: &juniper::Executor<'_, Context>,
+        _executor: &juniper::Executor<Context>,
         name: String,
     ) -> juniper::FieldResult<String> {
         Ok(format!("Hello, {}!", name))
@@ -55,7 +61,7 @@ fn main() {
 
     let query = "query { helloWorld(name: \"Ferris\") }";
 
-    let (result, errors) = juniper::execute(
+    let (result, errors) = juniper::execute_sync(
         query,
         None,
         &Schema::new(Query, juniper::EmptyMutation::new()),

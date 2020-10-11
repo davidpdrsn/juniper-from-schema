@@ -14,7 +14,7 @@ repository = "https://github.com/davidpdrsn/juniper-from-schema.git"
 
 [dependencies]
 juniper-from-schema-code-gen = { version = "0.5.2", path = "../juniper-from-schema-code-gen" }
-juniper = { git = "https://github.com/graphql-rust/juniper.git", rev = "746aff34a57e5b846a21cdf981d066c0dddde13b" }
+juniper = { git = "https://github.com/graphql-rust/juniper.git", branch = "master" }
 
 [dev_dependencies]
 serde_json = "1"
