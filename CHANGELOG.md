@@ -11,7 +11,27 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 #### Breaking changes
 
-None.
+The `executor` argument in `field_*` methods now requires two lifetime arguments:
+
+```rust
+fn field_hello_world<'a, 'r>(
+    &self,
+    executor: &Executor<'a, 'r, Context>
+) -> FieldResult<String> {
+    todo!()
+}
+```
+
+This is due to breaking change in juniper. However with a recent version of Rust you can actually skip declaring the lifetimes at all:
+
+```rust
+fn field_hello_world(
+    &self,
+    executor: &Executor<Context>
+) -> FieldResult<String> {
+    todo!()
+}
+```
 
 ## [0.5.2] - 2020-02-19
 
