@@ -93,25 +93,25 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
             let to = format_ident!("{}", to);
             let variant = format_ident!("{}", variant);
             quote! {
-                impl<'a, 'b> FromDefaultScalarValue<#to> for &'a &'b juniper::DefaultScalarValue {
+                impl<'a, 'b> FromDefaultScalarValue<#to> for &'a &'b juniper_from_schema::juniper::DefaultScalarValue {
                     fn from(self) -> #to {
                         match self {
-                            juniper::DefaultScalarValue::#variant(x) => x.to_owned(),
+                            juniper_from_schema::juniper::DefaultScalarValue::#variant(x) => x.to_owned(),
                             other => {
                                 match other {
-                                    juniper::DefaultScalarValue::Int(_) => panic!(
+                                    juniper_from_schema::juniper::DefaultScalarValue::Int(_) => panic!(
                                         "Failed converting scalar value. Expected `{}` got `Int`",
                                         stringify!(#to),
                                     ),
-                                    juniper::DefaultScalarValue::String(_) => panic!(
+                                    juniper_from_schema::juniper::DefaultScalarValue::String(_) => panic!(
                                         "Failed converting scalar value. Expected `{}` got `String`",
                                         stringify!(#to),
                                     ),
-                                    juniper::DefaultScalarValue::Float(_) => panic!(
+                                    juniper_from_schema::juniper::DefaultScalarValue::Float(_) => panic!(
                                         "Failed converting scalar value. Expected `{}` got `Float`",
                                         stringify!(#to),
                                     ),
-                                    juniper::DefaultScalarValue::Boolean(_) => panic!(
+                                    juniper_from_schema::juniper::DefaultScalarValue::Boolean(_) => panic!(
                                         "Failed converting scalar value. Expected `{}` got `Boolean`",
                                         stringify!(#to),
                                     ),
@@ -129,9 +129,9 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
         self.tokens.extend(gen_impl("bool", "Boolean"));
 
         self.tokens.extend(quote! {
-            impl<'a, 'b, T> FromDefaultScalarValue<Option<T>> for &'a &'b juniper::DefaultScalarValue
+            impl<'a, 'b, T> FromDefaultScalarValue<Option<T>> for &'a &'b juniper_from_schema::juniper::DefaultScalarValue
             where
-                &'a &'b juniper::DefaultScalarValue: FromDefaultScalarValue<T>,
+                &'a &'b juniper_from_schema::juniper::DefaultScalarValue: FromDefaultScalarValue<T>,
             {
                 fn from(self) -> Option<T> {
                     Some(self.from())
@@ -157,23 +157,23 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
             let to = format_ident!("{}", to);
             quote! {
                 impl<'a, 'b> FromLookAheadValue<#to>
-                    for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                    for &'a juniper_from_schema::juniper::LookAheadValue<'b, juniper_from_schema::juniper::DefaultScalarValue>
                 {
                     fn from(self) -> #to {
                         match self {
-                            juniper::LookAheadValue::Scalar(scalar) => {
+                            juniper_from_schema::juniper::LookAheadValue::Scalar(scalar) => {
                                 FromDefaultScalarValue::from(scalar)
                             },
-                            juniper::LookAheadValue::Null => panic!(
+                            juniper_from_schema::juniper::LookAheadValue::Null => panic!(
                                 "Failed converting look ahead value. Expected scalar type got `null`",
                             ),
-                            juniper::LookAheadValue::Enum(_) => panic!(
+                            juniper_from_schema::juniper::LookAheadValue::Enum(_) => panic!(
                                 "Failed converting look ahead value. Expected scalar type got `enum`",
                             ),
-                            juniper::LookAheadValue::List(_) => panic!(
+                            juniper_from_schema::juniper::LookAheadValue::List(_) => panic!(
                                 "Failed converting look ahead value. Expected scalar type got `list`",
                             ),
-                            juniper::LookAheadValue::Object(_) => panic!(
+                            juniper_from_schema::juniper::LookAheadValue::Object(_) => panic!(
                                 "Failed converting look ahead value. Expected scalar type got `object`",
                             ),
                         }
@@ -189,50 +189,50 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
 
         self.tokens.extend(quote! {
             impl<'a, 'b, T> FromLookAheadValue<Option<T>>
-                for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                for &'a juniper_from_schema::juniper::LookAheadValue<'b, juniper_from_schema::juniper::DefaultScalarValue>
             where
-                &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>: FromLookAheadValue<T>,
+                &'a juniper_from_schema::juniper::LookAheadValue<'b, juniper_from_schema::juniper::DefaultScalarValue>: FromLookAheadValue<T>,
             {
                 fn from(self) -> Option<T> {
                     match self {
-                        juniper::LookAheadValue::Null => None,
+                        juniper_from_schema::juniper::LookAheadValue::Null => None,
                         other => Some(other.from()),
                     }
                 }
             }
 
             impl<'a, 'b, T> FromLookAheadValue<Vec<T>>
-                for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                for &'a juniper_from_schema::juniper::LookAheadValue<'b, juniper_from_schema::juniper::DefaultScalarValue>
             where
-                &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>: FromLookAheadValue<T>,
+                &'a juniper_from_schema::juniper::LookAheadValue<'b, juniper_from_schema::juniper::DefaultScalarValue>: FromLookAheadValue<T>,
             {
                 fn from(self) -> Vec<T> {
                     match self {
-                        juniper::LookAheadValue::List(values) => {
+                        juniper_from_schema::juniper::LookAheadValue::List(values) => {
                             values.iter().map(|value| value.from()).collect::<Vec<_>>()
                         },
-                        juniper::LookAheadValue::Scalar(_) => panic!(
+                        juniper_from_schema::juniper::LookAheadValue::Scalar(_) => panic!(
                             "Failed converting look ahead value. Expected list type got `scalar`",
                         ),
-                        juniper::LookAheadValue::Null => panic!(
+                        juniper_from_schema::juniper::LookAheadValue::Null => panic!(
                             "Failed converting look ahead value. Expected list type got `null`",
                         ),
-                        juniper::LookAheadValue::Enum(_) => panic!(
+                        juniper_from_schema::juniper::LookAheadValue::Enum(_) => panic!(
                             "Failed converting look ahead value. Expected list type got `enum`",
                         ),
-                        juniper::LookAheadValue::Object(_) => panic!(
+                        juniper_from_schema::juniper::LookAheadValue::Object(_) => panic!(
                             "Failed converting look ahead value. Expected list type got `object`",
                         ),
                     }
                 }
             }
 
-            impl<'a, 'b> FromLookAheadValue<juniper::ID>
-                for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+            impl<'a, 'b> FromLookAheadValue<juniper_from_schema::juniper::ID>
+                for &'a juniper_from_schema::juniper::LookAheadValue<'b, juniper_from_schema::juniper::DefaultScalarValue>
             {
-                fn from(self) -> juniper::ID {
+                fn from(self) -> juniper_from_schema::juniper::ID {
                     let s = FromLookAheadValue::<String>::from(self);
-                    juniper::ID::new(s)
+                    juniper_from_schema::juniper::ID::new(s)
                 }
             }
         });
@@ -240,7 +240,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
         if self.pass.ast_data.url_scalar_defined() {
             self.tokens.extend(quote! {
                 impl<'a, 'b> FromLookAheadValue<url::Url>
-                    for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                    for &'a juniper_from_schema::juniper::LookAheadValue<'b, juniper_from_schema::juniper::DefaultScalarValue>
                 {
                     fn from(self) -> url::Url {
                         let s = FromLookAheadValue::<String>::from(self);
@@ -256,7 +256,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
         if self.pass.ast_data.uuid_scalar_defined() {
             self.tokens.extend(quote! {
                 impl<'a, 'b> FromLookAheadValue<uuid::Uuid>
-                    for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                    for &'a juniper_from_schema::juniper::LookAheadValue<'b, juniper_from_schema::juniper::DefaultScalarValue>
                 {
                     fn from(self) -> uuid::Uuid {
                         let s = FromLookAheadValue::<String>::from(self);
@@ -272,7 +272,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
         if self.pass.ast_data.date_scalar_defined() {
             self.tokens.extend(quote! {
                 impl<'a, 'b> FromLookAheadValue<chrono::NaiveDate>
-                    for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                    for &'a juniper_from_schema::juniper::LookAheadValue<'b, juniper_from_schema::juniper::DefaultScalarValue>
                 {
                     fn from(self) -> chrono::NaiveDate {
                         let s = FromLookAheadValue::<String>::from(self);
@@ -293,7 +293,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
         if self.pass.ast_data.date_time_scalar_defined() {
             self.tokens.extend(quote! {
                 impl<'a, 'b> FromLookAheadValue<chrono::DateTime<chrono::Utc>>
-                    for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                    for &'a juniper_from_schema::juniper::LookAheadValue<'b, juniper_from_schema::juniper::DefaultScalarValue>
                 {
                     fn from(self) -> chrono::DateTime<chrono::Utc> {
                         let s = FromLookAheadValue::<String>::from(self);
@@ -311,7 +311,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                 }
 
                 impl<'a, 'b> FromLookAheadValue<chrono::NaiveDateTime>
-                    for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                    for &'a juniper_from_schema::juniper::LookAheadValue<'b, juniper_from_schema::juniper::DefaultScalarValue>
                 {
                     fn from(self) -> chrono::NaiveDateTime {
                         let s = FromLookAheadValue::<String>::from(self);
@@ -482,7 +482,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
 
                 let method_implementation = quote! {
                     fn #name(&self) -> bool {
-                        use juniper::LookAheadMethods;
+                        use juniper_from_schema::juniper::LookAheadMethods;
 
                         self.look_ahead
                             .map(|la| {
@@ -518,7 +518,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
 
                 let method_implementation = quote! {
                     fn #name(&self) -> QueryTrail<'a, #field_type, juniper_from_schema::NotWalked> {
-                        use juniper::LookAheadMethods;
+                        use juniper_from_schema::juniper::LookAheadMethods;
 
                         let child = self.look_ahead.and_then(|la| {
                             la.children().into_iter().find(|child| {
@@ -647,7 +647,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
             quote! {
                 #[allow(missing_docs)]
                 pub fn #ident(&self) -> #field_type {
-                    use juniper::LookAheadMethods;
+                    use juniper_from_schema::juniper::LookAheadMethods;
 
                     // these `expect`s are fine since these methods you can only obtain
                     // arguments from walked query trails
@@ -676,7 +676,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
             quote! {
                 #[allow(missing_docs)]
                 pub fn #ident(&self) -> #field_type {
-                    use juniper::LookAheadMethods;
+                    use juniper_from_schema::juniper::LookAheadMethods;
 
                     // these `expect`s are fine since these methods you can only obtain
                     // arguments from walked query trails

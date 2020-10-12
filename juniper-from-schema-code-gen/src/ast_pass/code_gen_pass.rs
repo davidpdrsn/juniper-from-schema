@@ -168,12 +168,14 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
             }
             None => {
                 let context_type = &self.context_type;
-                syn::parse2(quote! { juniper::EmptyMutation<#context_type> }).unwrap()
+                syn::parse2(quote! { juniper_from_schema::juniper::EmptyMutation<#context_type> })
+                    .unwrap()
             }
         };
 
         let subscription_type =
-            syn::parse2(quote! { juniper::EmptySubscription<#context_type> }).unwrap();
+            syn::parse2(quote! { juniper_from_schema::juniper::EmptySubscription<#context_type> })
+                .unwrap();
 
         self.schema_type = Some(SchemaType {
             query_type,
@@ -560,7 +562,9 @@ impl<'doc> CodeGenPass<'doc> {
                 "Float" => Type::Scalar(Either::A(syn::parse2(quote! { f64 }).unwrap())),
                 "Int" => Type::Scalar(Either::A(syn::parse2(quote! { i32 }).unwrap())),
                 "Boolean" => Type::Scalar(Either::A(syn::parse2(quote! { bool }).unwrap())),
-                "ID" => Type::Scalar(Either::A(syn::parse2(quote! { juniper::ID }).unwrap())),
+                "ID" => Type::Scalar(Either::A(
+                    syn::parse2(quote! { juniper_from_schema::juniper::ID }).unwrap(),
+                )),
                 name => {
                     if pass.ast_data.is_scalar(name) {
                         Type::Scalar(Either::B(format_ident!("{}", name)))
@@ -1056,7 +1060,7 @@ impl<'doc> ToTokens for Scalar<'doc> {
 
         let attrs = if let Some(description) = description {
             quote! {
-                #[derive(juniper::GraphQLScalarValue)]
+                #[derive(juniper_from_schema::juniper::GraphQLScalarValue)]
                 #[graphql(
                     transparent,
                     description = #description,
@@ -1064,7 +1068,7 @@ impl<'doc> ToTokens for Scalar<'doc> {
             }
         } else {
             quote! {
-                #[derive(juniper::GraphQLScalarValue)]
+                #[derive(juniper_from_schema::juniper::GraphQLScalarValue)]
                 #[graphql(transparent)]
             }
         };
@@ -1095,7 +1099,7 @@ impl<'doc> ToTokens for Scalar<'doc> {
             }
 
             impl<'a, 'b> query_trails::FromLookAheadValue<#name>
-                for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                for &'a juniper_from_schema::juniper::LookAheadValue<'b, juniper_from_schema::juniper::DefaultScalarValue>
             {
                 fn from(self) -> #name {
                     let s = query_trails::FromLookAheadValue::<String>::from(self);
@@ -1148,7 +1152,7 @@ impl<'doc> ToTokens for Object<'doc> {
         let fields_for_trait = fields.iter().map(|field| field.to_tokens_for_trait());
 
         let code = quote! {
-            #[juniper::graphql_object( #(#graphql_attrs),* )]
+            #[juniper_from_schema::juniper::graphql_object( #(#graphql_attrs),* )]
             #[allow(clippy::unnecessary_lazy_evaluations)]
             impl #name {
                 #(#fields_for_impl)*
@@ -1378,7 +1382,7 @@ impl<'a, 'doc> ToTokens for FieldToTokensTrait<'a, 'doc> {
         tokens.extend(quote! {
             fn #name<'r, 'a>(
                 &self,
-                executor: &juniper::Executor<'r, 'a, #context_type>,
+                executor: &juniper_from_schema::juniper::Executor<'r, 'a, #context_type>,
                 #query_trail_param
                 #(#args,)*
             ) -> #full_return_type;
@@ -1410,11 +1414,11 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterface<'a, 'doc> {
         tokens.extend(quote! {
             fn #name<'a, 'r>(
                 &self,
-                executor: &juniper::Executor<
+                executor: &juniper_from_schema::juniper::Executor<
                     'a,
                     'r,
                     #context_type,
-                    juniper::DefaultScalarValue,
+                    juniper_from_schema::juniper::DefaultScalarValue,
                 >,
                 #(#args,)*
             ) -> #full_return_type;
@@ -1479,11 +1483,11 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterfaceImpl<'a, 'doc> {
             #[allow(clippy::unnecessary_lazy_evaluations)]
             fn #name<'a, 'r>(
                 &self,
-                executor: &juniper::Executor<
+                executor: &juniper_from_schema::juniper::Executor<
                     'a,
                     'r,
                     #context_type,
-                    juniper::DefaultScalarValue,
+                    juniper_from_schema::juniper::DefaultScalarValue,
                 >,
                 #(#args_for_signature),*
             ) -> #full_return_type {
@@ -1598,7 +1602,7 @@ impl<'doc> ToTokens for Interface<'doc> {
         let mut graphql_attrs = Vec::new();
         graphql_attrs.push(quote! { for = [ #(#implementors),* ] });
         graphql_attrs.push(quote! { Context = #context_type });
-        graphql_attrs.push(quote! { Scalar = juniper::DefaultScalarValue });
+        graphql_attrs.push(quote! { Scalar = juniper_from_schema::juniper::DefaultScalarValue });
         graphql_attrs.push(quote! { enum = #name });
 
         if let Some(description) = description {
@@ -1608,7 +1612,7 @@ impl<'doc> ToTokens for Interface<'doc> {
         let fields_for_impl = fields.iter().map(|field| field.to_tokens_for_interface());
 
         tokens.extend(quote! {
-            #[juniper::graphql_interface(
+            #[juniper_from_schema::juniper::graphql_interface(
                 #(#graphql_attrs),*
             )]
             pub trait #interface_trait_name {
@@ -1654,7 +1658,7 @@ impl<'doc> ToTokens for Union<'doc> {
                     #[graphql(
                         description=#description,
                         Context = Context,
-                        Scalar = juniper::DefaultScalarValue,
+                        Scalar = juniper_from_schema::juniper::DefaultScalarValue,
                     )]
                 }
             })
@@ -1662,7 +1666,7 @@ impl<'doc> ToTokens for Union<'doc> {
                 quote! {
                         #[graphql(
                             Context = Context,
-                            Scalar = juniper::DefaultScalarValue,
+                            Scalar = juniper_from_schema::juniper::DefaultScalarValue,
                         )]
                 }
             });
@@ -1680,7 +1684,7 @@ impl<'doc> ToTokens for Union<'doc> {
         });
 
         tokens.extend(quote! {
-            #[derive(juniper::GraphQLUnion)]
+            #[derive(juniper_from_schema::juniper::GraphQLUnion)]
             #graphql_attr
             pub enum #name {
                 #(#variants,)*
@@ -1741,7 +1745,7 @@ impl<'doc> ToTokens for Enum<'doc> {
 
         tokens.extend(quote! {
             #[derive(
-                juniper::GraphQLEnum,
+                juniper_from_schema::juniper::GraphQLEnum,
                 Debug,
                 Eq,
                 PartialEq,
@@ -1757,26 +1761,26 @@ impl<'doc> ToTokens for Enum<'doc> {
             }
 
             impl<'a, 'b> query_trails::FromLookAheadValue<#name>
-                for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                for &'a juniper_from_schema::juniper::LookAheadValue<'b, juniper_from_schema::juniper::DefaultScalarValue>
             {
                 fn from(self) -> #name {
                     match self {
-                        juniper::LookAheadValue::Enum(name) => {
+                        juniper_from_schema::juniper::LookAheadValue::Enum(name) => {
                             match name {
                                 #(#string_to_enum_value_mappings,)*
                                 other => panic!("Invalid enum name: {}", other),
                             }
                         },
-                        juniper::LookAheadValue::Null => panic!(
+                        juniper_from_schema::juniper::LookAheadValue::Null => panic!(
                             "Failed converting look ahead value. Expected enum type got `null`",
                         ),
-                        juniper::LookAheadValue::List(_) => panic!(
+                        juniper_from_schema::juniper::LookAheadValue::List(_) => panic!(
                             "Failed converting look ahead value. Expected enum type got `list`",
                         ),
-                        juniper::LookAheadValue::Object(_) => panic!(
+                        juniper_from_schema::juniper::LookAheadValue::Object(_) => panic!(
                             "Failed converting look ahead value. Expected enum type got `object`",
                         ),
-                        juniper::LookAheadValue::Scalar(_) => panic!(
+                        juniper_from_schema::juniper::LookAheadValue::Scalar(_) => panic!(
                             "Failed converting look ahead value. Expected enum type got `scalar`",
                         ),
                     }
@@ -1880,18 +1884,18 @@ impl<'doc> ToTokens for InputObject<'doc> {
             .collect::<Vec<_>>();
 
         tokens.extend(quote! {
-            #[derive(juniper::GraphQLInputObject, Clone, Debug)]
+            #[derive(juniper_from_schema::juniper::GraphQLInputObject, Clone, Debug)]
             #graphql_attr
             pub struct #name {
                 #(#fields),*
             }
 
             impl<'a, 'b> query_trails::FromLookAheadValue<#name>
-                for &'a juniper::LookAheadValue<'b, juniper::DefaultScalarValue>
+                for &'a juniper_from_schema::juniper::LookAheadValue<'b, juniper_from_schema::juniper::DefaultScalarValue>
             {
                 fn from(self) -> #name {
                     match self {
-                        juniper::LookAheadValue::Object(pairs) => {
+                        juniper_from_schema::juniper::LookAheadValue::Object(pairs) => {
                             #(
                                 let mut #field_names = None;
                             )*
@@ -1905,16 +1909,16 @@ impl<'doc> ToTokens for InputObject<'doc> {
                                 #(#field_setters)*
                             }
                         },
-                        juniper::LookAheadValue::Enum(_) => panic!(
+                        juniper_from_schema::juniper::LookAheadValue::Enum(_) => panic!(
                             "Failed converting look ahead value. Expected object type got `enum`",
                         ),
-                        juniper::LookAheadValue::Null => panic!(
+                        juniper_from_schema::juniper::LookAheadValue::Null => panic!(
                             "Failed converting look ahead value. Expected object type got `null`",
                         ),
-                        juniper::LookAheadValue::List(_) => panic!(
+                        juniper_from_schema::juniper::LookAheadValue::List(_) => panic!(
                             "Failed converting look ahead value. Expected object type got `list`",
                         ),
-                        juniper::LookAheadValue::Scalar(_) => panic!(
+                        juniper_from_schema::juniper::LookAheadValue::Scalar(_) => panic!(
                             "Failed converting look ahead value. Expected object type got `scalar`",
                         ),
                     }
@@ -1967,7 +1971,7 @@ impl ToTokens for SchemaType {
 
         tokens.extend(quote! {
             /// The GraphQL schema type generated by `juniper-from-schema`.
-            pub type Schema = juniper::RootNode<
+            pub type Schema = juniper_from_schema::juniper::RootNode<
                 'static,
                 #query_type,
                 #mutation_type,

@@ -1460,6 +1460,10 @@
 use juniper::{DefaultScalarValue, LookAheadSelection};
 use std::marker::PhantomData;
 
+// re-export juniper here so we're sure to use the same version everywhere
+#[doc(hidden)]
+pub use juniper;
+
 pub use juniper_from_schema_code_gen::{graphql_schema, graphql_schema_from_file};
 
 /// A type used to parameterize `QueryTrail` to know that `walk` has been called.
