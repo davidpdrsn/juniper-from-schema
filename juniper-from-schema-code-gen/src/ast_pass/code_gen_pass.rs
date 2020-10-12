@@ -104,7 +104,9 @@ impl<'doc> CodeGenPass<'doc> {
             #schema_type
         };
 
+        // eprintln!("\n");
         // eprintln!("{}", tokens);
+        // eprintln!("\n");
 
         Ok(tokens)
     }
@@ -369,7 +371,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                 let name = format_ident!("{}", name.to_camel_case());
                 let deprecation = self.parse_directives(value);
 
-                Variant {
+                EnumVariant {
                     name,
                     deprecation,
                     description: description.as_ref(),
@@ -518,8 +520,10 @@ impl<'doc> CodeGenPass<'doc> {
                     self.emit_error(*position, ErrorKind::NonnullableFieldWithDefaultValue);
                 }
 
+                let name_without_raw_ident = format_ident!("{}", name.to_snake_case());
                 FieldArg {
-                    name: format_ident!("r#{}", name.to_snake_case()),
+                    name: format_ident!("r#{}", name_without_raw_ident),
+                    name_without_raw_ident,
                     description: description.as_ref(),
                     ty,
                     default_value,
@@ -1074,6 +1078,7 @@ impl<'doc> ToTokens for Scalar<'doc> {
         };
 
         let code = quote! {
+            #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Hash)]
             #attrs
             pub struct #name(pub std::string::String);
 
@@ -1266,6 +1271,7 @@ struct FieldToTokensGraphqlObject<'a, 'doc> {
     trait_name: &'a Ident,
 }
 
+#[allow(unused_variables, warnings)]
 impl<'a, 'doc> ToTokens for FieldToTokensGraphqlObject<'a, 'doc> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Field {
@@ -1282,7 +1288,7 @@ impl<'a, 'doc> ToTokens for FieldToTokensGraphqlObject<'a, 'doc> {
 
         if !args.is_empty() {
             let parts = args.iter().filter_map(|arg| {
-                let name = &arg.name;
+                let name = &arg.name_without_raw_ident;
 
                 if let Some(description) = &arg.description {
                     Some(quote! {
@@ -1296,13 +1302,7 @@ impl<'a, 'doc> ToTokens for FieldToTokensGraphqlObject<'a, 'doc> {
             graphql_attrs.push(quote! { arguments( #(#parts,)* ) });
         };
 
-        if let Some(Deprecation::Deprecated(reason)) = &directives.deprecated {
-            if let Some(reason) = reason {
-                graphql_attrs.push(quote! { deprecated = #reason });
-            } else {
-                graphql_attrs.push(quote! { deprecated });
-            }
-        }
+        add_deprecation_graphql_attr_token(directives, &mut graphql_attrs);
 
         if let Some(description) = description {
             graphql_attrs.push(quote! { description = #description });
@@ -1398,20 +1398,31 @@ struct FieldToTokensInterface<'a, 'doc> {
 impl<'a, 'doc> ToTokens for FieldToTokensInterface<'a, 'doc> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Field {
-            description: _,
+            description,
             name,
             error_type: _,
             context_type,
             args,
             return_type: _,
-            directives: _,
+            directives,
         } = self.field;
 
         let full_return_type = self.field.full_return_type();
 
         let args = args.iter().map(|arg| arg.to_tokens_for_interface());
 
+        let mut graphql_attrs = Vec::new();
+
+        if let Some(desc) = description {
+            graphql_attrs.push(quote! {
+                description = #desc
+            });
+        }
+
+        add_deprecation_graphql_attr_token(directives, &mut graphql_attrs);
+
         tokens.extend(quote! {
+            #[graphql_interface( #(#graphql_attrs),* )]
             fn #name<'a, 'r>(
                 &self,
                 executor: &juniper_from_schema::juniper::Executor<
@@ -1502,6 +1513,7 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterfaceImpl<'a, 'doc> {
 #[derive(Debug)]
 struct FieldArg<'doc> {
     name: Ident,
+    name_without_raw_ident: Ident,
     description: Option<&'doc String>,
     ty: Type,
     default_value: Option<TokenStream>,
@@ -1527,6 +1539,7 @@ impl<'a, 'doc> ToTokens for FieldArgToTokensGraphqlObject<'a, 'doc> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let FieldArg {
             name,
+            name_without_raw_ident: _,
             description: _,
             ty,
             default_value: _,
@@ -1544,6 +1557,7 @@ impl<'a, 'doc> ToTokens for FieldArgsToTokensTrait<'a, 'doc> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let FieldArg {
             name,
+            name_without_raw_ident: _,
             description: _,
             ty,
             default_value,
@@ -1568,6 +1582,7 @@ impl<'a, 'doc> ToTokens for FieldArgsToTokensInterface<'a, 'doc> {
         let FieldArg {
             name,
             description: _,
+            name_without_raw_ident: _,
             ty,
             default_value: _,
         } = self.0;
@@ -1604,6 +1619,9 @@ impl<'doc> ToTokens for Interface<'doc> {
         graphql_attrs.push(quote! { Context = #context_type });
         graphql_attrs.push(quote! { Scalar = juniper_from_schema::juniper::DefaultScalarValue });
         graphql_attrs.push(quote! { enum = #name });
+
+        let name_lit = syn::LitStr::new(&name.to_string(), proc_macro2::Span::call_site());
+        graphql_attrs.push(quote! { name = #name_lit });
 
         if let Some(description) = description {
             graphql_attrs.push(quote! { description=#description });
@@ -1719,7 +1737,7 @@ impl ToTokens for UnionVariant {
 #[derive(Debug)]
 struct Enum<'doc> {
     name: Ident,
-    variants: Vec<Variant<'doc>>,
+    variants: Vec<EnumVariant<'doc>>,
     description: Option<&'doc String>,
 }
 
@@ -1791,16 +1809,16 @@ impl<'doc> ToTokens for Enum<'doc> {
 }
 
 #[derive(Debug)]
-struct Variant<'doc> {
+struct EnumVariant<'doc> {
     name: Ident,
     deprecation: Deprecation,
     description: Option<&'doc String>,
     graphql_name: &'doc str,
 }
 
-impl<'doc> ToTokens for Variant<'doc> {
+impl<'doc> ToTokens for EnumVariant<'doc> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let Variant {
+        let EnumVariant {
             name,
             description,
             deprecation,
@@ -1811,7 +1829,7 @@ impl<'doc> ToTokens for Variant<'doc> {
         graphql_attrs.push(quote! { name=#graphql_name });
 
         match deprecation {
-            Deprecation::NoDeprecation => graphql_attrs.push(quote! {}),
+            Deprecation::NoDeprecation => {}
             Deprecation::Deprecated(None) => graphql_attrs.push(quote! { deprecated }),
             Deprecation::Deprecated(Some(reason)) => {
                 graphql_attrs.push(quote! { deprecated=#reason })
@@ -1978,5 +1996,18 @@ impl ToTokens for SchemaType {
                 #subscription_type,
             >;
         });
+    }
+}
+
+fn add_deprecation_graphql_attr_token(
+    directives: &FieldDirectives,
+    graphql_attrs: &mut Vec<TokenStream>,
+) {
+    if let Some(Deprecation::Deprecated(reason)) = &directives.deprecated {
+        if let Some(reason) = reason {
+            graphql_attrs.push(quote! { deprecated = #reason });
+        } else {
+            graphql_attrs.push(quote! { deprecated });
+        }
     }
 }

@@ -10,20 +10,33 @@ impl juniper::Context for Context {}
 
 fn main() {}
 
-juniper_from_schema::graphql_schema! {
-    schema {
-      query: Query
-    }
+// juniper_from_schema::graphql_schema! {
+//     schema {
+//       query: Query
+//     }
 
-    type Query {
-      helloWorld(name: String!): String! @juniper(ownership: "owned")
-    }
-}
+//     type Query {
+//         enumeration(arg: Unit = METER): Unit! @juniper(ownership: "owned")
+//     }
+
+//     enum Unit { METER FOOT }
+// }
 
 pub struct Query;
 
-impl QueryFields for Query {
-    fn field_hello_world(&self, executor: &Executor<Context>, name: String) -> FieldResult<String> {
-        todo!()
+#[juniper::graphql_object]
+impl Query {
+    fn add(a: i32, b: i32) -> i32 {
+        a + b
     }
 }
+
+// impl QueryFields for Query {
+//     fn field_enumeration(
+//         &self,
+//         _: &Executor<Context>,
+//         arg: Unit,
+//     ) -> FieldResult<Unit> {
+//         Ok(arg)
+//     }
+// }
