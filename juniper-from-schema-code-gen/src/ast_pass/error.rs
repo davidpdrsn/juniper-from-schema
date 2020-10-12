@@ -208,6 +208,7 @@ pub enum ErrorKind<'doc> {
     FieldNameInSnakeCase,
     UppercaseUuidScalar,
     InvalidJuniperDirective(String, Option<String>),
+    CannotDeclareBuiltinAsScalar,
 }
 
 impl<'doc> ErrorKind<'doc> {
@@ -264,6 +265,9 @@ impl<'doc> ErrorKind<'doc> {
             }
             ErrorKind::InvalidJuniperDirective(msg, _) => {
                 msg.clone()
+            }
+            ErrorKind::CannotDeclareBuiltinAsScalar => {
+                "You cannot declare scalars with names matching a built-in".to_string()
             }
         }
     }

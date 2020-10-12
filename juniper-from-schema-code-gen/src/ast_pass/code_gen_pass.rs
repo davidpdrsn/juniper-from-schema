@@ -213,13 +213,20 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
             }
             _ => {
                 let schema::ScalarType {
-                    position: _,
+                    position,
                     description,
                     name,
                     directives: _,
                 } = node;
 
                 let () = self.parse_directives(node);
+
+                match &**name {
+                    "String" | "Float" | "Int" | "Boolean" | "ID" => {
+                        self.emit_error(*position, ErrorKind::CannotDeclareBuiltinAsScalar);
+                    }
+                    _ => {}
+                }
 
                 self.scalars.push(Scalar {
                     name: format_ident!("{}", name),
