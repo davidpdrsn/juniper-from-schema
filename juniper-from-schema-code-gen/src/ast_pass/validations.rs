@@ -22,15 +22,15 @@ impl<'pass, 'doc, T> SchemaVisitor<'doc> for FieldNameCaseValidator<'pass, T>
 where
     T: EmitError<'doc>,
 {
-    fn visit_object_type(&mut self, ty: &'doc schema::ObjectType<&'doc str>) {
+    fn visit_object_type(&mut self, ty: &'doc schema::ObjectType<'doc, &'doc str>) {
         self.validate_fields(&ty.fields);
     }
 
-    fn visit_interface_type(&mut self, ty: &'doc schema::InterfaceType<&'doc str>) {
+    fn visit_interface_type(&mut self, ty: &'doc schema::InterfaceType<'doc, &'doc str>) {
         self.validate_fields(&ty.fields);
     }
 
-    fn visit_input_object_type(&mut self, ty: &'doc schema::InputObjectType<&'doc str>) {
+    fn visit_input_object_type(&mut self, ty: &'doc schema::InputObjectType<'doc, &'doc str>) {
         for field in &ty.fields {
             self.validate_field(&field.name, field.position);
         }
@@ -41,7 +41,7 @@ impl<'pass, 'doc, T> FieldNameCaseValidator<'pass, T>
 where
     T: EmitError<'doc>,
 {
-    fn validate_fields(&mut self, fields: &'doc [Field<&'doc str>]) {
+    fn validate_fields(&mut self, fields: &'doc [Field<'doc, &'doc str>]) {
         for field in fields {
             self.validate_field(&field.name, field.position);
         }
@@ -71,7 +71,7 @@ impl<'pass, 'doc, T> SchemaVisitor<'doc> for UuidNameCaseValidator<'pass, T>
 where
     T: EmitError<'doc>,
 {
-    fn visit_scalar_type(&mut self, scalar: &'doc ScalarType<&'doc str>) {
+    fn visit_scalar_type(&mut self, scalar: &'doc ScalarType<'doc, &'doc str>) {
         if scalar.name == "UUID" {
             self.pass
                 .emit_error(scalar.position, ErrorKind::UppercaseUuidScalar);
