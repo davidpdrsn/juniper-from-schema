@@ -1,5 +1,6 @@
 #![recursion_limit = "128"]
 #![allow(dead_code)]
+#![allow(unused_braces)]
 #![deny(deprecated)]
 
 extern crate juniper;

@@ -1,4 +1,5 @@
 #![allow(dead_code, unused_variables, unused_imports)]
+#![allow(unused_braces)]
 
 use assert_json_diff::assert_json_include;
 use juniper::{Executor, FieldResult, Variables, ID};
