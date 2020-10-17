@@ -14,9 +14,9 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 The `executor` argument in `field_*` methods now requires two lifetime arguments:
 
 ```rust
-fn field_hello_world<'a, 'r>(
+fn field_hello_world<'r, 'a>(
     &self,
-    executor: &Executor<'a, 'r, Context>
+    executor: &Executor<'r, 'a, Context>
 ) -> FieldResult<String> {
     todo!()
 }

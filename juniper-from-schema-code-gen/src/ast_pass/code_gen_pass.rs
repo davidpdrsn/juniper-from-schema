@@ -27,6 +27,7 @@ use std::convert::TryFrom;
 use std::rc::Rc;
 use syn::Ident;
 use syn::LitStr;
+use syn::Token;
 
 #[derive(Debug)]
 pub struct CodeGenPass<'doc> {
@@ -784,10 +785,16 @@ impl<'doc> CodeGenPass<'doc> {
 
         assert_eq!(directive.name, "juniper");
 
+        let mut field_location_present = false;
+        let mut scalar_location_present = false;
+
         for location in directive.locations.iter() {
             match location {
-                DirectiveLocation::FieldDefinition | DirectiveLocation::Scalar => {
-                    // valid
+                DirectiveLocation::FieldDefinition => {
+                    field_location_present = true;
+                }
+                DirectiveLocation::Scalar => {
+                    scalar_location_present = true;
                 }
                 other => self.emit_error(
                     directive.position,
@@ -796,10 +803,31 @@ impl<'doc> CodeGenPass<'doc> {
                             "Invalid location for @juniper directive: `{}`",
                             other.as_str()
                         ),
-                        Some("Location must be `FIELD_DEFINITION` or `SCALAR`".to_string()),
+                        Some("Location must be `FIELD_DEFINITION | SCALAR`".to_string()),
                     ),
                 ),
             }
+        }
+
+        if !field_location_present {
+            self.emit_error(
+                directive.position,
+                ErrorKind::InvalidJuniperDirective(
+                    "Missing `FIELD_DEFINITION` directive location for @juniper directive"
+                        .to_string(),
+                    Some("Location must be `FIELD_DEFINITION | SCALAR`".to_string()),
+                ),
+            )
+        }
+
+        if !scalar_location_present {
+            self.emit_error(
+                directive.position,
+                ErrorKind::InvalidJuniperDirective(
+                    "Missing `SCALAR` directive location for @juniper directive".to_string(),
+                    Some("Location must be `FIELD_DEFINITION | SCALAR`".to_string()),
+                ),
+            )
         }
 
         let no_directives = |this: &mut Self, arg: &InputValue<'doc, &'doc str>, name: &str| {
@@ -865,6 +893,7 @@ impl<'doc> CodeGenPass<'doc> {
         let mut ownership_present = false;
         let mut infallible_present = false;
         let mut with_time_zone_present = false;
+        let mut async_present = false;
 
         for arg in directive.arguments.iter() {
             match arg.name {
@@ -886,12 +915,18 @@ impl<'doc> CodeGenPass<'doc> {
                     no_directives(self, arg, name);
                     default_value(self, arg, Value::Boolean(true), name);
                 }
+                name @ "async" => {
+                    async_present = true;
+                    of_type(self, arg, GraphqlType::NamedType("Boolean"), name);
+                    no_directives(self, arg, name);
+                    default_value(self, arg, Value::Boolean(false), name);
+                }
                 name => {
                     self.emit_error(
                         arg.position,
                         ErrorKind::InvalidJuniperDirective(
                             format!("Invalid argument for @juniper directive: `{}`", name),
-                            Some("Supported arguments are `ownership`, `infallible`, and `with_time_zone`".to_string()),
+                            Some("Supported arguments are `ownership`, `infallible`, `with_time_zone`, and `async`".to_string()),
                         ),
                     )
                 }
@@ -925,6 +960,13 @@ impl<'doc> CodeGenPass<'doc> {
                     "Missing argument `with_time_zone`".to_string(),
                     None,
                 ),
+            )
+        }
+
+        if !async_present {
+            self.emit_error(
+                directive.position,
+                ErrorKind::InvalidJuniperDirective("Missing argument `async`".to_string(), None),
             )
         }
     }
@@ -1162,12 +1204,19 @@ impl<'doc> ToTokens for Object<'doc> {
 
         let fields_for_trait = fields.iter().map(|field| field.to_tokens_for_trait());
 
+        let async_trait_attr = if fields.iter().any(|f| f.directives.r#async.value) {
+            Some(quote! { #[juniper_from_schema::juniper::async_trait] })
+        } else {
+            None
+        };
+
         let code = quote! {
             #graphql_attrs
             impl #name {
                 #(#fields_for_impl)*
             }
 
+            #async_trait_attr
             pub trait #trait_name {
                 #(#fields_for_trait)*
             }
@@ -1225,6 +1274,22 @@ impl<'doc> Field<'doc> {
         format_ident!("field_{}", self.name)
     }
 
+    fn asyncness(&self) -> Option<Token![async]> {
+        if self.directives.r#async.value {
+            Some(syn::token::Async::default())
+        } else {
+            None
+        }
+    }
+
+    fn awaitness(&self) -> Option<TokenStream> {
+        if self.directives.r#async.value {
+            Some(quote! { .await })
+        } else {
+            None
+        }
+    }
+
     fn full_return_type(&self) -> syn::Type {
         let return_type = &self.return_type;
         let error_type = &self.error_type;
@@ -1261,7 +1326,7 @@ impl<'doc> Field<'doc> {
             TypeKind::Type => {
                 let query_trail_type = self.query_trail_type();
                 Some(quote! {
-                    trail: &juniper_from_schema::QueryTrail<'a, #query_trail_type, juniper_from_schema::Walked>,
+                    trail: &juniper_from_schema::QueryTrail<'r, #query_trail_type, juniper_from_schema::Walked>,
                 })
             }
             TypeKind::Scalar => None,
@@ -1315,7 +1380,7 @@ impl<'a, 'doc> ToTokens for FieldToTokensGraphqlObject<'a, 'doc> {
         let trait_name = self.trait_name;
         let trait_field_name = self.field.trait_field_name();
         let arg_names = args.iter().map(|arg| &arg.name);
-        let full_return_type = self.field.full_return_type();
+        let return_type = self.field.full_return_type();
 
         let args_for_signature = args
             .iter()
@@ -1342,15 +1407,23 @@ impl<'a, 'doc> ToTokens for FieldToTokensGraphqlObject<'a, 'doc> {
             quote! {}
         };
 
+        let asyncness = self.field.asyncness();
+        let awaitness = self.field.awaitness();
+
         tokens.extend(quote! {
             #graphql_attrs
-            fn #name(
+            #asyncness fn #name(
                 &self,
                 executor: &Executor,
                 #(#args_for_signature,)*
-            ) -> #full_return_type {
+            ) -> #return_type {
                 #(#rebind_args_with_default_values)*
-                <Self as #trait_name>::#trait_field_name(self, executor, #query_trail_arg #(#arg_names,)*)
+                <Self as #trait_name>::#trait_field_name(
+                    self,
+                    executor,
+                    #query_trail_arg
+                    #(#arg_names,)*
+                ) #awaitness
             }
         });
     }
@@ -1380,8 +1453,10 @@ impl<'a, 'doc> ToTokens for FieldToTokensTrait<'a, 'doc> {
 
         let query_trail_param = self.field.query_trail_param();
 
+        let asyncness = self.field.asyncness();
+
         tokens.extend(quote! {
-            fn #name<'r, 'a>(
+            #asyncness fn #name<'r, 'a>(
                 &self,
                 executor: &juniper_from_schema::juniper::Executor<'r, 'a, #context_type>,
                 #query_trail_param
@@ -1408,7 +1483,7 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterface<'a, 'doc> {
             directives,
         } = self.field;
 
-        let full_return_type = self.field.full_return_type();
+        let return_type = self.field.full_return_type();
 
         let args = args.iter().map(|arg| arg.to_tokens_for_interface());
 
@@ -1420,9 +1495,11 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterface<'a, 'doc> {
 
         add_deprecation_graphql_attr_token(directives, &mut graphql_attrs);
 
+        let asyncness = self.field.asyncness();
+
         tokens.extend(quote! {
             #graphql_attrs
-            fn #name<'a, 'r>(
+            #asyncness fn #name<'r, 'a>(
                 &self,
                 executor: &juniper_from_schema::juniper::Executor<
                     'a,
@@ -1431,7 +1508,7 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterface<'a, 'doc> {
                     juniper_from_schema::juniper::DefaultScalarValue,
                 >,
                 #(#args,)*
-            ) -> #full_return_type;
+            ) -> #return_type;
         })
     }
 }
@@ -1489,8 +1566,11 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterfaceImpl<'a, 'doc> {
             quote! {}
         };
 
+        let asyncness = self.field.asyncness();
+        let awaitness = self.field.awaitness();
+
         let code = quote! {
-            fn #name<'a, 'r>(
+            #asyncness fn #name<'r, 'a>(
                 &self,
                 executor: &juniper_from_schema::juniper::Executor<
                     'a,
@@ -1501,7 +1581,12 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterfaceImpl<'a, 'doc> {
                 #(#args_for_signature),*
             ) -> #full_return_type {
                 #(#rebind_args_with_default_values)*
-                <Self as #trait_name>::#trait_field_name(self, executor, #query_trail_arg #(#arg_names,)*)
+                <Self as #trait_name>::#trait_field_name(
+                    self,
+                    executor,
+                    #query_trail_arg
+                    #(#arg_names,)*
+                ) #awaitness
             }
         };
         tokens.extend(code)
@@ -1644,7 +1729,10 @@ impl<'doc> ToTokens for Interface<'doc> {
                 .iter()
                 .map(|field| field.to_tokens_for_interface_impl(&trait_name));
 
+            let graphql_attr = GraphqlAttr::new_interface_top_level();
+
             tokens.extend(quote! {
+                #graphql_attr
                 impl #interface_trait_name for #implementor {
                     #(#fields_for_impl)*
                 }
@@ -2096,10 +2184,8 @@ impl ToTokens for GraphqlAttr {
             ),
         };
 
-        if !items.is_empty() {
-            let code = quote! { #[ #name ( #(#items),* )] };
-            tokens.extend(code);
-        }
+        let code = quote! { #[ #name ( #(#items),* )] };
+        tokens.extend(code);
     }
 }
 

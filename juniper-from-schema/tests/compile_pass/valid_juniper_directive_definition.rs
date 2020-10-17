@@ -11,7 +11,8 @@ juniper_from_schema::graphql_schema! {
     directive @juniper(
         ownership: String = "borrowed",
         infallible: Boolean = false,
-        with_time_zone: Boolean = true
+        with_time_zone: Boolean = true,
+        async: Boolean = false
     ) on FIELD_DEFINITION | SCALAR
 }
 

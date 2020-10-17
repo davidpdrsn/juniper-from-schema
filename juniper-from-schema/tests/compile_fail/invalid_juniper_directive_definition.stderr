@@ -6,8 +6,8 @@ error: proc macro panicked
 6  | |         string: String!
 7  | |     }
 ...  |
-16 | |     ) on FIELD
-17 | | }
+17 | |     ) on FIELD
+18 | | }
    | |_^
    |
    = help: message:
@@ -18,7 +18,23 @@ error: proc macro panicked
            1 |    type Query { string : String ! } schema { query : Query } directive @
              |                                                              ^
 
-           Location must be `FIELD_DEFINITION` or `SCALAR`
+           Location must be `FIELD_DEFINITION | SCALAR`
+
+           error: Missing `FIELD_DEFINITION` directive location for @juniper directive
+            --> schema:1:59
+             |
+           1 |    type Query { string : String ! } schema { query : Query } directive @
+             |                                                              ^
+
+           Location must be `FIELD_DEFINITION | SCALAR`
+
+           error: Missing `SCALAR` directive location for @juniper directive
+            --> schema:1:59
+             |
+           1 |    type Query { string : String ! } schema { query : Query } directive @
+             |                                                              ^
+
+           Location must be `FIELD_DEFINITION | SCALAR`
 
            error: Missing default value for `ownership` argument. Must be `"borrowed"`
             --> schema:2:9
@@ -66,18 +82,26 @@ error: proc macro panicked
 
            Got `[String]`
 
-           error: Invalid argument for @juniper directive: `bar`
+           error: Invalid default value for `async` argument. Must be `false`
             --> schema:3:27
              |
-           3 |            [String] = false, bar : [Boolean]) on FIELD
+           3 |            [String] = false, async : Boolean = true, bar : [Boolean]) on FIELD
              |                              ^
 
-           Supported arguments are `ownership`, `infallible`, and `with_time_zone`
+           Got `true`
 
-           aborting due to 8 errors
+           error: Invalid argument for @juniper directive: `bar`
+            --> schema:3:51
+             |
+           3 |            [String] = false, async : Boolean = true, bar : [Boolean]) on FIELD
+             |                                                      ^
+
+           Supported arguments are `ownership`, `infallible`, `with_time_zone`, and `async`
+
+           aborting due to 11 errors
 
 error[E0405]: cannot find trait `QueryFields` in this scope
-  --> $DIR/invalid_juniper_directive_definition.rs:21:6
+  --> $DIR/invalid_juniper_directive_definition.rs:22:6
    |
-21 | impl QueryFields for Query {
+22 | impl QueryFields for Query {
    |      ^^^^^^^^^^^ not found in this scope

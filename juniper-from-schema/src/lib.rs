@@ -22,6 +22,7 @@
 //!     - [Definition for `@juniper`](#definition-for-juniper)
 //!     - [Customizing ownership](#customizing-ownership)
 //!     - [Infallible fields](#infallible-fields)
+//!     - [Async resolvers](#async-resolvers)
 //! - [GraphQL to Rust types](#graphql-to-rust-types)
 //! - [Query trails](#query-trails)
 //!     - [Abbreviated example](#abbreviated-example)
@@ -115,89 +116,6 @@
 //! }
 //! ```
 //!
-//! And with `graphql_schema_from_file!` expanded your code would look something like this:
-//!
-//! ```ignore
-//! #[macro_use]
-//! extern crate juniper;
-//!
-//! pub struct Context;
-//! impl juniper::Context for Context {}
-//!
-//! pub struct Query;
-//!
-//! juniper::graphql_object!(Query: Context |&self| {
-//!     field hello_world(&executor, name: String) -> juniper::FieldResult<String> {
-//!         <Self as QueryFields>::field_hello_world(&self, &executor, name)
-//!     }
-//! });
-//!
-//! trait QueryFields {
-//!     fn field_hello_world(
-//!         &self,
-//!         executor: &juniper::Executor<Context>,
-//!         name: String,
-//!     ) -> juniper::FieldResult<String>;
-//! }
-//!
-//! impl QueryFields for Query {
-//!     fn field_hello_world(
-//!         &self,
-//!         executor: &juniper::Executor<Context>,
-//!         name: String,
-//!     ) -> juniper::FieldResult<String> {
-//!         Ok(format!("Hello, {}!", name))
-//!     }
-//! }
-//!
-//! pub struct Mutation;
-//!
-//! juniper::graphql_object!(Mutation: Context |&self| {
-//!     field noop(&executor) -> juniper::FieldResult<&bool> {
-//!         <Self as MutationFields>::field_noop(&self, &executor)
-//!     }
-//! });
-//!
-//! trait MutationFields {
-//!     fn field_noop(&self, executor: &juniper::Executor<Context>) -> juniper::FieldResult<&bool>;
-//! }
-//!
-//! impl MutationFields for Mutation {
-//!     fn field_noop(&self, executor: &juniper::Executor<Context>) -> juniper::FieldResult<&bool> {
-//!         Ok(&true)
-//!     }
-//! }
-//!
-//! type Schema = juniper::RootNode<'static, Query, Mutation>;
-//!
-//! fn main() {
-//!     let ctx = Context;
-//!
-//!     let query = "query { helloWorld(name: \"Ferris\") }";
-//!
-//!     let (result, errors) = juniper::execute(
-//!         query,
-//!         None,
-//!         &Schema::new(Query, Mutation),
-//!         &juniper::Variables::new(),
-//!         &ctx,
-//!     )
-//!     .unwrap();
-//!
-//!     assert_eq!(errors.len(), 0);
-//!     assert_eq!(
-//!         result
-//!             .as_object_value()
-//!             .unwrap()
-//!             .get_field_value("helloWorld")
-//!             .unwrap()
-//!             .as_scalar_value::<String>()
-//!             .unwrap(),
-//!         "Hello, Ferris!",
-//!     );
-//! }
-//! ```
-//!
 //! # Example web app
 //!
 //! You can find an example of how to use this library together with [Rocket] and [Diesel] to make
@@ -222,9 +140,10 @@
 //! - Unions
 //! - Input objects
 //! - Enumeration types
+//! - Async resolvers
 //!
-//! Not supported yet:
-//! - Subscriptions (will be supported once Juniper supports subscriptions)
+//! Not supported:
+//! - Subscriptions (in the works)
 //! - Type extensions
 //!
 //! ## The `ID` type
@@ -270,10 +189,10 @@
 //! ## Interfaces
 //!
 //! Juniper has several ways of representing GraphQL interfaces in Rust. They are listed
-//! [here](https://graphql-rust.github.io/types/interfaces.html#enums) along with their advantages
-//! and disadvantages.
+//! [here](https://graphql-rust.github.io/juniper/master/types/interfaces.html) along with their
+//! advantages and disadvantages.
 //!
-//! For the generated code we use the `enum` pattern because we found it to be the most flexible.
+//! For the generated code we use the "enum value" pattern because we found it to be the most flexible.
 //!
 //! Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/master/examples/interface.rs)):
 //!
@@ -713,6 +632,8 @@
 //! - `@juniper(infallible: true|false)`. Customize if a field should return `Result<T, _>` or
 //! just `T`. More info
 //! [here](http://localhost:4000/juniper_from_schema/index.html#infallible-fields).
+//! - `@juniper(async: true|false)`. For choosing whether your resolver function should be sync or
+//! async. The default is sync. More info [here](#async-resolvers).
 //! - `@deprecated`. For deprecating types in your schema. Also supports supplying a reason with
 //! `@deprecated(reason: "...")`
 //!
@@ -727,7 +648,8 @@
 //! directive @juniper(
 //!     ownership: String = "borrowed",
 //!     infallible: Boolean = false,
-//!     with_time_zone: Boolean = true
+//!     with_time_zone: Boolean = true,
+//!     async: Boolean = false,
 //! ) on FIELD_DEFINITION | SCALAR
 //! ```
 //!
@@ -850,6 +772,67 @@
 //! }
 //! ```
 //!
+//! ## Async resolvers
+//!
+//! By default the generated resolvers are synchronous. If you want an async resolver instead you
+//! can change it with `@juniper(async: true)`.
+//!
+//! Example:
+//!
+//! ```
+//! # #[macro_use]
+//! # extern crate juniper;
+//! # use juniper_from_schema::*;
+//! # use juniper::*;
+//! # pub struct Context;
+//! # impl juniper::Context for Context {}
+//! # fn main() {}
+//! // `async` methods are currently not supported in traits. So we use "async_trait" to make them
+//! // work. "async_trait" is also used by juniper under the covers.
+//! use async_trait::async_trait;
+//!
+//! graphql_schema! {
+//!     schema {
+//!         query: Query
+//!     }
+//!
+//!     type Query {
+//!         findUser(id: ID!): User! @juniper(async: true, ownership: "owned")
+//!     }
+//!
+//!     type User {
+//!         id: ID! @juniper(infallible: true)
+//!     }
+//! }
+//!
+//! pub struct Query;
+//!
+//! #[async_trait]
+//! impl QueryFields for Query {
+//!     // Async resolvers are required to specify the lifetimes 'r, and 'a because of how
+//!     // "async_trait" works
+//!     async fn field_find_user<'r, 'a>(
+//!         &self,
+//!         _: &Executor<'r, 'a, Context>,
+//!         _: &QueryTrail<'r, User, Walked>,
+//!         id: ID,
+//!     ) -> FieldResult<User> {
+//!         // ...
+//!         # unimplemented!()
+//!     }
+//! }
+//!
+//! pub struct User {
+//!     id: ID,
+//! }
+//!
+//! impl UserFields for User {
+//!     fn field_id(&self, _: &Executor<Context>) -> &ID {
+//!         &self.id
+//!     }
+//! }
+//! ```
+//!
 //! # GraphQL to Rust types
 //!
 //! This is how the standard GraphQL types will be mapped to Rust:
@@ -881,7 +864,7 @@
 //!
 //! ```text
 //!    |  trail.foo();
-//!    |        ^^^ method not found in `&juniper_from_schema::QueryTrail<'a, User, juniper_from_schema::Walked>`
+//!    |        ^^^ method not found in `&juniper_from_schema::QueryTrail<'r, User, juniper_from_schema::Walked>`
 //!    |
 //!    = help: items from traits can only be used if the trait is in scope
 //! help: the following trait is implemented but not in scope, perhaps add a `use` for it:
@@ -992,18 +975,18 @@
 //!
 //! ## Types
 //!
-//! A query trail has two generic parameters: `QueryTrail<'a, T, K>`. `T` is the type the current
+//! A query trail has two generic parameters: `QueryTrail<'r, T, K>`. `T` is the type the current
 //! field returns and `K` is either `Walked` or `NotWalked`.
 //!
-//! The lifetime `'a` comes from Juniper and is the lifetime of the incoming query.
+//! The lifetime `'r` comes from Juniper and is the lifetime of the incoming query.
 //!
 //! ### `T`
 //!
 //! The `T` allows us to implement different methods for different types. For example in the
-//! example above we implement `id` and `author` for `QueryTrail<'_, Post, K>` but only `id` for
-//! `QueryTrail<'_, User, K>`.
+//! example above we implement `id` and `author` for `QueryTrail<'r, Post, K>` but only `id` for
+//! `QueryTrail<'r, User, K>`.
 //!
-//! If your field returns a `Vec<T>` or `Option<T>` the given query trail will be `QueryTrail<'_,
+//! If your field returns a `Vec<T>` or `Option<T>` the given query trail will be `QueryTrail<'r,
 //! T, _>`. So `Vec` or `Option` will be removed and you'll only be given the inner most type.
 //! That is because in the GraphQL query syntax it doesn't matter if you're querying a `User`
 //! or `[User]`. The fields you have access to are the same.
@@ -1011,9 +994,9 @@
 //! ### `K`
 //!
 //! The `Walked` and `NotWalked` types are used to check if a given trail has been checked to
-//! actually be part of a query. Calling any method on a `QueryTrail<'_, T, K>` will return
-//! `QueryTrail<'_, T, NotWalked>`, and to check if the trail is actually part of the query you have
-//! to call `.walk()` which returns `Option<QueryTrail<'_, T, Walked>>`. If that is a `Some(_)`
+//! actually be part of a query. Calling any method on a `QueryTrail<'r, T, K>` will return
+//! `QueryTrail<'r, T, NotWalked>`, and to check if the trail is actually part of the query you have
+//! to call `.walk()` which returns `Option<QueryTrail<'r, T, Walked>>`. If that is a `Some(_)`
 //! you'll know the trail is part of the query and you can do whatever preloading is necessary.
 //!
 //! Example:
@@ -1038,7 +1021,7 @@
 //! [juniper-eager-loading](https://crates.io/crates/juniper-eager-loading) however it isn't
 //! specific to that library._
 //!
-//! If you have a `QueryTrail<'a, T, Walked>` where `T` is an interface or union type you can use
+//! If you have a `QueryTrail<'r, T, Walked>` where `T` is an interface or union type you can use
 //! `.downcast()` to convert that `QueryTrail` into one of the implementors of the interface or
 //! union.
 //!
@@ -1124,7 +1107,7 @@
 //! ```
 //!
 //! This function works well when we have field that returns `[User!]!`. That field is going to get
-//! a `QueryTrail<'a, User, Walked>` which is exactly what `preload_users` needs.
+//! a `QueryTrail<'r, User, Walked>` which is exactly what `preload_users` needs.
 //!
 //! However, now imagine you have a schema like this:
 //!
@@ -1150,9 +1133,9 @@
 //! }
 //! ```
 //!
-//! The method `QueryFields::field_search` will receive a `QueryTrail<'a, SearchResult, Walked>`.
-//! That type doesn't work with `preload_users`. So we have to convert our `QueryTrail<'a,
-//! SearchResult, Walked>` into `QueryTrail<'a, User, Walked>`.
+//! The method `QueryFields::field_search` will receive a `QueryTrail<'r, SearchResult, Walked>`.
+//! That type doesn't work with `preload_users`. So we have to convert our `QueryTrail<'r,
+//! SearchResult, Walked>` into `QueryTrail<'r, User, Walked>`.
 //!
 //! This can be done by calling `.downcast()` which automatically gets implemented for interface and
 //! union query trails. See above for an example.
@@ -1173,10 +1156,10 @@
 //! # fn main() {}
 //! # pub struct Country {}
 //! # impl CountryFields for Country {
-//! #     fn field_users<'a, 'r>(
+//! #     fn field_users<'r, 'a>(
 //! #         &self,
-//! #         executor: &juniper::Executor<'a, 'r, Context>,
-//! #         trail: &QueryTrail<'a, User, Walked>,
+//! #         executor: &juniper::Executor<'r, 'a, Context>,
+//! #         trail: &QueryTrail<'r, User, Walked>,
 //! #         active_since: DateTime<Utc>,
 //! #     ) -> juniper::FieldResult<Vec<User>> {
 //! #         unimplemented!()
@@ -1184,9 +1167,9 @@
 //! # }
 //! # pub struct User {}
 //! # impl UserFields for User {
-//! #     fn field_id<'a, 'r>(
+//! #     fn field_id<'r, 'a>(
 //! #         &self,
-//! #         executor: &juniper::Executor<'a, 'r, Context>,
+//! #         executor: &juniper::Executor<'r, 'a, Context>,
 //! #     ) -> juniper::FieldResult<&juniper::ID> {
 //! #         unimplemented!()
 //! #     }
@@ -1216,10 +1199,10 @@
 //! pub struct Query;
 //!
 //! impl QueryFields for Query {
-//!     fn field_countries<'a, 'r>(
+//!     fn field_countries<'r, 'a>(
 //!         &self,
-//!         executor: &'a juniper::Executor<'a, 'r, Context>,
-//!         trail: &'a QueryTrail<'a, Country, Walked>
+//!         executor: &'a juniper::Executor<'r, 'a, Context>,
+//!         trail: &'a QueryTrail<'r, Country, Walked>
 //!     ) -> juniper::FieldResult<Vec<Country>> {
 //!         // Get struct that has all arguments passed to `Country.users`
 //!         let args: CountryUsersArgs<'a> = trail.users_args();
@@ -1304,12 +1287,12 @@
 //!
 //! ```text
 //! ---- src/lib.rs -  (line 10) stdout ----
-//! error[E0599]: no method named `users_args` found for type `&QueryTrail<'_, Country, Walked>` in the current
+//! error[E0599]: no method named `users_args` found for type `&QueryTrail<'r, Country, Walked>` in the current
 //!  scope
 //!   --> src/lib.rs:10:1
 //!    |
 //! 10 |         trail.users_args();
-//!    |               ^^^^^^^^^^^^ method not found in `&QueryTrail<'_, Country, Walked>`
+//!    |               ^^^^^^^^^^^^ method not found in `&QueryTrail<'r, Country, Walked>`
 //! ```
 //!
 //! It is likely because you've forgotten to call [`.walk()`][] on `trail`.
@@ -1473,20 +1456,20 @@ pub struct Walked;
 pub struct NotWalked;
 
 /// A wrapper around a `juniper::LookAheadSelection` with methods for each possible child.
-pub struct QueryTrail<'a, T, K> {
+pub struct QueryTrail<'r, T, K> {
     // These fields are required by the macros but you shouldn't rely them. They might change
     // without a major version increase.
     #[doc(hidden)]
-    pub look_ahead: Option<&'a LookAheadSelection<'a, DefaultScalarValue>>,
+    pub look_ahead: Option<&'r LookAheadSelection<'r, DefaultScalarValue>>,
     #[doc(hidden)]
     pub node_type: PhantomData<T>,
     #[doc(hidden)]
     pub walked: K,
 }
 
-impl<'a, T> QueryTrail<'a, T, NotWalked> {
+impl<'r, T> QueryTrail<'r, T, NotWalked> {
     /// Check if the trail is present in the query being executed
-    pub fn walk(self) -> Option<QueryTrail<'a, T, Walked>> {
+    pub fn walk(self) -> Option<QueryTrail<'r, T, Walked>> {
         match self.look_ahead {
             Some(inner) => Some(QueryTrail {
                 look_ahead: Some(inner),
@@ -1498,13 +1481,13 @@ impl<'a, T> QueryTrail<'a, T, NotWalked> {
     }
 }
 
-impl<'a, T, K> QueryTrail<'a, T, K> {
+impl<'r, T, K> QueryTrail<'r, T, K> {
     #[allow(clippy::new_ret_no_self)]
     #[doc(hidden)]
     #[allow(missing_docs)]
     // This method is required by the macros but you shouldn't rely them. They might change
     // without a major version increase.
-    pub fn new(lh: &'a LookAheadSelection<'a, DefaultScalarValue>) -> QueryTrail<'a, T, Walked> {
+    pub fn new(lh: &'r LookAheadSelection<'r, DefaultScalarValue>) -> QueryTrail<'r, T, Walked> {
         QueryTrail {
             look_ahead: Some(lh),
             node_type: PhantomData,

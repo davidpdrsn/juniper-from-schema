@@ -26,3 +26,4 @@ rustversion = "0.1"
 uuid = { version = "0.8", features = ["v4"] }
 url = "2"
 chrono = "0.4"
+async-trait = "0.1"

@@ -3,6 +3,9 @@
 #![allow(warnings)]
 
 use juniper::{EmptyMutation, Executor, FieldResult, Variables, ID};
+use std::future::Future;
+use std::pin::Pin;
+use std::task::Poll;
 
 pub struct Context;
 
@@ -16,27 +19,25 @@ fn main() {}
 //     }
 
 //     type Query {
-//         enumeration(arg: Unit = METER): Unit! @juniper(ownership: "owned")
+//         ping: Boolean! @juniper(infallible: true, ownership: "owned", async: true)
 //     }
 
-//     enum Unit { METER FOOT }
+//     directive @juniper(
+//         ownership: String = "borrowed",
+//         infallible: Boolean = false,
+//         with_time_zone: Boolean = true,
+//         async: Boolean = false
+//     ) on FIELD_DEFINITION | SCALAR
 // }
 
-pub struct Query;
+// pub struct Query;
 
-#[juniper::graphql_object]
-impl Query {
-    fn add(a: i32, b: i32) -> i32 {
-        a + b
-    }
-}
-
+// #[juniper_from_schema::juniper::async_trait]
 // impl QueryFields for Query {
-//     fn field_enumeration(
+//     async fn field_ping<'r, 'a>(
 //         &self,
-//         _: &Executor<Context>,
-//         arg: Unit,
-//     ) -> FieldResult<Unit> {
-//         Ok(arg)
+//         _: &Executor<'r, 'a, Context>,
+//     ) -> bool {
+//         todo!()
 //     }
 // }

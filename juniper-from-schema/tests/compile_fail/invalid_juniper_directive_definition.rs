@@ -12,6 +12,7 @@ juniper_from_schema::graphql_schema! {
         ownership: Boolean,
         infallible: String = "foo",
         with_time_zone: [String] = false,
+        async: Boolean = true,
         bar: [Boolean]
     ) on FIELD
 }

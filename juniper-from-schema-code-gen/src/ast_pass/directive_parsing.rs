@@ -146,14 +146,16 @@ macro_rules! impl_from_directive_for {
     };
 }
 
-impl_from_directive_for! { (A) }
-impl_from_directive_for! { (A, B) }
+impl_from_directive_for! { (T) }
+impl_from_directive_for! { (T1, T2) }
+impl_from_directive_for! { (T1, T2, T3) }
 
 #[derive(Debug)]
 pub struct FieldDirectives {
     pub ownership: Ownership,
     pub deprecated: Option<Deprecation>,
     pub infallible: Infallible,
+    pub r#async: Async,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -236,6 +238,36 @@ impl FromDirectiveArguments for Infallible {
 }
 
 #[derive(Debug)]
+pub struct Async {
+    pub value: bool,
+}
+
+impl FromDirectiveArguments for Async {
+    const KEY: &'static str = "async";
+
+    fn from_directive_args<'doc>(
+        (key, value): &'doc (&'doc str, Value<'doc, &'doc str>),
+    ) -> Option<Result<Self, ErrorKind<'doc>>> {
+        if *key != Self::KEY {
+            return None;
+        }
+
+        let directive = (|| {
+            let value = value_as_bool(value)?;
+            Ok(Self { value })
+        })();
+
+        Some(directive)
+    }
+}
+
+impl Default for Async {
+    fn default() -> Self {
+        Async { value: false }
+    }
+}
+
+#[derive(Debug)]
 pub struct DateTimeScalarArguments {
     pub with_time_zone: bool,
 }
@@ -306,13 +338,15 @@ impl<'doc> ParseDirective<&'doc Field<'doc, &'doc str>> for CodeGenPass<'doc> {
         let mut ownership = Ownership::default();
         let mut deprecated = None::<Deprecation>;
         let mut infallible = Infallible::default();
+        let mut r#async = Async::default();
 
         for dir in &input.directives {
             if let Ok(juniper_directive) =
-                JuniperDirective::<(Ownership, Infallible)>::from_directive(dir)
+                JuniperDirective::<(Ownership, Infallible, Async)>::from_directive(dir)
             {
                 ownership = juniper_directive.args.0;
                 infallible = juniper_directive.args.1;
+                r#async = juniper_directive.args.2;
                 continue;
             }
 
@@ -333,6 +367,7 @@ impl<'doc> ParseDirective<&'doc Field<'doc, &'doc str>> for CodeGenPass<'doc> {
             ownership,
             deprecated,
             infallible,
+            r#async,
         }
     }
 }
