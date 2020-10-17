@@ -19,7 +19,6 @@ pub struct AstData<'doc> {
     union_types: HashSet<&'doc str>,
     input_object_field_types: HashMap<&'doc str, HashMap<&'doc str, &'doc Type<'doc, &'doc str>>>,
     errors: BTreeSet<Error<'doc>>,
-    raw_schema: &'doc str,
     include_time_zone_on_date_time_scalar: bool,
 }
 
@@ -69,11 +68,10 @@ impl<'doc> SchemaVisitor<'doc> for AstData<'doc> {
 }
 
 impl<'doc> AstData<'doc> {
-    pub fn new_from_schema_and_doc(
-        raw_schema: &'doc str,
+    pub fn new_from_doc(
         doc: &'doc Document<'doc, &'doc str>,
     ) -> Result<Self, BTreeSet<Error<'doc>>> {
-        let mut data = Self::new(raw_schema);
+        let mut data = Self::new();
         visit_document(&mut data, doc);
 
         if data.errors.is_empty() {
@@ -83,7 +81,7 @@ impl<'doc> AstData<'doc> {
         }
     }
 
-    fn new(raw_schema: &'doc str) -> Self {
+    fn new() -> Self {
         Self {
             interface_implementors: Default::default(),
             user_scalars: Default::default(),
@@ -91,7 +89,6 @@ impl<'doc> AstData<'doc> {
             union_types: Default::default(),
             input_object_field_types: Default::default(),
             errors: Default::default(),
-            raw_schema,
             include_time_zone_on_date_time_scalar: true,
         }
     }
@@ -187,11 +184,7 @@ impl<'doc> AstData<'doc> {
 
 impl<'doc> EmitError<'doc> for AstData<'doc> {
     fn emit_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) {
-        let error = Error {
-            pos,
-            kind,
-            raw_schema: &self.raw_schema,
-        };
+        let error = Error { pos, kind };
         self.errors.insert(error);
     }
 }

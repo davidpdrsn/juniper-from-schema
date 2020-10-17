@@ -77,6 +77,14 @@ pub trait SchemaVisitor<'doc> {
         _: &'doc schema::InputObjectTypeExtension<'doc, &'doc str>,
     ) {
     }
+
+    #[inline]
+    fn and<T>(self, rhs: T) -> And<Self, T>
+    where
+        Self: Sized,
+    {
+        And { lhs: self, rhs }
+    }
 }
 
 pub fn visit_document<'doc, V: SchemaVisitor<'doc>>(
@@ -221,4 +229,145 @@ pub fn visit_input_object_type_extension<'doc, V: SchemaVisitor<'doc>>(
     node: &'doc schema::InputObjectTypeExtension<'doc, &'doc str>,
 ) {
     v.visit_input_object_type_extension(node)
+}
+
+#[derive(Debug)]
+pub struct And<A, B> {
+    lhs: A,
+    rhs: B,
+}
+
+impl<A, B> And<A, B> {
+    pub fn into_inner(self) -> (A, B) {
+        (self.lhs, self.rhs)
+    }
+}
+
+impl<'doc, A, B> SchemaVisitor<'doc> for And<A, B>
+where
+    A: SchemaVisitor<'doc>,
+    B: SchemaVisitor<'doc>,
+{
+    #[inline]
+    fn visit_document(&mut self, node: &'doc schema::Document<'doc, &'doc str>) {
+        self.lhs.visit_document(node);
+        self.rhs.visit_document(node);
+    }
+
+    #[inline]
+    fn visit_schema_definition(&mut self, node: &'doc schema::SchemaDefinition<'doc, &'doc str>) {
+        self.lhs.visit_schema_definition(node);
+        self.rhs.visit_schema_definition(node);
+    }
+
+    #[inline]
+    fn visit_directive_definition(
+        &mut self,
+        node: &'doc schema::DirectiveDefinition<'doc, &'doc str>,
+    ) {
+        self.lhs.visit_directive_definition(node);
+        self.rhs.visit_directive_definition(node);
+    }
+
+    #[inline]
+    fn visit_type_definition(&mut self, node: &'doc schema::TypeDefinition<'doc, &'doc str>) {
+        self.lhs.visit_type_definition(node);
+        self.rhs.visit_type_definition(node);
+    }
+
+    #[inline]
+    fn visit_scalar_type(&mut self, node: &'doc schema::ScalarType<'doc, &'doc str>) {
+        self.lhs.visit_scalar_type(node);
+        self.rhs.visit_scalar_type(node);
+    }
+
+    #[inline]
+    fn visit_object_type(&mut self, node: &'doc schema::ObjectType<'doc, &'doc str>) {
+        self.lhs.visit_object_type(node);
+        self.rhs.visit_object_type(node);
+    }
+
+    #[inline]
+    fn visit_interface_type(&mut self, node: &'doc schema::InterfaceType<'doc, &'doc str>) {
+        self.lhs.visit_interface_type(node);
+        self.rhs.visit_interface_type(node);
+    }
+
+    #[inline]
+    fn visit_union_type(&mut self, node: &'doc schema::UnionType<'doc, &'doc str>) {
+        self.lhs.visit_union_type(node);
+        self.rhs.visit_union_type(node);
+    }
+
+    #[inline]
+    fn visit_enum_type(&mut self, node: &'doc schema::EnumType<'doc, &'doc str>) {
+        self.lhs.visit_enum_type(node);
+        self.rhs.visit_enum_type(node);
+    }
+
+    #[inline]
+    fn visit_input_object_type(&mut self, node: &'doc schema::InputObjectType<'doc, &'doc str>) {
+        self.lhs.visit_input_object_type(node);
+        self.rhs.visit_input_object_type(node);
+    }
+
+    #[inline]
+    fn visit_type_extension(&mut self, node: &'doc schema::TypeExtension<'doc, &'doc str>) {
+        self.lhs.visit_type_extension(node);
+        self.rhs.visit_type_extension(node);
+    }
+
+    #[inline]
+    fn visit_scalar_type_extension(
+        &mut self,
+        node: &'doc schema::ScalarTypeExtension<'doc, &'doc str>,
+    ) {
+        self.lhs.visit_scalar_type_extension(node);
+        self.rhs.visit_scalar_type_extension(node);
+    }
+
+    #[inline]
+    fn visit_object_type_extension(
+        &mut self,
+        node: &'doc schema::ObjectTypeExtension<'doc, &'doc str>,
+    ) {
+        self.lhs.visit_object_type_extension(node);
+        self.rhs.visit_object_type_extension(node);
+    }
+
+    #[inline]
+    fn visit_interface_type_extension(
+        &mut self,
+        node: &'doc schema::InterfaceTypeExtension<'doc, &'doc str>,
+    ) {
+        self.lhs.visit_interface_type_extension(node);
+        self.rhs.visit_interface_type_extension(node);
+    }
+
+    #[inline]
+    fn visit_union_type_extension(
+        &mut self,
+        node: &'doc schema::UnionTypeExtension<'doc, &'doc str>,
+    ) {
+        self.lhs.visit_union_type_extension(node);
+        self.rhs.visit_union_type_extension(node);
+    }
+
+    #[inline]
+    fn visit_enum_type_extension(
+        &mut self,
+        node: &'doc schema::EnumTypeExtension<'doc, &'doc str>,
+    ) {
+        self.lhs.visit_enum_type_extension(node);
+        self.rhs.visit_enum_type_extension(node);
+    }
+
+    #[inline]
+    fn visit_input_object_type_extension(
+        &mut self,
+        node: &'doc schema::InputObjectTypeExtension<'doc, &'doc str>,
+    ) {
+        self.lhs.visit_input_object_type_extension(node);
+        self.rhs.visit_input_object_type_extension(node);
+    }
 }

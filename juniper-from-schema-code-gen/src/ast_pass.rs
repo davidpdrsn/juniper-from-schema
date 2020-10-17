@@ -8,8 +8,10 @@ pub mod validations;
 pub use self::code_gen_pass::CodeGenPass;
 pub use self::error::ErrorKind;
 
+use self::error::Error;
 use graphql_parser::schema::Type;
 use graphql_parser::Pos;
+use std::collections::BTreeSet;
 
 pub fn type_name<'doc>(type_: &Type<'doc, &'doc str>) -> &'doc str {
     match &*type_ {
@@ -27,4 +29,11 @@ pub enum TypeKind {
 
 pub trait EmitError<'doc> {
     fn emit_error(&mut self, pos: Pos, kind: ErrorKind<'doc>);
+}
+
+impl<'doc> EmitError<'doc> for BTreeSet<Error<'doc>> {
+    fn emit_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) {
+        let error = Error { pos, kind };
+        self.insert(error);
+    }
 }

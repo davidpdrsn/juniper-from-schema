@@ -1,12 +1,12 @@
 //! See the docs for "juniper-from-schema" for more info about this.
 
-#![deny(
-    unused_imports,
-    mutable_borrow_reservation_conflict,
-    dead_code,
-    unused_variables,
-    unused_must_use
-)]
+// #![deny(
+//     unused_imports,
+//     mutable_borrow_reservation_conflict,
+//     dead_code,
+//     unused_variables,
+//     unused_must_use
+// )]
 #![recursion_limit = "256"]
 #![doc(html_root_url = "https://docs.rs/juniper-from-schema-code-gen/0.5.2")]
 
@@ -116,9 +116,9 @@ fn parse_and_gen_schema(
         Err(parse_error) => panic!("{}", parse_error),
     };
 
-    let ast_data = match AstData::new_from_schema_and_doc(schema, &doc) {
+    let ast_data = match AstData::new_from_doc(&doc) {
         Ok(x) => x,
-        Err(errors) => print_and_panic_if_errors(errors),
+        Err(errors) => print_and_panic_if_errors(schema, errors),
     };
 
     let output = ast_pass::CodeGenPass::new(schema, error_type, context_type, ast_data);
@@ -133,16 +133,16 @@ fn parse_and_gen_schema(
 
             out
         }
-        Err(errors) => print_and_panic_if_errors(errors),
+        Err(errors) => print_and_panic_if_errors(schema, errors),
     }
 }
 
-fn print_and_panic_if_errors<T>(errors: BTreeSet<Error>) -> T {
+fn print_and_panic_if_errors<'a, T>(schema: &'a str, errors: BTreeSet<Error<'a>>) -> T {
     let count = errors.len();
 
     let out = errors
         .into_iter()
-        .map(|error| error.to_string())
+        .map(|error| error.display(schema).to_string())
         .collect::<Vec<_>>()
         .join("\n\n");
 

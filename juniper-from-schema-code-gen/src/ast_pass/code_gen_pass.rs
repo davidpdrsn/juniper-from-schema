@@ -115,8 +115,19 @@ impl<'doc> CodeGenPass<'doc> {
     }
 
     fn validate_doc(&mut self, doc: &'doc schema::Document<'doc, &'doc str>) {
-        visit_document(&mut FieldNameCaseValidator::new(self), doc);
-        visit_document(&mut UuidNameCaseValidator::new(self), doc);
+        let mut validation_visitor =
+            FieldNameCaseValidator::new().and(UuidNameCaseValidator::new());
+
+        visit_document(&mut validation_visitor, doc);
+
+        let (field_validator, uuid_name_validator) = validation_visitor.into_inner();
+        for error in field_validator
+            .errors
+            .into_iter()
+            .chain(uuid_name_validator.errors)
+        {
+            self.errors.insert(error);
+        }
     }
 
     fn check_for_errors(&self) -> Result<(), BTreeSet<Error<'doc>>> {
@@ -130,12 +141,7 @@ impl<'doc> CodeGenPass<'doc> {
 
 impl<'doc> EmitError<'doc> for CodeGenPass<'doc> {
     fn emit_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) {
-        let error = Error {
-            pos,
-            kind,
-            raw_schema: &self.raw_schema,
-        };
-        self.errors.insert(error);
+        self.errors.emit_error(pos, kind)
     }
 }
 

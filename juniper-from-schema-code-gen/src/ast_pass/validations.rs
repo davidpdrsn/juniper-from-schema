@@ -1,3 +1,6 @@
+use std::collections::BTreeSet;
+
+use super::error::Error;
 use super::schema_visitor::SchemaVisitor;
 use super::EmitError;
 use super::ErrorKind;
@@ -5,23 +8,19 @@ use graphql_parser::schema::{self, *};
 use graphql_parser::Pos;
 use heck::SnakeCase;
 
-pub struct FieldNameCaseValidator<'pass, T> {
-    pass: &'pass mut T,
+pub struct FieldNameCaseValidator<'doc> {
+    pub errors: BTreeSet<Error<'doc>>,
 }
 
-impl<'pass, 'doc, T> FieldNameCaseValidator<'pass, T>
-where
-    T: EmitError<'doc>,
-{
-    pub fn new(pass: &'pass mut T) -> Self {
-        Self { pass }
+impl<'doc> FieldNameCaseValidator<'doc> {
+    pub fn new() -> Self {
+        Self {
+            errors: Default::default(),
+        }
     }
 }
 
-impl<'pass, 'doc, T> SchemaVisitor<'doc> for FieldNameCaseValidator<'pass, T>
-where
-    T: EmitError<'doc>,
-{
+impl<'doc> SchemaVisitor<'doc> for FieldNameCaseValidator<'doc> {
     fn visit_object_type(&mut self, ty: &'doc schema::ObjectType<'doc, &'doc str>) {
         self.validate_fields(&ty.fields);
     }
@@ -37,10 +36,7 @@ where
     }
 }
 
-impl<'pass, 'doc, T> FieldNameCaseValidator<'pass, T>
-where
-    T: EmitError<'doc>,
-{
+impl<'doc> FieldNameCaseValidator<'doc> {
     fn validate_fields(&mut self, fields: &'doc [Field<'doc, &'doc str>]) {
         for field in fields {
             self.validate_field(&field.name, field.position);
@@ -49,31 +45,27 @@ where
 
     fn validate_field(&mut self, name: &str, pos: Pos) {
         if is_snake_case(name) {
-            self.pass.emit_error(pos, ErrorKind::FieldNameInSnakeCase);
+            self.errors.emit_error(pos, ErrorKind::FieldNameInSnakeCase);
         }
     }
 }
 
-pub struct UuidNameCaseValidator<'pass, T> {
-    pass: &'pass mut T,
+pub struct UuidNameCaseValidator<'doc> {
+    pub errors: BTreeSet<Error<'doc>>,
 }
 
-impl<'pass, 'doc, T> UuidNameCaseValidator<'pass, T>
-where
-    T: EmitError<'doc>,
-{
-    pub fn new(pass: &'pass mut T) -> Self {
-        Self { pass }
+impl<'doc> UuidNameCaseValidator<'doc> {
+    pub fn new() -> Self {
+        Self {
+            errors: Default::default(),
+        }
     }
 }
 
-impl<'pass, 'doc, T> SchemaVisitor<'doc> for UuidNameCaseValidator<'pass, T>
-where
-    T: EmitError<'doc>,
-{
+impl<'doc> SchemaVisitor<'doc> for UuidNameCaseValidator<'doc> {
     fn visit_scalar_type(&mut self, scalar: &'doc ScalarType<'doc, &'doc str>) {
         if scalar.name == "UUID" {
-            self.pass
+            self.errors
                 .emit_error(scalar.position, ErrorKind::UppercaseUuidScalar);
         }
     }

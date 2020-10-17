@@ -834,7 +834,7 @@ mod test {
         "#;
 
         let doc = graphql_parser::parse_schema(&schema).unwrap();
-        let ast_data = AstData::new_from_schema_and_doc(&schema, &doc).unwrap();
+        let ast_data = AstData::new_from_doc(&doc).unwrap();
         let mut out = CodeGenPass::new(
             schema,
             crate::parse_input::default_error_type(),

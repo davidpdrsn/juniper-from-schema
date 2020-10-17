@@ -6,48 +6,62 @@ use std::fmt::{self, Write};
 pub struct Error<'doc> {
     pub(super) pos: Pos,
     pub(super) kind: ErrorKind<'doc>,
-    pub(super) raw_schema: &'doc str,
 }
 
-impl<'a> fmt::Display for Error<'a> {
+impl<'doc> Error<'doc> {
+    pub fn display(self, raw_schema: &'doc str) -> ErrorDisplay<'doc> {
+        ErrorDisplay {
+            error: self,
+            raw_schema,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ErrorDisplay<'doc> {
+    error: Error<'doc>,
+    raw_schema: &'doc str,
+}
+
+impl<'a> fmt::Display for ErrorDisplay<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // TODO: Handle lines that are really long and cause wrapping (screenshot on desktop)
         // TODO: Seems to be issues with multiline comments (screenshot on desktop)
 
         let schema_lines = self.raw_schema.lines().collect::<Vec<_>>();
 
-        let number_of_digits_in_line_count = number_of_digits(self.pos.line as i32);
+        let number_of_digits_in_line_count = number_of_digits(self.error.pos.line as i32);
         let indent = 4;
 
         writeln!(
             f,
             "{error}: {kind}",
             error = "error".bright_red(),
-            kind = self.kind.description()
+            kind = self.error.kind.description()
         )?;
         writeln!(
             f,
             "{indent} --> schema:{line}:{col}",
             indent = "".indent(number_of_digits_in_line_count - 1),
-            line = self.pos.line,
-            col = self.pos.column
+            line = self.error.pos.line,
+            col = self.error.pos.column
         )?;
         writeln!(f, "{} |", "".indent(number_of_digits_in_line_count))?;
         writeln!(
             f,
             "{} |{}",
-            self.pos.line,
-            schema_lines[self.pos.line - 1].indent(indent),
+            self.error.pos.line,
+            schema_lines[self.error.pos.line - 1].indent(indent),
         )?;
         writeln!(
             f,
             "{} |{}{}",
             "".indent(number_of_digits_in_line_count),
-            "".indent(self.pos.column - 1 + indent),
+            "".indent(self.error.pos.column - 1 + indent),
             "^".bright_red(),
         )?;
 
-        if let Some(notes) = self.kind.notes() {
+        if let Some(notes) = self.error.kind.notes() {
             writeln!(f)?;
             for line in notes.lines() {
                 writeln!(f, "{}", line)?;
