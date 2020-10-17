@@ -16,6 +16,7 @@ use graphql_parser::schema::Value;
 use graphql_parser::Pos;
 use heck::CamelCase;
 use heck::SnakeCase;
+use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use quote::{format_ident, quote};
@@ -25,6 +26,7 @@ use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::rc::Rc;
 use syn::Ident;
+use syn::LitStr;
 
 #[derive(Debug)]
 pub struct CodeGenPass<'doc> {
@@ -1871,7 +1873,7 @@ impl<'doc> ToTokens for InputObject<'doc> {
         let temp_field_setters = fields
             .iter()
             .map(|field| {
-                let name = &field.name;
+                let name = LitStr::new(&field.name.to_string(), Span::call_site());
                 let temp_name = format_ident!("{}_temp", field.name);
                 let rust_type = &field.ty;
                 quote! {
