@@ -1,10 +1,5 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 
-#[macro_use]
-extern crate juniper;
-#[macro_use]
-extern crate maplit;
-
 use assert_json_diff::assert_json_include;
 use juniper::{Executor, FieldResult, Variables, ID};
 use juniper_from_schema::{graphql_schema, graphql_schema_from_file};
@@ -218,7 +213,7 @@ fn search() {
 
 fn run_query(query: &str) -> Value {
     let db = Db {
-        humans: hashmap! {
+        humans: maplit::hashmap! {
             "1" => Human { id: "1", name: "Luke Skywalker".to_string() },
         },
     };

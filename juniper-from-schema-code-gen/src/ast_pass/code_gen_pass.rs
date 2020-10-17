@@ -341,6 +341,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
             name,
             variants,
             description: description.as_ref(),
+            context_type: Rc::clone(&self.context_type),
         })
     }
 
@@ -1136,16 +1137,19 @@ impl<'doc> ToTokens for Object<'doc> {
             implements_interfaces,
         } = self;
 
-        let mut graphql_attrs = Vec::new();
+        let mut graphql_attrs = GraphqlAttr::new_object();
 
         if let Some(description) = description {
-            graphql_attrs.push(quote! { description = #description });
+            graphql_attrs.push_key_value(format_ident!("description"), description);
         }
 
-        graphql_attrs.push(quote! { Context = #context_type });
+        graphql_attrs.push_key_value(format_ident!("Context"), context_type);
 
         if !implements_interfaces.is_empty() {
-            graphql_attrs.push(quote! { impl = #(#implements_interfaces),* });
+            graphql_attrs.push_key_value(
+                format_ident!("impl"),
+                quote! { #(#implements_interfaces),* },
+            );
         }
 
         let trait_name = fields_trait_name(name);
@@ -1157,7 +1161,7 @@ impl<'doc> ToTokens for Object<'doc> {
         let fields_for_trait = fields.iter().map(|field| field.to_tokens_for_trait());
 
         let code = quote! {
-            #[juniper_from_schema::juniper::graphql_object( #(#graphql_attrs),* )]
+            #graphql_attrs
             #[allow(clippy::unnecessary_lazy_evaluations)]
             impl #name {
                 #(#fields_for_impl)*
@@ -1284,7 +1288,7 @@ impl<'a, 'doc> ToTokens for FieldToTokensGraphqlObject<'a, 'doc> {
             directives,
         } = self.field;
 
-        let mut graphql_attrs = Vec::new();
+        let mut graphql_attrs = GraphqlAttr::new();
 
         if !args.is_empty() {
             let parts = args.iter().filter_map(|arg| {
@@ -1299,13 +1303,13 @@ impl<'a, 'doc> ToTokens for FieldToTokensGraphqlObject<'a, 'doc> {
                 }
             });
 
-            graphql_attrs.push(quote! { arguments( #(#parts,)* ) });
+            graphql_attrs.push_fn(format_ident!("arguments"), parts);
         };
 
         add_deprecation_graphql_attr_token(directives, &mut graphql_attrs);
 
         if let Some(description) = description {
-            graphql_attrs.push(quote! { description = #description });
+            graphql_attrs.push_key_value(format_ident!("description"), description);
         };
 
         let trait_name = self.trait_name;
@@ -1339,9 +1343,7 @@ impl<'a, 'doc> ToTokens for FieldToTokensGraphqlObject<'a, 'doc> {
         };
 
         tokens.extend(quote! {
-            #[graphql(
-                #(#graphql_attrs,)*
-            )]
+            #graphql_attrs
             #[allow(clippy::unnecessary_lazy_evaluations)]
             fn #name(
                 &self,
@@ -1411,18 +1413,16 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterface<'a, 'doc> {
 
         let args = args.iter().map(|arg| arg.to_tokens_for_interface());
 
-        let mut graphql_attrs = Vec::new();
+        let mut graphql_attrs = GraphqlAttr::new_interface();
 
         if let Some(desc) = description {
-            graphql_attrs.push(quote! {
-                description = #desc
-            });
+            graphql_attrs.push_key_value(format_ident!("description"), desc);
         }
 
         add_deprecation_graphql_attr_token(directives, &mut graphql_attrs);
 
         tokens.extend(quote! {
-            #[graphql_interface( #(#graphql_attrs),* )]
+            #graphql_attrs
             fn #name<'a, 'r>(
                 &self,
                 executor: &juniper_from_schema::juniper::Executor<
@@ -1614,25 +1614,26 @@ impl<'doc> ToTokens for Interface<'doc> {
             fields,
         } = self;
 
-        let mut graphql_attrs = Vec::new();
-        graphql_attrs.push(quote! { for = [ #(#implementors),* ] });
-        graphql_attrs.push(quote! { Context = #context_type });
-        graphql_attrs.push(quote! { Scalar = juniper_from_schema::juniper::DefaultScalarValue });
-        graphql_attrs.push(quote! { enum = #name });
+        let mut graphql_attrs = GraphqlAttr::new_interface_top_level();
+        graphql_attrs.push_key_value(format_ident!("for"), quote! { [ #(#implementors),* ] });
+        graphql_attrs.push_key_value(format_ident!("Context"), quote! { #context_type });
+        graphql_attrs.push_key_value(
+            format_ident!("Scalar"),
+            quote! { juniper_from_schema::juniper::DefaultScalarValue },
+        );
+        graphql_attrs.push_key_value(format_ident!("enum"), name);
 
         let name_lit = syn::LitStr::new(&name.to_string(), proc_macro2::Span::call_site());
-        graphql_attrs.push(quote! { name = #name_lit });
+        graphql_attrs.push_key_value(format_ident!("name"), name_lit);
 
         if let Some(description) = description {
-            graphql_attrs.push(quote! { description=#description });
+            graphql_attrs.push_key_value(format_ident!("description"), description);
         }
 
         let fields_for_impl = fields.iter().map(|field| field.to_tokens_for_interface());
 
         tokens.extend(quote! {
-            #[juniper_from_schema::juniper::graphql_interface(
-                #(#graphql_attrs),*
-            )]
+            #graphql_attrs
             pub trait #interface_trait_name {
                 #(#fields_for_impl)*
             }
@@ -1660,6 +1661,7 @@ struct Union<'doc> {
     name: Ident,
     variants: Vec<UnionVariant>,
     description: Option<&'doc String>,
+    context_type: Rc<syn::Type>,
 }
 
 impl<'doc> ToTokens for Union<'doc> {
@@ -1668,26 +1670,19 @@ impl<'doc> ToTokens for Union<'doc> {
             name,
             variants,
             description,
+            context_type,
         } = self;
 
-        let graphql_attr = description
-            .map(|description| {
-                quote! {
-                    #[graphql(
-                        description=#description,
-                        Context = Context,
-                        Scalar = juniper_from_schema::juniper::DefaultScalarValue,
-                    )]
-                }
-            })
-            .unwrap_or_else(|| {
-                quote! {
-                        #[graphql(
-                            Context = Context,
-                            Scalar = juniper_from_schema::juniper::DefaultScalarValue,
-                        )]
-                }
-            });
+        let mut graphql_attrs = GraphqlAttr::new();
+        graphql_attrs.push_key_value(format_ident!("Context"), context_type);
+        graphql_attrs.push_key_value(
+            format_ident!("Scalar"),
+            quote! { juniper_from_schema::juniper::DefaultScalarValue },
+        );
+
+        if let Some(description) = description {
+            graphql_attrs.push_key_value(format_ident!("description"), description);
+        }
 
         let from_impls = variants.iter().map(|variant| {
             let inner_ty = &variant.type_inside;
@@ -1703,7 +1698,7 @@ impl<'doc> ToTokens for Union<'doc> {
 
         tokens.extend(quote! {
             #[derive(juniper_from_schema::juniper::GraphQLUnion)]
-            #graphql_attr
+            #graphql_attrs
             pub enum #name {
                 #(#variants,)*
             }
@@ -1825,24 +1820,24 @@ impl<'doc> ToTokens for EnumVariant<'doc> {
             graphql_name,
         } = self;
 
-        let mut graphql_attrs = Vec::new();
-        graphql_attrs.push(quote! { name=#graphql_name });
+        let mut graphql_attrs = GraphqlAttr::new();
+        graphql_attrs.push_key_value(format_ident!("name"), graphql_name);
 
         match deprecation {
             Deprecation::NoDeprecation => {}
-            Deprecation::Deprecated(None) => graphql_attrs.push(quote! { deprecated }),
+            Deprecation::Deprecated(None) => graphql_attrs.push(format_ident!("deprecated")),
             Deprecation::Deprecated(Some(reason)) => {
-                graphql_attrs.push(quote! { deprecated=#reason })
+                graphql_attrs.push_key_value(format_ident!("deprecated"), reason)
             }
         };
 
         if let Some(description) = description {
-            graphql_attrs.push(quote! { description=#description });
+            graphql_attrs.push_key_value(format_ident!("description"), description);
         }
 
         tokens.extend(quote! {
             #[allow(missing_docs)]
-            #[graphql( #(#graphql_attrs),* )]
+            #graphql_attrs
             #name
         })
     }
@@ -1863,9 +1858,10 @@ impl<'doc> ToTokens for InputObject<'doc> {
             fields,
         } = self;
 
-        let graphql_attr = description.map(|description| {
-            quote! { #[graphql(description=#description)] }
-        });
+        let mut graphql_attrs = GraphqlAttr::new();
+        if let Some(description) = description {
+            graphql_attrs.push_key_value(format_ident!("description"), description);
+        }
 
         let field_names = fields
             .iter()
@@ -1903,7 +1899,7 @@ impl<'doc> ToTokens for InputObject<'doc> {
 
         tokens.extend(quote! {
             #[derive(juniper_from_schema::juniper::GraphQLInputObject, Clone, Debug)]
-            #graphql_attr
+            #graphql_attrs
             pub struct #name {
                 #(#fields),*
             }
@@ -1961,12 +1957,13 @@ impl<'doc> ToTokens for InputObjectField<'doc> {
             description,
         } = self;
 
-        let graphql_attr = description.map(|description| {
-            quote! { #[graphql(description=#description)] }
-        });
+        let mut graphql_attrs = GraphqlAttr::new();
+        if let Some(description) = description {
+            graphql_attrs.push_key_value(format_ident!("description"), description);
+        }
 
         tokens.extend(quote! {
-            #graphql_attr
+            #graphql_attrs
             pub #name: #ty
         })
     }
@@ -2001,13 +1998,121 @@ impl ToTokens for SchemaType {
 
 fn add_deprecation_graphql_attr_token(
     directives: &FieldDirectives,
-    graphql_attrs: &mut Vec<TokenStream>,
+    graphql_attrs: &mut GraphqlAttr,
 ) {
     if let Some(Deprecation::Deprecated(reason)) = &directives.deprecated {
         if let Some(reason) = reason {
-            graphql_attrs.push(quote! { deprecated = #reason });
+            graphql_attrs.push_key_value(format_ident!("deprecated"), reason);
         } else {
-            graphql_attrs.push(quote! { deprecated });
+            graphql_attrs.push(format_ident!("deprecated"));
         }
+    }
+}
+
+#[derive(Debug)]
+enum GraphqlAttr {
+    Normal { items: Vec<GraphqlAttrItem> },
+    Object { items: Vec<GraphqlAttrItem> },
+    Interface { items: Vec<GraphqlAttrItem> },
+    InterfaceTopLevel { items: Vec<GraphqlAttrItem> },
+}
+
+#[derive(Debug)]
+enum GraphqlAttrItem {
+    Bare(Ident),
+    KeyValue { key: Ident, value: TokenStream },
+    Fn { name: Ident, args: Vec<TokenStream> },
+}
+
+impl GraphqlAttr {
+    fn new() -> Self {
+        Self::Normal { items: Vec::new() }
+    }
+
+    fn new_object() -> Self {
+        Self::Object { items: Vec::new() }
+    }
+
+    fn new_interface() -> Self {
+        Self::Interface { items: Vec::new() }
+    }
+
+    fn new_interface_top_level() -> Self {
+        Self::InterfaceTopLevel { items: Vec::new() }
+    }
+
+    fn push(&mut self, key: Ident) {
+        let items = match self {
+            GraphqlAttr::Normal { items } => items,
+            GraphqlAttr::Object { items } => items,
+            GraphqlAttr::Interface { items } => items,
+            GraphqlAttr::InterfaceTopLevel { items } => items,
+        };
+        items.push(GraphqlAttrItem::Bare(key));
+    }
+
+    fn push_key_value<T: ToTokens>(&mut self, key: Ident, value: T) {
+        let items = match self {
+            GraphqlAttr::Normal { items } => items,
+            GraphqlAttr::Object { items } => items,
+            GraphqlAttr::Interface { items } => items,
+            GraphqlAttr::InterfaceTopLevel { items } => items,
+        };
+        items.push(GraphqlAttrItem::KeyValue {
+            key,
+            value: quote! { #value },
+        });
+    }
+
+    fn push_fn<T, I>(&mut self, name: Ident, values: I)
+    where
+        T: ToTokens,
+        I: Iterator<Item = T>,
+    {
+        let items = match self {
+            GraphqlAttr::Normal { items } => items,
+            GraphqlAttr::Object { items } => items,
+            GraphqlAttr::Interface { items } => items,
+            GraphqlAttr::InterfaceTopLevel { items } => items,
+        };
+        let args = values
+            .map(|value| {
+                quote! { #value }
+            })
+            .collect();
+        items.push(GraphqlAttrItem::Fn { name, args });
+    }
+}
+
+impl ToTokens for GraphqlAttr {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let (name, items) = match self {
+            GraphqlAttr::Normal { items } => (quote! { graphql }, items),
+            GraphqlAttr::Object { items } => (
+                quote! { juniper_from_schema::juniper::graphql_object },
+                items,
+            ),
+            GraphqlAttr::Interface { items } => (quote! { graphql_interface }, items),
+            GraphqlAttr::InterfaceTopLevel { items } => (
+                quote! { juniper_from_schema::juniper::graphql_interface },
+                items,
+            ),
+        };
+
+        if !items.is_empty() {
+            let code = quote! { #[ #name ( #(#items),* )] };
+            tokens.extend(code);
+        }
+    }
+}
+
+impl ToTokens for GraphqlAttrItem {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let new_tokens = match self {
+            GraphqlAttrItem::Bare(k) => quote! { #k },
+            GraphqlAttrItem::KeyValue { key, value } => quote! { #key = #value },
+            GraphqlAttrItem::Fn { name, args } => quote! { #name ( #(#args),* ) },
+        };
+        tokens.extend(new_tokens);
     }
 }
