@@ -1164,12 +1164,10 @@ impl<'doc> ToTokens for Object<'doc> {
 
         let code = quote! {
             #graphql_attrs
-            #[allow(clippy::unnecessary_lazy_evaluations)]
             impl #name {
                 #(#fields_for_impl)*
             }
 
-            #[allow(clippy::unnecessary_lazy_evaluations)]
             pub trait #trait_name {
                 #(#fields_for_trait)*
             }
@@ -1346,7 +1344,6 @@ impl<'a, 'doc> ToTokens for FieldToTokensGraphqlObject<'a, 'doc> {
 
         tokens.extend(quote! {
             #graphql_attrs
-            #[allow(clippy::unnecessary_lazy_evaluations)]
             fn #name(
                 &self,
                 executor: &Executor,
@@ -1493,7 +1490,6 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterfaceImpl<'a, 'doc> {
         };
 
         let code = quote! {
-            #[allow(clippy::unnecessary_lazy_evaluations)]
             fn #name<'a, 'r>(
                 &self,
                 executor: &juniper_from_schema::juniper::Executor<
@@ -1649,7 +1645,6 @@ impl<'doc> ToTokens for Interface<'doc> {
                 .map(|field| field.to_tokens_for_interface_impl(&trait_name));
 
             tokens.extend(quote! {
-                #[allow(clippy::unnecessary_lazy_evaluations)]
                 impl #interface_trait_name for #implementor {
                     #(#fields_for_impl)*
                 }
