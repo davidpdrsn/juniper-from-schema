@@ -1474,6 +1474,8 @@ pub struct NotWalked;
 
 /// A wrapper around a `juniper::LookAheadSelection` with methods for each possible child.
 pub struct QueryTrail<'a, T, K> {
+    // These fields are required by the macros but you shouldn't rely them. They might change
+    // without a major version increase.
     #[doc(hidden)]
     pub look_ahead: Option<&'a LookAheadSelection<'a, DefaultScalarValue>>,
     #[doc(hidden)]
@@ -1500,6 +1502,8 @@ impl<'a, T, K> QueryTrail<'a, T, K> {
     #[allow(clippy::new_ret_no_self)]
     #[doc(hidden)]
     #[allow(missing_docs)]
+    // This method is required by the macros but you shouldn't rely them. They might change
+    // without a major version increase.
     pub fn new(lh: &'a LookAheadSelection<'a, DefaultScalarValue>) -> QueryTrail<'a, T, Walked> {
         QueryTrail {
             look_ahead: Some(lh),
