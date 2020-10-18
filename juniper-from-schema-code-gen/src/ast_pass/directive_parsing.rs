@@ -19,6 +19,23 @@ pub trait FromDirectiveArguments: Sized + Default {
     ) -> Option<Result<Self, ErrorKind<'doc>>>;
 }
 
+impl<T: FromDirectiveArguments> FromDirectiveArguments for Option<T> {
+    const KEY: &'static str = T::KEY;
+
+    fn from_directive_args<'doc>(
+        args: &'doc (&'doc str, Value<'doc, &'doc str>),
+    ) -> Option<Result<Option<T>, ErrorKind<'doc>>> {
+        match T::from_directive_args(args) {
+            // KEY didn't match
+            None => None,
+            Some(x) => {
+                // KEY *did* match
+                Some(x.map(Some))
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Deprecation {
     NoDeprecation,
@@ -149,6 +166,8 @@ macro_rules! impl_from_directive_for {
 impl_from_directive_for! { (T) }
 impl_from_directive_for! { (T1, T2) }
 impl_from_directive_for! { (T1, T2, T3) }
+impl_from_directive_for! { (T1, T2, T3, T4) }
+impl_from_directive_for! { (T1, T2, T3, T4, T5) }
 
 #[derive(Debug)]
 pub struct FieldDirectives {
@@ -156,6 +175,8 @@ pub struct FieldDirectives {
     pub deprecated: Option<Deprecation>,
     pub infallible: Infallible,
     pub r#async: Async,
+    pub stream_type: Option<StreamType>,
+    pub stream_item_infallible: Option<StreamItemInfallible>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -267,6 +288,56 @@ impl Default for Async {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct StreamType {
+    pub value: String,
+}
+
+impl FromDirectiveArguments for StreamType {
+    const KEY: &'static str = "stream_type";
+
+    fn from_directive_args<'doc>(
+        (key, value): &'doc (&'doc str, Value<'doc, &'doc str>),
+    ) -> Option<Result<Self, ErrorKind<'doc>>> {
+        if *key != Self::KEY {
+            return None;
+        }
+
+        let directive = (|| {
+            let value = value_as_string(value)?;
+            Ok(Self {
+                value: value.to_string(),
+            })
+        })();
+
+        Some(directive)
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct StreamItemInfallible {
+    pub value: bool,
+}
+
+impl FromDirectiveArguments for StreamItemInfallible {
+    const KEY: &'static str = "stream_item_infallible";
+
+    fn from_directive_args<'doc>(
+        (key, value): &'doc (&'doc str, Value<'doc, &'doc str>),
+    ) -> Option<Result<Self, ErrorKind<'doc>>> {
+        if *key != Self::KEY {
+            return None;
+        }
+
+        let directive = (|| {
+            let value = value_as_bool(value)?;
+            Ok(Self { value })
+        })();
+
+        Some(directive)
+    }
+}
+
 #[derive(Debug)]
 pub struct DateTimeScalarArguments {
     pub with_time_zone: bool,
@@ -339,14 +410,23 @@ impl<'doc> ParseDirective<&'doc Field<'doc, &'doc str>> for CodeGenPass<'doc> {
         let mut deprecated = None::<Deprecation>;
         let mut infallible = Infallible::default();
         let mut r#async = Async::default();
+        let mut stream_type = None::<StreamType>;
+        let mut stream_item_infallible = None::<StreamItemInfallible>;
 
         for dir in &input.directives {
-            if let Ok(juniper_directive) =
-                JuniperDirective::<(Ownership, Infallible, Async)>::from_directive(dir)
+            if let Ok(juniper_directive) = JuniperDirective::<(
+                Ownership,
+                Infallible,
+                Async,
+                Option<StreamType>,
+                Option<StreamItemInfallible>,
+            )>::from_directive(dir)
             {
                 ownership = juniper_directive.args.0;
                 infallible = juniper_directive.args.1;
                 r#async = juniper_directive.args.2;
+                stream_type = juniper_directive.args.3;
+                stream_item_infallible = juniper_directive.args.4;
                 continue;
             }
 
@@ -368,6 +448,8 @@ impl<'doc> ParseDirective<&'doc Field<'doc, &'doc str>> for CodeGenPass<'doc> {
             deprecated,
             infallible,
             r#async,
+            stream_type,
+            stream_item_infallible,
         }
     }
 }

@@ -18,6 +18,7 @@
 //!     - [Input objects](#input-objects)
 //!     - [Enumeration types](#enumeration-types)
 //!     - [Default argument values](#default-argument-values)
+//!     - [Subscriptions](#subscriptions)
 //! - [Supported schema directives](#supported-schema-directives)
 //!     - [Definition for `@juniper`](#definition-for-juniper)
 //!     - [Customizing ownership](#customizing-ownership)
@@ -141,9 +142,9 @@
 //! - Input objects
 //! - Enumeration types
 //! - Async resolvers
+//! - Subscriptions
 //!
 //! Not supported:
-//! - Subscriptions (in the works)
 //! - Type extensions
 //!
 //! ## The `ID` type
@@ -623,6 +624,289 @@
 //! even though `a` has a default value in the field doesn't get used here because we set `arg` in
 //! the query.
 //!
+//! ## Subscriptions
+//!
+//! Subscriptions work differently from queries and mutations. Rather than completing a request by
+//! sending just one result you instead receive a stream of results. The server can then publish
+//! new results to the clients through the stream. The [juniper
+//! book](https://graphql-rust.github.io/juniper/master/advanced/subscriptions.html) has more
+//! details.
+//!
+//! The return type of your subscription resolvers must always return something that implements
+//! [`futures::stream::Stream`]. By default that will be `Pin<Box<dyn Stream<Item = STREAM_ITEM_TYPE> + Send>>`.
+//!
+//! [`futures::stream::Stream`]: https://docs.rs/futures/0.3.6/futures/stream/trait.Stream.html
+//!
+//! Abbreviated example (find [complete example here](https://github.com/davidpdrsn/juniper-from-schema/blob/master/examples/subscription.rs)):
+//!
+//! ```
+//! # #[macro_use]
+//! # extern crate juniper;
+//! # use juniper::*;
+//! # use juniper_from_schema::graphql_schema;
+//! # fn main() {}
+//! # pub struct Context;
+//! # impl juniper::Context for Context {}
+//! # pub struct Query;
+//! # impl QueryFields for Query {
+//! #     fn field_ping(&self, executor: &Executor<Context>) -> FieldResult<&bool> {
+//! #         todo!()
+//! #     }
+//! # }
+//! use futures::stream::Stream;
+//! use std::pin::Pin;
+//!
+//! graphql_schema! {
+//!     schema {
+//!         query: Query
+//!         subscription: Subscription
+//!     }
+//!
+//!     type Query {
+//!         // Query must have at least one field
+//!         ping: Boolean!
+//!     }
+//!
+//!     type Subscription {
+//!         idsOfNewThings: ID! @juniper(ownership: "owned", infallible: true)
+//!     }
+//! }
+//!
+//! pub struct Subscription;
+//!
+//! impl SubscriptionFields for Subscription {
+//!     fn field_ids_of_new_things(
+//!         &self,
+//!         executor: &Executor<Context>,
+//!     ) -> Pin<Box<dyn Stream<Item = ID> + Send>> {
+//!         // `futures::stream::iter` creates a stream out of any iterator
+//!         // this is useful for demonstration
+//!         Box::pin(futures::stream::iter(vec![
+//!             ID::new("1"),
+//!             ID::new("2"),
+//!             ID::new("3"),
+//!         ]))
+//!     }
+//! }
+//! ```
+//!
+//! ### Customizing the stream type
+//!
+//! Using `Pin<Box<dyn Stream<Item = ID> + Send>>` as your stream type is nice for most use
+//! cases. However if you want to save the allocation and have a concrete stream type you can
+//! change the type with `@juniper(stream_type: "IdStream")`.
+//!
+//! Abbreviated example:
+//!
+//! ```
+//! # #[macro_use]
+//! # extern crate juniper;
+//! # use juniper::*;
+//! # use juniper_from_schema::graphql_schema;
+//! # fn main() {}
+//! # pub struct Context;
+//! # impl juniper::Context for Context {}
+//! # pub struct Query;
+//! # impl QueryFields for Query {
+//! #     fn field_ping(&self, executor: &Executor<Context>) -> FieldResult<&bool> {
+//! #         todo!()
+//! #     }
+//! # }
+//! use futures::stream::Stream;
+//!
+//! graphql_schema! {
+//!     schema {
+//!         query: Query
+//!         subscription: Subscription
+//!     }
+//!
+//!     type Query {
+//!         // Query must have at least one field
+//!         ping: Boolean!
+//!     }
+//!
+//!     type Subscription {
+//!         idsOfNewThings: ID! @juniper(stream_type: "IdStream", infallible: true, ownership: "owned")
+//!     }
+//! }
+//!
+//! pub struct Subscription;
+//!
+//! impl SubscriptionFields for Subscription {
+//!     fn field_ids_of_new_things(
+//!         &self,
+//!         executor: &Executor<Context>,
+//!     ) -> IdStream {
+//!         IdStream
+//!     }
+//! }
+//!
+//! pub struct IdStream;
+//!
+//! impl Stream for IdStream {
+//!     type Item = ID;
+//!
+//!     fn poll_next(
+//!         self: std::pin::Pin<&mut Self>,
+//!         cx: &mut futures::task::Context<'_>,
+//!     ) -> futures::task::Poll<Option<Self::Item>> {
+//!         // your implementation here
+//!         # todo!()
+//!     }
+//! }
+//! ```
+//!
+//! ### Interactions with `@juniper` directives
+//!
+//! There are a few things to keep in mind that are specific to subscriptions and the `@juniper`
+//! directive.
+//!
+//! Consider you have a field with `@juniper(infallible: false)`. Does that mean the resolver that
+//! produces the stream can fail or does it mean that the stream itself produces `Result`s?
+//!
+//! In juniper-from-schema we've chosen at `infallible`, `ownership`, and `async` applies to the
+//! resolver that produces the stream. This is to remain consistent with the rest of the library.
+//!
+//! If you actually want a stream of `Result`s you can use the `@juniper(stream_item_infallible:
+//! false)` directive.
+//!
+//! By default `stream_item_infallible` is `true` meaning your stream doesn't produce `Result`s but
+//! instead successful values.
+//!
+//! Abbreviated example:
+//!
+//! ```
+//! # #[macro_use]
+//! # extern crate juniper;
+//! # use juniper::*;
+//! # use juniper_from_schema::graphql_schema;
+//! # fn main() {}
+//! # pub struct Context;
+//! # impl juniper::Context for Context {}
+//! # pub struct Query;
+//! # impl QueryFields for Query {
+//! #     fn field_ping(&self, executor: &Executor<Context>) -> FieldResult<&bool> {
+//! #         todo!()
+//! #     }
+//! # }
+//! use futures::stream::Stream;
+//!
+//! graphql_schema! {
+//!     schema {
+//!         query: Query
+//!         subscription: Subscription
+//!     }
+//!
+//!     type Query {
+//!         // Query must have at least one field
+//!         ping: Boolean!
+//!     }
+//!
+//!     type Subscription {
+//!         idsOfNewThings: ID! @juniper(
+//!             // stream is fallible, so it produces `Result`s
+//!             stream_item_infallible: false,
+//!             // type of our stream
+//!             stream_type: "IdStream",
+//!             // creating the stream itself can fail
+//!             infallible: false,
+//!             // the stream we produce is owned
+//!             ownership: "owned"
+//!         )
+//!     }
+//! }
+//!
+//! pub struct Subscription;
+//!
+//! impl SubscriptionFields for Subscription {
+//!     fn field_ids_of_new_things(
+//!         &self,
+//!         executor: &Executor<Context>,
+//!     ) -> FieldResult<IdStream> {
+//!         Ok(IdStream)
+//!     }
+//! }
+//!
+//! pub struct IdStream;
+//!
+//! impl Stream for IdStream {
+//!     type Item = FieldResult<ID>;
+//!
+//!     fn poll_next(
+//!         self: std::pin::Pin<&mut Self>,
+//!         cx: &mut futures::task::Context<'_>,
+//!     ) -> futures::task::Poll<Option<Self::Item>> {
+//!         // your implementation here
+//!         # todo!()
+//!     }
+//! }
+//! ```
+//!
+//! Something like `@juniper(stream_item_ownership: "borrowed")` is not supported and all streams
+//! must therefore produce owned values.
+//!
+//! Your stream resolvers are also required to use `@juniper(ownership: "owned")`. `"as_ref"` or
+//! `"borrowed"` are not supported:
+//!
+//! ```compile_fail
+//! # #[macro_use]
+//! # extern crate juniper;
+//! # use std::pin::Pin;
+//! # use juniper::*;
+//! # use juniper::futures::stream::Stream;
+//! # use juniper_from_schema::graphql_schema;
+//! # fn main() {}
+//! # pub struct Context;
+//! # impl juniper::Context for Context {}
+//! # pub struct Query;
+//! # impl QueryFields for Query {
+//! #     fn field_ping(&self, executor: &Executor<Context>) -> FieldResult<&bool> {
+//! #         todo!()
+//! #     }
+//! # }
+//! use futures::stream::Stream;
+//!
+//! graphql_schema! {
+//!     schema {
+//!         query: Query
+//!         subscription: Subscription
+//!     }
+//!
+//!     type Query {
+//!         // Query must have at least one field
+//!         ping: Boolean!
+//!     }
+//!
+//!     type Subscription {
+//!         // "as_ref" is not supported
+//!         asRefNotSupported: [ID!]! @juniper(infallible: true, ownership: "as_ref")
+//!
+//!         // neither is "borrowed"
+//!         borrowedNotSupported: ID! @juniper(infallible: true, ownership: "borrowed")
+//!     }
+//! }
+//!
+//! pub struct Subscription;
+//!
+//! impl SubscriptionFields for Subscription {
+//!     fn field_as_ref_not_supported(
+//!         &self,
+//!         executor: &Executor<Context>,
+//!     ) -> Pin<Box<dyn Stream<Item = Vec<&ID>> + Send>> {
+//!         // ...
+//!         # todo!()
+//!     }
+//!
+//!     fn field_borrowed_not_supported(
+//!         &self,
+//!         executor: &Executor<Context>,
+//!     ) -> Pin<Box<dyn Stream<Item = &ID> + Send>> {
+//!         // ...
+//!         # todo!()
+//!     }
+//! }
+//! ```
+//!
 //! # Supported schema directives
 //!
 //! A number of [schema directives][] are supported that lets you customize the generated code:
@@ -634,6 +918,8 @@
 //! [here](http://localhost:4000/juniper_from_schema/index.html#infallible-fields).
 //! - `@juniper(async: true|false)`. For choosing whether your resolver function should be sync or
 //! async. The default is sync. More info [here](#async-resolvers).
+//! - `@juniper(stream_item_infallible: true|false)`. For choosing whether the stream produces
+//! `Result`s or plain values. Default is `true` meaning the stream does not produce `Result`s.
 //! - `@deprecated`. For deprecating types in your schema. Also supports supplying a reason with
 //! `@deprecated(reason: "...")`
 //!
@@ -650,6 +936,8 @@
 //!     infallible: Boolean = false,
 //!     with_time_zone: Boolean = true,
 //!     async: Boolean = false,
+//!     stream_item_infallible: Boolean = true,
+//!     stream_type: String = null
 //! ) on FIELD_DEFINITION | SCALAR
 //! ```
 //!
@@ -680,6 +968,9 @@
 //! - `@juniper(ownership: "owned")`: The return type will be owned (`FieldResult<T>`).
 //! - `@juniper(ownership: "as_ref")`: Only applicable for `Option` and `Vec` return types. Changes
 //! the inner type to be borrowed (`FieldResult<Option<&T>>` or `FieldResult<Vec<&T>>`).
+//!
+//! Note that fields in subscription types must use `@juniper(ownership: "owned")`. `"as_ref"` or
+//! `"borrowed"` are not supported.
 //!
 //! Example:
 //!
@@ -798,6 +1089,9 @@
 //!
 //!     type Query {
 //!         findUser(id: ID!): User! @juniper(async: true, ownership: "owned")
+//!
+//!         // async resolvers also support `ownership: "as_ref"`
+//!         allUsers: [User!]! @juniper(async: true, ownership: "as_ref")
 //!     }
 //!
 //!     type User {
@@ -809,14 +1103,24 @@
 //!
 //! #[async_trait]
 //! impl QueryFields for Query {
-//!     // Async resolvers are required to specify the lifetimes 'r, and 'a because of how
+//!     // Async resolvers are required to specify the lifetimes 's, 'r, and 'a because of how
 //!     // "async_trait" works
-//!     async fn field_find_user<'r, 'a>(
-//!         &self,
+//!     async fn field_find_user<'s, 'r, 'a>(
+//!         &'s self,
 //!         _: &Executor<'r, 'a, Context>,
 //!         _: &QueryTrail<'r, User, Walked>,
 //!         id: ID,
 //!     ) -> FieldResult<User> {
+//!         // ...
+//!         # unimplemented!()
+//!     }
+//!
+//!     // Use `'s` to return data borrowed from `self`
+//!     async fn field_all_users<'s, 'r, 'a>(
+//!         &'s self,
+//!         _: &Executor<'r, 'a, Context>,
+//!         _: &QueryTrail<'r, User, Walked>,
+//!     ) -> FieldResult<Vec<&'s User>> {
 //!         // ...
 //!         # unimplemented!()
 //!     }
@@ -1445,6 +1749,8 @@ use std::marker::PhantomData;
 
 // re-export juniper here so we're sure to use the same version everywhere
 #[doc(hidden)]
+pub use futures;
+#[doc(hidden)]
 pub use juniper;
 
 pub use juniper_from_schema_code_gen::{graphql_schema, graphql_schema_from_file};
@@ -1500,11 +1806,34 @@ impl<'r, T, K> QueryTrail<'r, T, K> {
 mod test {
     #[allow(unused_imports)]
     use super::*;
+    use trybuild::TestCases;
 
     #[test]
     fn test_compile_pass() {
-        let t = trybuild::TestCases::new();
+        let t = TestCases::new();
+
+        setup_subscription_tests("pass", &t);
+        setup_subscription_tests("fail", &t);
+
         t.pass("tests/compile_pass/*.rs");
         t.compile_fail("tests/compile_fail/*.rs");
+    }
+
+    #[allow(dead_code)]
+    fn setup_subscription_tests(outcome: &str, t: &TestCases) {
+        for entry in std::fs::read_dir(format!("tests/subscriptions/{}", outcome)).unwrap() {
+            let path = entry.unwrap().path();
+            let file_name = path.file_name().unwrap().to_str().unwrap();
+
+            if !file_name.contains(".rs") {
+                continue;
+            }
+
+            match outcome {
+                "pass" => t.pass(&format!("tests/subscriptions/{}/{}", outcome, file_name)),
+                "fail" => t.compile_fail(&format!("tests/subscriptions/{}/{}", outcome, file_name)),
+                other => panic!("Unsupported outcome {:?}", other),
+            }
+        }
     }
 }

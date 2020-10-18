@@ -1,5 +1,4 @@
-use proc_macro2::Span;
-use std::{collections::HashMap, fmt::Write, path::PathBuf};
+use std::{fmt::Write, path::PathBuf};
 use syn::{
     self,
     parse::{Parse, ParseStream},
@@ -25,40 +24,41 @@ impl Parse for GraphqlSchemaFromFileInput {
             input.parse::<Token![,]>()?;
         }
 
-        let mut configs = input
-            .parse_terminated::<_, Token![,]>(TypeConfig::parse)?
-            .into_pairs()
-            .map(|pair| {
-                let config = pair.into_value();
-                (
-                    config.ident.to_string(),
-                    (config.type_, config.ident.span()),
-                )
-            })
-            .collect::<HashMap<String, (Type, Span)>>();
+        let mut error_type = None::<Type>;
+        let mut context_type = None::<Type>;
 
-        let error_type = configs
-            .remove("error_type")
-            .map(|(t, _)| t)
-            .unwrap_or_else(default_error_type);
+        loop {
+            if input.is_empty() {
+                break;
+            }
 
-        let context_type = configs
-            .remove("context_type")
-            .map(|(t, _)| t)
-            .unwrap_or_else(default_context_type);
+            let key = input.parse::<Ident>()?;
+            match &*key.to_string() {
+                "error_type" => {
+                    input.parse::<Token![:]>()?;
+                    error_type = Some(input.parse()?);
+                }
+                "context_type" => {
+                    input.parse::<Token![:]>()?;
+                    context_type = Some(input.parse()?);
+                }
+                other => {
+                    let mut msg = String::new();
+                    writeln!(msg, "Unknown `graphql_schema_from_file` config `{}`", other).unwrap();
+                    writeln!(msg, "Supported configs are `error_type` and `context_type`").unwrap();
+                    return Err(syn::parse::Error::new(key.span(), msg));
+                }
+            }
 
-        #[allow(clippy::never_loop)]
-        for (name, (_, span)) in configs {
-            let mut msg = String::new();
-            writeln!(msg, "Unknown `graphql_schema_from_file` config `{}`", name).unwrap();
-            writeln!(msg, "Supported configs are `error_type` and `context_type`").unwrap();
-            return Err(syn::parse::Error::new(span, msg));
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+            }
         }
 
         Ok(GraphqlSchemaFromFileInput {
             schema_path,
-            error_type,
-            context_type,
+            error_type: error_type.unwrap_or_else(default_error_type),
+            context_type: context_type.unwrap_or_else(default_context_type),
         })
     }
 }
@@ -69,18 +69,4 @@ pub fn default_error_type() -> Type {
 
 pub fn default_context_type() -> Type {
     syn::parse_str("Context").expect("Failed to parse default context type")
-}
-
-struct TypeConfig {
-    ident: Ident,
-    type_: Type,
-}
-
-impl Parse for TypeConfig {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let ident = input.parse::<syn::Ident>()?;
-        input.parse::<Token![:]>()?;
-        let type_ = input.parse::<Type>()?;
-        Ok(TypeConfig { ident, type_ })
-    }
 }

@@ -20,6 +20,7 @@ pub struct AstData<'doc> {
     input_object_field_types: HashMap<&'doc str, HashMap<&'doc str, &'doc Type<'doc, &'doc str>>>,
     errors: BTreeSet<Error<'doc>>,
     include_time_zone_on_date_time_scalar: bool,
+    subscription_type_name: Option<&'doc str>,
 }
 
 impl<'doc> SchemaVisitor<'doc> for AstData<'doc> {
@@ -65,6 +66,12 @@ impl<'doc> SchemaVisitor<'doc> for AstData<'doc> {
                 .insert(&field.name, &field.value_type);
         }
     }
+
+    fn visit_schema_definition(&mut self, node: &'doc SchemaDefinition<'doc, &'doc str>) {
+        if let Some(subscription_type_name) = node.subscription {
+            self.subscription_type_name = Some(subscription_type_name);
+        }
+    }
 }
 
 impl<'doc> AstData<'doc> {
@@ -90,6 +97,7 @@ impl<'doc> AstData<'doc> {
             input_object_field_types: Default::default(),
             errors: Default::default(),
             include_time_zone_on_date_time_scalar: true,
+            subscription_type_name: None,
         }
     }
 
@@ -170,7 +178,6 @@ impl<'doc> AstData<'doc> {
         Some(out)
     }
 
-    #[allow(clippy::ptr_arg)]
     pub fn input_object_field_type_name(
         &self,
         input_type_name: &'doc str,
@@ -179,6 +186,12 @@ impl<'doc> AstData<'doc> {
         let field_map = &self.input_object_field_types.get(input_type_name)?;
         let type_ = field_map.get(field_name)?;
         Some(type_name(&type_))
+    }
+
+    pub fn is_subscription_type(&self, name: &'doc str) -> bool {
+        self.subscription_type_name
+            .map(|s| s == name)
+            .unwrap_or(false)
     }
 }
 

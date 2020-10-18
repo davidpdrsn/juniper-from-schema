@@ -38,6 +38,7 @@ pub struct CodeGenPass<'doc> {
     raw_schema: &'doc str,
     scalars: Vec<Scalar<'doc>>,
     objects: Vec<Object<'doc>>,
+    subscription: Option<Subscription<'doc>>,
     interfaces: Vec<Interface<'doc>>,
     unions: Vec<Union<'doc>>,
     enums: Vec<Enum<'doc>>,
@@ -60,6 +61,7 @@ impl<'doc> CodeGenPass<'doc> {
             raw_schema,
             scalars: Vec::new(),
             objects: Vec::new(),
+            subscription: None,
             interfaces: Vec::new(),
             unions: Vec::new(),
             enums: Vec::new(),
@@ -83,6 +85,7 @@ impl<'doc> CodeGenPass<'doc> {
         let Self {
             scalars,
             objects,
+            subscription,
             interfaces,
             unions,
             enums,
@@ -96,10 +99,10 @@ impl<'doc> CodeGenPass<'doc> {
             raw_schema: _,
         } = self;
 
-        let tokens = quote! {
-            #query_trail_tokens
+        let mut tokens = quote! {
             #(#scalars)*
             #(#objects)*
+            #subscription
             #(#interfaces)*
             #(#unions)*
             #(#enums)*
@@ -110,6 +113,8 @@ impl<'doc> CodeGenPass<'doc> {
         // eprintln!("\n");
         // eprintln!("{}", tokens);
         // eprintln!("\n");
+
+        tokens.extend(query_trail_tokens);
 
         Ok(tokens)
     }
@@ -155,10 +160,6 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
             subscription,
         } = node;
 
-        if subscription.is_some() {
-            self.emit_error(*position, ErrorKind::SubscriptionsNotSupported);
-        }
-
         let query_type = match query {
             Some(query) => {
                 let ident = format_ident!("{}", query);
@@ -169,8 +170,6 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
                 return;
             }
         };
-
-        let context_type = &self.context_type;
 
         let mutation_type = match mutation {
             Some(mutation) => {
@@ -184,9 +183,19 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
             }
         };
 
-        let subscription_type =
-            syn::parse2(quote! { juniper_from_schema::juniper::EmptySubscription<#context_type> })
-                .unwrap();
+        let subscription_type = match subscription {
+            Some(subscription) => {
+                let ident = format_ident!("{}", subscription);
+                syn::parse2(quote! { #ident }).unwrap()
+            }
+            None => {
+                let context_type = &self.context_type;
+                syn::parse2(
+                    quote! { juniper_from_schema::juniper::EmptySubscription<#context_type> },
+                )
+                .unwrap()
+            }
+        };
 
         self.schema_type = Some(SchemaType {
             query_type,
@@ -251,7 +260,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
 
     fn visit_object_type(&mut self, node: &'doc schema::ObjectType<'doc, &'doc str>) {
         let schema::ObjectType {
-            position: _,
+            position,
             description,
             name,
             implements_interfaces,
@@ -261,23 +270,41 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
 
         let () = self.parse_directives(node);
 
-        let fields = fields
-            .iter()
-            .map(|field| self.graphql_field_to_rust_field(field))
-            .collect();
+        if self.ast_data.is_subscription_type(name) {
+            if !implements_interfaces.is_empty() {
+                self.emit_error(*position, ErrorKind::SubscriptionsCannotImplementInterfaces);
+            }
 
-        let implements_interfaces = implements_interfaces
-            .iter()
-            .map(|name| format_ident!("{}", name))
-            .collect();
+            let fields = fields
+                .iter()
+                .map(|field| self.graphql_field_to_rust_field(field, FieldLocation::Subscription))
+                .collect();
 
-        self.objects.push(Object {
-            name: format_ident!("{}", name),
-            description: description.as_ref(),
-            context_type: self.context_type.clone(),
-            fields,
-            implements_interfaces,
-        });
+            self.subscription = Some(Subscription {
+                name: format_ident!("{}", name),
+                description: description.as_ref(),
+                context_type: self.context_type.clone(),
+                fields,
+            });
+        } else {
+            let fields = fields
+                .iter()
+                .map(|field| self.graphql_field_to_rust_field(field, FieldLocation::Object))
+                .collect();
+
+            let implements_interfaces = implements_interfaces
+                .iter()
+                .map(|name| format_ident!("{}", name))
+                .collect();
+
+            self.objects.push(Object {
+                name: format_ident!("{}", name),
+                description: description.as_ref(),
+                context_type: self.context_type.clone(),
+                fields,
+                implements_interfaces,
+            });
+        }
     }
 
     fn visit_interface_type(&mut self, node: &'doc schema::InterfaceType<'doc, &'doc str>) {
@@ -303,7 +330,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         let name = format_ident!("{}", name);
         let fields = fields
             .iter()
-            .map(|field| self.graphql_field_to_rust_field(field))
+            .map(|field| self.graphql_field_to_rust_field(field, FieldLocation::Interface))
             .collect();
 
         self.interfaces.push(Interface {
@@ -494,6 +521,7 @@ impl<'doc> CodeGenPass<'doc> {
     fn graphql_field_to_rust_field(
         &mut self,
         field: &'doc schema::Field<'doc, &'doc str>,
+        field_location: FieldLocation,
     ) -> Field<'doc> {
         let schema::Field {
             position,
@@ -505,6 +533,8 @@ impl<'doc> CodeGenPass<'doc> {
         } = field;
 
         let field_directives = self.parse_directives(field);
+
+        self.validate_directive_for_field(&field_directives, field_location, *position);
 
         let args = arguments
             .iter()
@@ -900,6 +930,8 @@ impl<'doc> CodeGenPass<'doc> {
         let mut infallible_present = false;
         let mut with_time_zone_present = false;
         let mut async_present = false;
+        let mut stream_item_infallible_present = false;
+        let mut stream_type_present = false;
 
         for arg in directive.arguments.iter() {
             match arg.name {
@@ -927,12 +959,26 @@ impl<'doc> CodeGenPass<'doc> {
                     no_directives(self, arg, name);
                     default_value(self, arg, Value::Boolean(false), name);
                 }
+                name @ "stream_item_infallible" => {
+                    stream_item_infallible_present = true;
+                    of_type(self, arg, GraphqlType::NamedType("Boolean"), name);
+                    no_directives(self, arg, name);
+                    default_value(self, arg, Value::Boolean(true), name);
+                }
+                name @ "stream_type" => {
+                    stream_type_present = true;
+                    of_type(self, arg, GraphqlType::NamedType("String"), name);
+                    no_directives(self, arg, name);
+                    default_value(self, arg, Value::Null, name);
+                }
                 name => {
                     self.emit_error(
                         arg.position,
                         ErrorKind::InvalidJuniperDirective(
                             format!("Invalid argument for @juniper directive: `{}`", name),
-                            Some("Supported arguments are `ownership`, `infallible`, `with_time_zone`, and `async`".to_string()),
+                            Some(
+                                "Supported arguments are `ownership`, `infallible`, `with_time_zone`, `async`, `stream_item_infallible`, and `stream_type`".to_string()
+                            ),
                         ),
                     )
                 }
@@ -974,6 +1020,59 @@ impl<'doc> CodeGenPass<'doc> {
                 directive.position,
                 ErrorKind::InvalidJuniperDirective("Missing argument `async`".to_string(), None),
             )
+        }
+
+        if !stream_item_infallible_present {
+            self.emit_error(
+                directive.position,
+                ErrorKind::InvalidJuniperDirective(
+                    "Missing argument `stream_item_infallible`".to_string(),
+                    None,
+                ),
+            )
+        }
+
+        if !stream_type_present {
+            self.emit_error(
+                directive.position,
+                ErrorKind::InvalidJuniperDirective(
+                    "Missing argument `stream_type`".to_string(),
+                    None,
+                ),
+            )
+        }
+    }
+
+    fn validate_directive_for_field(
+        &mut self,
+        directives: &FieldDirectives,
+        field_location: FieldLocation,
+        pos: Pos,
+    ) {
+        match field_location {
+            FieldLocation::Object | FieldLocation::Interface => {
+                if directives.stream_type.is_some() {
+                    self.emit_error(pos, ErrorKind::StreamTypeNotSupportedHere);
+                }
+
+                if directives.stream_item_infallible.is_some() {
+                    self.emit_error(pos, ErrorKind::StreamItemInfallibleNotSupportedHere);
+                }
+            }
+            FieldLocation::Subscription => {
+                match &directives.ownership {
+                    Ownership::Borrowed | Ownership::AsRef => {
+                        self.emit_error(pos, ErrorKind::SubscriptionFieldMustBeOwned);
+                    }
+                    Ownership::Owned => {}
+                }
+
+                if let Some(ty) = &directives.stream_type {
+                    if let Err(err) = syn::parse_str::<syn::Type>(&ty.value) {
+                        self.emit_error(pos, ErrorKind::InvalidStreamReturnType(err.to_string()));
+                    }
+                }
+            }
         }
     }
 }
@@ -1276,6 +1375,22 @@ impl<'doc> Field<'doc> {
         }
     }
 
+    fn to_tokens_for_subscription_impl<'a>(
+        &'a self,
+        trait_name: &'a Ident,
+    ) -> FieldToTokensForSubscriptionImpl<'a, 'doc> {
+        FieldToTokensForSubscriptionImpl {
+            field: self,
+            trait_name,
+        }
+    }
+
+    fn to_tokens_for_subscription_trait<'a>(
+        &'a self,
+    ) -> FieldToTokensForSubscriptionTrait<'a, 'doc> {
+        FieldToTokensForSubscriptionTrait { field: self }
+    }
+
     fn trait_field_name(&self) -> Ident {
         format_ident!("field_{}", self.name)
     }
@@ -1296,9 +1411,8 @@ impl<'doc> Field<'doc> {
         }
     }
 
-    fn full_return_type(&self) -> syn::Type {
+    fn return_type_not_wrapped_in_result(&self) -> syn::Type {
         let return_type = &self.return_type;
-        let error_type = &self.error_type;
 
         let inner_ty = match &self.directives.ownership {
             Ownership::Owned => {
@@ -1313,13 +1427,54 @@ impl<'doc> Field<'doc> {
             }
         };
 
-        if self.directives.infallible.value {
-            syn::parse2(inner_ty).unwrap()
-        } else {
+        syn::parse2(inner_ty).unwrap()
+    }
+
+    fn full_return_type(&self) -> syn::Type {
+        maybe_wrap_final_return_type_in_result(
+            self.return_type_not_wrapped_in_result(),
+            &self.error_type,
+            &self.directives,
+        )
+    }
+
+    fn full_stream_return_type(&self) -> syn::Type {
+        let default_return_type = || {
+            let item_type = self.stream_item_type();
             syn::parse2(quote! {
-                std::result::Result<#inner_ty, #error_type>
+                std::pin::Pin<
+                    std::boxed::Box<
+                        dyn juniper_from_schema::futures::Stream<Item = #item_type>
+                            + std::marker::Send
+                    >
+                >
             })
             .unwrap()
+        };
+
+        if let Some(ty) = &self.directives.stream_type {
+            let ty = syn::parse_str(&ty.value).unwrap_or_else(|_| default_return_type());
+            maybe_wrap_final_return_type_in_result(ty, &self.error_type, &self.directives)
+        } else {
+            maybe_wrap_final_return_type_in_result(
+                default_return_type(),
+                &self.error_type,
+                &self.directives,
+            )
+        }
+    }
+
+    fn stream_item_type(&self) -> syn::Type {
+        if let Some(stream_item_infallible) = &self.directives.stream_item_infallible {
+            if stream_item_infallible.value {
+                self.return_type_not_wrapped_in_result()
+            } else {
+                let ty = self.return_type_not_wrapped_in_result();
+                let error_type = &self.error_type;
+                syn::parse2(quote! { std::result::Result<#ty, #error_type> }).unwrap()
+            }
+        } else {
+            self.return_type_not_wrapped_in_result()
         }
     }
 
@@ -1462,8 +1617,8 @@ impl<'a, 'doc> ToTokens for FieldToTokensTrait<'a, 'doc> {
         let asyncness = self.field.asyncness();
 
         tokens.extend(quote! {
-            #asyncness fn #name<'r, 'a>(
-                &self,
+            #asyncness fn #name<'s, 'r, 'a>(
+                &'s self,
                 executor: &juniper_from_schema::juniper::Executor<'r, 'a, #context_type>,
                 #query_trail_param
                 #(#args,)*
@@ -1505,8 +1660,8 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterface<'a, 'doc> {
 
         tokens.extend(quote! {
             #graphql_attrs
-            #asyncness fn #name<'r, 'a>(
-                &self,
+            #asyncness fn #name<'s, 'r, 'a>(
+                &'s self,
                 executor: &juniper_from_schema::juniper::Executor<
                     'a,
                     'r,
@@ -1547,6 +1702,9 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterfaceImpl<'a, 'doc> {
         let arg_names = args.iter().map(|arg| &arg.name);
         let full_return_type = self.field.full_return_type();
 
+        // juniper doesn't supporte descriptions on interface field arguments so we cannot add
+        // those
+
         let args_for_signature = args
             .iter()
             .map(|arg| arg.to_tokens_for_graphql_object_impl());
@@ -1576,8 +1734,8 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterfaceImpl<'a, 'doc> {
         let awaitness = self.field.awaitness();
 
         let code = quote! {
-            #asyncness fn #name<'r, 'a>(
-                &self,
+            #asyncness fn #name<'s, 'r, 'a>(
+                &'s self,
                 executor: &juniper_from_schema::juniper::Executor<
                     'a,
                     'r,
@@ -1596,6 +1754,150 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterfaceImpl<'a, 'doc> {
             }
         };
         tokens.extend(code)
+    }
+}
+
+#[derive(Debug)]
+struct FieldToTokensForSubscriptionImpl<'a, 'doc> {
+    field: &'a Field<'doc>,
+    trait_name: &'a Ident,
+}
+
+impl<'a, 'doc> ToTokens for FieldToTokensForSubscriptionImpl<'a, 'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Field {
+            description,
+            name,
+            args,
+            error_type: _,
+            context_type: _,
+            return_type: _,
+            directives: _,
+        } = self.field;
+
+        let mut graphql_attrs = GraphqlAttr::new();
+
+        if let Some(description) = description {
+            graphql_attrs.push_key_value(format_ident!("description"), description);
+        };
+
+        if !args.is_empty() {
+            let parts = args.iter().filter_map(|arg| {
+                let name = &arg.name_without_raw_ident;
+
+                if let Some(description) = &arg.description {
+                    Some(quote! {
+                        #name(description = #description)
+                    })
+                } else {
+                    None
+                }
+            });
+
+            graphql_attrs.push_fn(format_ident!("arguments"), parts);
+        };
+
+        let trait_name = self.trait_name;
+        let trait_field_name = self.field.trait_field_name();
+        let arg_names = args.iter().map(|arg| &arg.name);
+
+        let return_type = self.field.full_stream_return_type();
+
+        let args_for_signature = args
+            .iter()
+            .map(|arg| arg.to_tokens_for_graphql_object_impl());
+
+        let rebind_args_with_default_values = args.iter().filter_map(|arg| {
+            if let Some(default_value) = &arg.default_value {
+                let name = &arg.name;
+                Some(quote! { let #name = #name.unwrap_or_else(|| #default_value); })
+            } else {
+                None
+            }
+        });
+
+        let query_trail_arg = if self.field.query_trail_param().is_some() {
+            let query_trail_type = self.field.query_trail_type();
+            quote! {
+                &juniper_from_schema::QueryTrail::<
+                    #query_trail_type,
+                    juniper_from_schema::Walked,
+                >::new(&executor.look_ahead()),
+            }
+        } else {
+            quote! {}
+        };
+
+        let awaitness = self.field.awaitness();
+
+        let tryness = if self.field.directives.infallible.value {
+            None
+        } else {
+            Some(quote! { ? })
+        };
+
+        let mut return_result = if self.field.directives.stream_type.is_some() {
+            quote! { resolved_value }
+        } else {
+            quote! { std::boxed::Box::pin(resolved_value) }
+        };
+
+        if !self.field.directives.infallible.value {
+            return_result = quote! { Ok(#return_result) };
+        }
+
+        let code = quote! {
+            #graphql_attrs
+            async fn #name(
+                executor: &Executor,
+                #(#args_for_signature,)*
+            ) -> #return_type {
+                #(#rebind_args_with_default_values)*
+                let resolved_value = <Self as #trait_name>::#trait_field_name(
+                    self,
+                    executor,
+                    #query_trail_arg
+                    #(#arg_names,)*
+                ) #awaitness #tryness;
+                #return_result
+            }
+        };
+
+        tokens.extend(code);
+    }
+}
+
+#[derive(Debug)]
+struct FieldToTokensForSubscriptionTrait<'a, 'doc> {
+    field: &'a Field<'doc>,
+}
+
+impl<'a, 'doc> ToTokens for FieldToTokensForSubscriptionTrait<'a, 'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Field {
+            context_type,
+            args,
+            description: _,
+            name: _,
+            error_type: _,
+            return_type: _,
+            directives: _,
+        } = self.field;
+
+        let name = self.field.trait_field_name();
+        let args = args.iter().map(|arg| arg.to_tokens_for_trait());
+        let query_trail_param = self.field.query_trail_param();
+        let asyncness = self.field.asyncness();
+        let return_type = self.field.full_stream_return_type();
+
+        tokens.extend(quote! {
+            #asyncness fn #name<'s, 'r, 'a>(
+                &'s self,
+                executor: &juniper_from_schema::juniper::Executor<'r, 'a, #context_type>,
+                #query_trail_param
+                #(#args,)*
+            ) -> #return_type;
+        });
     }
 }
 
@@ -1678,6 +1980,60 @@ impl<'a, 'doc> ToTokens for FieldArgsToTokensInterface<'a, 'doc> {
 
         tokens.extend(quote! {
             #name: #ty
+        });
+    }
+}
+
+#[derive(Debug)]
+struct Subscription<'doc> {
+    name: Ident,
+    description: Option<&'doc String>,
+    context_type: Rc<syn::Type>,
+    fields: Vec<Field<'doc>>,
+}
+
+impl<'doc> ToTokens for Subscription<'doc> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Subscription {
+            name,
+            description,
+            context_type,
+            fields,
+        } = self;
+
+        let mut graphql_attrs = GraphqlAttr::new_subscription();
+        graphql_attrs.push_key_value(format_ident!("Context"), context_type);
+
+        if let Some(description) = description {
+            graphql_attrs.push_key_value(format_ident!("description"), description);
+        }
+
+        let trait_name = fields_trait_name(name);
+
+        let fields_for_impl = fields
+            .iter()
+            .map(|field| field.to_tokens_for_subscription_impl(&trait_name));
+
+        let fields_for_trait = fields
+            .iter()
+            .map(|field| field.to_tokens_for_subscription_trait());
+
+        let async_trait_attr = if fields.iter().any(|f| f.directives.r#async.value) {
+            Some(quote! { #[juniper_from_schema::juniper::async_trait] })
+        } else {
+            None
+        };
+
+        tokens.extend(quote! {
+            #graphql_attrs
+            impl #name {
+                #(#fields_for_impl)*
+            }
+
+            #async_trait_attr
+            pub trait #trait_name {
+                #(#fields_for_trait)*
+            }
         });
     }
 }
@@ -2106,6 +2462,7 @@ enum GraphqlAttr {
     Object { items: Vec<GraphqlAttrItem> },
     Interface { items: Vec<GraphqlAttrItem> },
     InterfaceTopLevel { items: Vec<GraphqlAttrItem> },
+    Subscription { items: Vec<GraphqlAttrItem> },
 }
 
 #[derive(Debug)]
@@ -2124,6 +2481,10 @@ impl GraphqlAttr {
         Self::Object { items: Vec::new() }
     }
 
+    fn new_subscription() -> Self {
+        Self::Subscription { items: Vec::new() }
+    }
+
     fn new_interface() -> Self {
         Self::Interface { items: Vec::new() }
     }
@@ -2138,6 +2499,7 @@ impl GraphqlAttr {
             GraphqlAttr::Object { items } => items,
             GraphqlAttr::Interface { items } => items,
             GraphqlAttr::InterfaceTopLevel { items } => items,
+            GraphqlAttr::Subscription { items } => items,
         };
         items.push(GraphqlAttrItem::Bare(key));
     }
@@ -2148,6 +2510,7 @@ impl GraphqlAttr {
             GraphqlAttr::Object { items } => items,
             GraphqlAttr::Interface { items } => items,
             GraphqlAttr::InterfaceTopLevel { items } => items,
+            GraphqlAttr::Subscription { items } => items,
         };
         items.push(GraphqlAttrItem::KeyValue {
             key,
@@ -2165,6 +2528,7 @@ impl GraphqlAttr {
             GraphqlAttr::Object { items } => items,
             GraphqlAttr::Interface { items } => items,
             GraphqlAttr::InterfaceTopLevel { items } => items,
+            GraphqlAttr::Subscription { items } => items,
         };
         let args = values
             .map(|value| {
@@ -2188,6 +2552,10 @@ impl ToTokens for GraphqlAttr {
                 quote! { juniper_from_schema::juniper::graphql_interface },
                 items,
             ),
+            GraphqlAttr::Subscription { items } => (
+                quote! { juniper_from_schema::juniper::graphql_subscription },
+                items,
+            ),
         };
 
         let code = quote! { #[ #name ( #(#items),* )] };
@@ -2203,5 +2571,27 @@ impl ToTokens for GraphqlAttrItem {
             GraphqlAttrItem::Fn { name, args } => quote! { #name ( #(#args),* ) },
         };
         tokens.extend(new_tokens);
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+enum FieldLocation {
+    Object,
+    Interface,
+    Subscription,
+}
+
+fn maybe_wrap_final_return_type_in_result(
+    ty: syn::Type,
+    error_type: &syn::Type,
+    directives: &FieldDirectives,
+) -> syn::Type {
+    if directives.infallible.value {
+        ty
+    } else {
+        syn::parse2(quote! {
+            std::result::Result<#ty, #error_type>
+        })
+        .unwrap()
     }
 }

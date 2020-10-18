@@ -1,4 +1,5 @@
 use juniper::{EmptyMutation, EmptySubscription, Executor, FieldResult, Variables, ID};
+use std::pin::Pin;
 
 pub struct Context;
 impl juniper::Context for Context {}
@@ -13,5 +14,6 @@ fn __use_all_the_imports(
     _: Variables,
     _: ID,
     _: EmptySubscription<()>,
+    _: Pin<()>,
 ) {
 }

@@ -3,9 +3,6 @@
 #![allow(unused_braces)]
 #![deny(deprecated)]
 
-extern crate juniper;
-extern crate maplit;
-
 use assert_json_diff::assert_json_include;
 use juniper::{Executor, FieldResult, Variables, ID};
 use juniper_from_schema::graphql_schema_from_file;
@@ -162,6 +159,25 @@ impl UserFields for User {
     fn field_user_type(&self, _: &Executor<Context>) -> FieldResult<&UserType> {
         unimplemented!()
     }
+
+    fn field_interface_field(&self, _: &Executor<Context>, _: ID) -> FieldResult<&ID> {
+        unimplemented!()
+    }
+}
+
+use futures::stream::Stream;
+use std::pin::Pin;
+
+pub struct Subscription;
+
+impl SubscriptionFields for Subscription {
+    fn field_subscription_field(
+        &self,
+        _: &Executor<Context>,
+        _: InputType,
+    ) -> Pin<Box<dyn Stream<Item = SomeScalar> + Send>> {
+        Box::pin(futures::stream::iter(vec![]))
+    }
 }
 
 pub struct Context;
@@ -196,6 +212,20 @@ fn test_docs() {
                             "description": "Entity id desc",
                             "isDeprecated": true,
                             "deprecationReason": null,
+                        },
+                        {
+                            "name": "interfaceField",
+                            "description": null,
+                            "isDeprecated": false,
+                            "deprecationReason": null,
+                            "args": [
+                                {
+                                    "name": "arg",
+                                    // docs on interface field arguments are not supported in
+                                    // juniper
+                                    "description": null,
+                                }
+                            ]
                         },
                     ],
                 },
@@ -248,6 +278,23 @@ fn test_docs() {
                     "description": "SomeScalar scalar desc",
                 },
                 { "name": "String" },
+                {
+                    "name": "Subscription",
+                    "description": "Root subscription type",
+                    "fields": [
+                        {
+                            "name": "subscriptionField",
+                            "description": "subscriptionField desc",
+                            "isDeprecated": false,
+                            "args": [
+                                {
+                                    "name": "subscriptionFieldArg",
+                                    "description": "subscriptionFieldArg desc",
+                                },
+                            ],
+                        },
+                    ],
+                },
                 { "name": "User" },
                 {
                     "name": "UserType",
@@ -283,11 +330,7 @@ fn introspect_schema() -> Value {
     let (juniper_value, _errors) = juniper::execute_sync(
         SCHEMA_INTROSPECTION_QUERY,
         None,
-        &Schema::new(
-            Query,
-            juniper::EmptyMutation::new(),
-            juniper::EmptySubscription::new(),
-        ),
+        &Schema::new(Query, juniper::EmptyMutation::new(), Subscription),
         &Variables::new(),
         &ctx,
     )

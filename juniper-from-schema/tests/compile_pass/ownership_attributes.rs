@@ -24,10 +24,10 @@ impl QueryFields for Query {
         unimplemented!()
     }
 
-    fn field_as_ref_string(
-        &self,
+    fn field_as_ref_string<'s>(
+        &'s self,
         executor: &Executor<Context>,
-    ) -> FieldResult<Option<&String>> {
+    ) -> FieldResult<Option<&'s String>> {
         unimplemented!()
     }
 }

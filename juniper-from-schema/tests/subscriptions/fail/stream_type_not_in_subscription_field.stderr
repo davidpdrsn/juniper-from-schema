@@ -1,0 +1,7 @@
+error: couldn't read $DIR/tests/subscriptions/fail/../compile_pass/setup.rs: No such file or directory (os error 2)
+ --> $DIR/stream_type_not_in_subscription_field.rs:2:1
+  |
+2 | include!("../compile_pass/setup.rs");
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)

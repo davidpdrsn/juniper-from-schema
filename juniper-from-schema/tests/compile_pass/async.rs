@@ -8,7 +8,6 @@
 include!("setup.rs");
 
 use std::future::Future;
-use std::pin::Pin;
 use std::task::Poll;
 
 juniper_from_schema::graphql_schema! {
@@ -34,7 +33,7 @@ pub struct Query;
 
 #[juniper_from_schema::juniper::async_trait]
 impl QueryFields for Query {
-    async fn field_async_ping<'r, 'a>(&self, _: &Executor<'r, 'a, Context>) -> bool {
+    async fn field_async_ping<'s, 'r, 'a>(&'s self, _: &Executor<'r, 'a, Context>) -> bool {
         ready(true).await
     }
 
@@ -47,7 +46,7 @@ pub struct User;
 
 #[juniper_from_schema::juniper::async_trait]
 impl UserFields for User {
-    async fn field_id<'r, 'a>(&self, _: &Executor<'r, 'a, Context>) -> ID {
+    async fn field_id<'s, 'r, 'a>(&'s self, _: &Executor<'r, 'a, Context>) -> ID {
         todo!()
     }
 }

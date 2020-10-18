@@ -1,5 +1,6 @@
 schema {
     query: Query
+    subscription: Subscription
 }
 
 "Root query type"
@@ -21,6 +22,15 @@ type Query {
     search(query: String!): [SearchResult!]!
 }
 
+"Root subscription type"
+type Subscription {
+    "subscriptionField desc"
+    subscriptionField(
+        "subscriptionFieldArg desc"
+        subscriptionFieldArg: InputType!
+    ): SomeScalar! @juniper(ownership: "owned", infallible: true)
+}
+
 "SomeScalar scalar desc"
 scalar SomeScalar
 
@@ -33,12 +43,22 @@ input InputType {
 type User implements Entity {
     id: ID!
     userType: UserType!
+
+    interfaceField(
+      "interface field arg desc"
+      arg: ID!
+    ): ID!
 }
 
 "Entity desc"
 interface Entity {
     "Entity id desc"
     id: ID! @deprecated
+
+    interfaceField(
+      "interface field arg desc"
+      arg: ID!
+    ): ID!
 }
 
 "UserType desc"

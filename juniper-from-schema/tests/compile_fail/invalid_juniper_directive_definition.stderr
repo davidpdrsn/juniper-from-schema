@@ -6,8 +6,8 @@ error: proc macro panicked
 6  | |         string: String!
 7  | |     }
 ...  |
-17 | |     ) on FIELD
-18 | | }
+19 | |     ) on FIELD
+20 | | }
    | |_^
    |
    = help: message:
@@ -85,23 +85,31 @@ error: proc macro panicked
            error: Invalid default value for `async` argument. Must be `false`
             --> schema:3:27
              |
-           3 |            [String] = false, async : Boolean = true, bar : [Boolean]) on FIELD
+           3 |            [String] = false, async : Boolean = true, stream_type : String = null,
              |                              ^
 
            Got `true`
 
-           error: Invalid argument for @juniper directive: `bar`
-            --> schema:3:51
+           error: Invalid default value for `stream_item_infallible` argument. Must be `true`
+            --> schema:4:9
              |
-           3 |            [String] = false, async : Boolean = true, bar : [Boolean]) on FIELD
+           4 |            stream_item_infallible : Boolean = false, bar : [Boolean]) on FIELD
+             |            ^
+
+           Got `false`
+
+           error: Invalid argument for @juniper directive: `bar`
+            --> schema:4:51
+             |
+           4 |            stream_item_infallible : Boolean = false, bar : [Boolean]) on FIELD
              |                                                      ^
 
-           Supported arguments are `ownership`, `infallible`, `with_time_zone`, and `async`
+           Supported arguments are `ownership`, `infallible`, `with_time_zone`, `async`, `stream_item_infallible`, and `stream_type`
 
-           aborting due to 11 errors
+           aborting due to 12 errors
 
 error[E0405]: cannot find trait `QueryFields` in this scope
-  --> $DIR/invalid_juniper_directive_definition.rs:22:6
+  --> $DIR/invalid_juniper_directive_definition.rs:24:6
    |
-22 | impl QueryFields for Query {
+24 | impl QueryFields for Query {
    |      ^^^^^^^^^^^ not found in this scope

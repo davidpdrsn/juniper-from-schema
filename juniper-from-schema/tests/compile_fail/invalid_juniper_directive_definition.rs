@@ -13,6 +13,8 @@ juniper_from_schema::graphql_schema! {
         infallible: String = "foo",
         with_time_zone: [String] = false,
         async: Boolean = true,
+        stream_type: String = null,
+        stream_item_infallible: Boolean = false,
         bar: [Boolean]
     ) on FIELD
 }

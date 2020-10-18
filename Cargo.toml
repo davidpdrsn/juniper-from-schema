@@ -4,3 +4,5 @@ members = [
     "juniper-from-schema",
     "juniper-from-schema-code-gen",
 ]
+
+exclude = ["generate-subscription-tests"]

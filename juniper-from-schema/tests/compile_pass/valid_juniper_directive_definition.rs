@@ -12,7 +12,9 @@ juniper_from_schema::graphql_schema! {
         ownership: String = "borrowed",
         infallible: Boolean = false,
         with_time_zone: Boolean = true,
-        async: Boolean = false
+        async: Boolean = false,
+        stream_item_infallible: Boolean = true,
+        stream_type: String = null
     ) on FIELD_DEFINITION | SCALAR
 }
 

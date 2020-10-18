@@ -206,7 +206,6 @@ pub enum ErrorKind<'doc> {
     },
     NoQueryType,
     NonnullableFieldWithDefaultValue,
-    SubscriptionsNotSupported,
     TypeExtensionNotSupported,
     UnionFieldTypeMismatch {
         union_name: &'doc str,
@@ -223,6 +222,11 @@ pub enum ErrorKind<'doc> {
     UppercaseUuidScalar,
     InvalidJuniperDirective(String, Option<String>),
     CannotDeclareBuiltinAsScalar,
+    InvalidStreamReturnType(String),
+    StreamTypeNotSupportedHere,
+    StreamItemInfallibleNotSupportedHere,
+    SubscriptionsCannotImplementInterfaces,
+    SubscriptionFieldMustBeOwned,
 }
 
 impl<'doc> ErrorKind<'doc> {
@@ -248,9 +252,6 @@ impl<'doc> ErrorKind<'doc> {
             }
             ErrorKind::UnknownDirective { suggestions: _ } => {
                 "Unknown directive".to_string()
-            }
-            ErrorKind::SubscriptionsNotSupported => {
-                "Subscriptions are currently not supported".to_string()
             }
             ErrorKind::NoQueryType => "Schema doesn't have root a Query type".to_string(),
             ErrorKind::NonnullableFieldWithDefaultValue => {
@@ -283,24 +284,58 @@ impl<'doc> ErrorKind<'doc> {
             ErrorKind::CannotDeclareBuiltinAsScalar => {
                 "You cannot declare scalars with names matching a built-in".to_string()
             }
+            ErrorKind::InvalidStreamReturnType(_) => {
+                "Invalid stream return type. This doesn't seem to be a valid Rust type".to_string()
+            }
+            ErrorKind::StreamTypeNotSupportedHere => {
+                "`stream_type` directive argument is only supported on subscription fields".to_string()
+            }
+            ErrorKind::StreamItemInfallibleNotSupportedHere => {
+                "`stream_item_infallible` directive argument is only supported on subscription fields".to_string()
+            }
+            ErrorKind::SubscriptionsCannotImplementInterfaces => {
+                "Subscriptions cannot implement interfaces".to_string()
+            }
+            ErrorKind::SubscriptionFieldMustBeOwned => {
+                "Subscription fields must use `@juniper(ownership: \"owned\")`".to_string()
+            }
         }
     }
 
     #[allow(unused_must_use)]
     fn notes(&self) -> Option<String> {
         match self {
-            ErrorKind::SubscriptionsNotSupported => Some(
-                "Subscriptions are currently not supported by Juniper so we're unsure when\nor if we'll support them"
-                    .to_string(),
-            ),
-            ErrorKind::UnionFieldTypeMismatch { union_name, field_name, type_a, type_b, field_type_a, field_type_b } => {
+            ErrorKind::UnionFieldTypeMismatch {
+                union_name,
+                field_name,
+                type_a,
+                type_b,
+                field_type_a,
+                field_type_b,
+            } => {
                 let mut f = String::new();
 
-                writeln!(f, "`{}.{}` and `{}.{}` are not the same type", type_a, field_name, type_b, field_name);
-                writeln!(f, "    `{}.{}` is of type `{}`", type_a, field_name, field_type_a);
-                writeln!(f, "    `{}.{}` is of type `{}`", type_b, field_name, field_type_b);
+                writeln!(
+                    f,
+                    "`{}.{}` and `{}.{}` are not the same type",
+                    type_a, field_name, type_b, field_name
+                );
+                writeln!(
+                    f,
+                    "    `{}.{}` is of type `{}`",
+                    type_a, field_name, field_type_a
+                );
+                writeln!(
+                    f,
+                    "    `{}.{}` is of type `{}`",
+                    type_b, field_name, field_type_b
+                );
                 writeln!(f, "That makes it impossible to generate code for the method `QueryTrail<_, {}, _>::{}()`", union_name, field_name);
-                writeln!(f, "It would have to return `{}` if `{}` is `{},` but `{}` if it is a `{}`", field_type_a, union_name, type_a, field_type_b, type_b);
+                writeln!(
+                    f,
+                    "It would have to return `{}` if `{}` is `{},` but `{}` if it is a `{}`",
+                    field_type_a, union_name, type_a, field_type_b, type_b
+                );
 
                 Some(f)
             }
@@ -318,15 +353,16 @@ impl<'doc> ErrorKind<'doc> {
                 writeln!(f, "about what should happen when there are defaults");
                 writeln!(f, "in both the input type definition and field argument");
                 writeln!(f);
-                writeln!(f, "See https://github.com/webonyx/graphql-php/issues/350 for an example");
+                writeln!(
+                    f,
+                    "See https://github.com/webonyx/graphql-php/issues/350 for an example"
+                );
                 Some(f)
             }
-            ErrorKind::FieldNameInSnakeCase => {
-                Some("This is because Juniper always converts all field names to camelCase".to_string())
-            }
-            ErrorKind::UnsupportedDirective(reason) => {
-                Some(format!("{}", reason))
-            }
+            ErrorKind::FieldNameInSnakeCase => Some(
+                "This is because Juniper always converts all field names to camelCase".to_string(),
+            ),
+            ErrorKind::UnsupportedDirective(reason) => Some(format!("{}", reason)),
             ErrorKind::UnknownDirective { suggestions } => {
                 if suggestions.is_empty() {
                     None
@@ -337,9 +373,8 @@ impl<'doc> ErrorKind<'doc> {
             ErrorKind::UppercaseUuidScalar => {
                 Some("This is to be consistent with the naming the \"uuid\" crate".to_string())
             }
-            ErrorKind::InvalidJuniperDirective(_, notes) => {
-                notes.to_owned()
-            }
+            ErrorKind::InvalidJuniperDirective(_, notes) => notes.to_owned(),
+            ErrorKind::InvalidStreamReturnType(syn_error) => Some(syn_error.to_owned()),
             _ => None,
         }
     }

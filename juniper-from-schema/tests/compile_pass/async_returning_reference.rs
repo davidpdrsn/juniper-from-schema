@@ -10,7 +10,7 @@ juniper_from_schema::graphql_schema! {
     }
 
     type Query {
-        find(id: ID!): User! @juniper(ownership: "owned", async: true)
+        find(id: ID!): User! @juniper(async: true)
     }
 
     type User {
@@ -27,7 +27,7 @@ impl QueryFields for Query {
         _: &Executor<'r, 'a, Context>,
         trail: &QueryTrail<'r, User, Walked>,
         id: ID,
-    ) -> FieldResult<User> {
+    ) -> FieldResult<&'s User> {
         todo!()
     }
 }

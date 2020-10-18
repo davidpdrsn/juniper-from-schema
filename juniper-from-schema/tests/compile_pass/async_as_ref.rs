@@ -1,16 +1,13 @@
 #![allow(dead_code, unused_variables, unused_must_use, unused_imports)]
 include!("setup.rs");
 
-use juniper_from_schema::*;
-use url::Url;
-
 juniper_from_schema::graphql_schema! {
     schema {
         query: Query
     }
 
     type Query {
-        find(id: ID!): User! @juniper(ownership: "owned", async: true)
+        find(id: ID!): User @juniper(ownership: "as_ref", async: true)
     }
 
     type User {
@@ -27,7 +24,7 @@ impl QueryFields for Query {
         _: &Executor<'r, 'a, Context>,
         trail: &QueryTrail<'r, User, Walked>,
         id: ID,
-    ) -> FieldResult<User> {
+    ) -> FieldResult<Option<&'s User>> {
         todo!()
     }
 }

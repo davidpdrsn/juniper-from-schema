@@ -42,8 +42,8 @@ pub struct Query;
 
 #[async_trait]
 impl QueryFields for Query {
-    async fn field_find_tweet<'r, 'a>(
-        &self,
+    async fn field_find_tweet<'s, 'r, 'a>(
+        &'s self,
         executor: &Executor<'r, 'a, Context>,
         trail: &QueryTrail<'r, Tweet, Walked>,
         id: ID,
