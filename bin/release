@@ -4,5 +4,11 @@ set -e
 cd ./juniper-from-schema-code-gen
 cargo release --no-dev-version
 
+cd ./juniper-from-schema-build
+cargo release --no-dev-version
+
+cd ./juniper-from-schema-proc-macro
+cargo release --no-dev-version
+
 cd ../juniper-from-schema
 cargo release --no-dev-version

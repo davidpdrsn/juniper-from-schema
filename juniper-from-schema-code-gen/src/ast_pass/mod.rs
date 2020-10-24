@@ -1,15 +1,42 @@
-use super::schema_visitor::visit_document;
-use crate::ast_pass::{
+pub mod code_gen_pass;
+pub mod directive_parsing;
+pub mod error;
+pub mod schema_visitor;
+pub mod validations;
+
+use self::{
     directive_parsing::{DateTimeScalarType, ParseDirective},
     error::{Error, ErrorKind},
-    schema_visitor::SchemaVisitor,
-    type_name, EmitError,
+    schema_visitor::{visit_document, SchemaVisitor},
 };
-use graphql_parser::{
-    schema::{Document, *},
-    Pos,
-};
+use graphql_parser::schema::*;
+use graphql_parser::Pos;
 use std::collections::{BTreeSet, HashMap, HashSet};
+
+pub fn type_name<'doc>(type_: &Type<'doc, &'doc str>) -> &'doc str {
+    match &*type_ {
+        Type::NamedType(name) => &name,
+        Type::ListType(item_type) => type_name(&*item_type),
+        Type::NonNullType(item_type) => type_name(&*item_type),
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum TypeKind {
+    Scalar,
+    Type,
+}
+
+pub trait EmitError {
+    fn emit_error(&mut self, pos: Pos, kind: ErrorKind);
+}
+
+impl EmitError for BTreeSet<Error> {
+    fn emit_error(&mut self, pos: Pos, kind: ErrorKind) {
+        let error = Error { pos, kind };
+        self.insert(error);
+    }
+}
 
 #[derive(Debug)]
 pub struct AstData<'doc> {
@@ -18,7 +45,7 @@ pub struct AstData<'doc> {
     enum_types: HashSet<&'doc str>,
     union_types: HashSet<&'doc str>,
     input_object_field_types: HashMap<&'doc str, HashMap<&'doc str, &'doc Type<'doc, &'doc str>>>,
-    errors: BTreeSet<Error<'doc>>,
+    errors: BTreeSet<Error>,
     include_time_zone_on_date_time_scalar: bool,
     subscription_type_name: Option<&'doc str>,
 }
@@ -75,9 +102,7 @@ impl<'doc> SchemaVisitor<'doc> for AstData<'doc> {
 }
 
 impl<'doc> AstData<'doc> {
-    pub fn new_from_doc(
-        doc: &'doc Document<'doc, &'doc str>,
-    ) -> Result<Self, BTreeSet<Error<'doc>>> {
+    pub fn new_from_doc(doc: &'doc Document<'doc, &'doc str>) -> Result<Self, BTreeSet<Error>> {
         let mut data = Self::new();
         visit_document(&mut data, doc);
 
@@ -195,8 +220,8 @@ impl<'doc> AstData<'doc> {
     }
 }
 
-impl<'doc> EmitError<'doc> for AstData<'doc> {
-    fn emit_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) {
+impl<'doc> EmitError for AstData<'doc> {
+    fn emit_error(&mut self, pos: Pos, kind: ErrorKind) {
         let error = Error { pos, kind };
         self.errors.insert(error);
     }
@@ -205,4 +230,98 @@ impl<'doc> EmitError<'doc> for AstData<'doc> {
 pub enum DateTimeScalarDefinition {
     WithTimeZone,
     WithoutTimeZone,
+}
+
+#[derive(Eq, PartialEq, Debug)]
+pub enum NullableType<'a> {
+    NamedType(&'a str),
+    ListType(Box<NullableType<'a>>),
+    NullableType(Box<NullableType<'a>>),
+}
+
+impl<'a> NullableType<'a> {
+    pub fn from_schema_type(ty: &Type<'a, &'a str>) -> Self {
+        map(&ty)
+    }
+}
+
+#[cfg(test)]
+impl<'a> NullableType<'a> {
+    fn debug_print(&self) -> String {
+        match self {
+            NullableType::NamedType(name) => (*name).to_string(),
+            NullableType::ListType(inner) => format!("List({})", inner.debug_print()),
+            NullableType::NullableType(inner) => format!("Nullable({})", inner.debug_print()),
+        }
+    }
+}
+
+fn map<'a>(ty: &Type<'a, &'a str>) -> NullableType<'a> {
+    match ty {
+        inner @ Type::NamedType(_) => map_inner(inner, false),
+        Type::ListType(item_type) => {
+            let item_type = map_inner(&*item_type, false);
+            let list = NullableType::ListType(Box::new(item_type));
+            NullableType::NullableType(Box::new(list))
+        }
+        Type::NonNullType(inner) => map_inner(&*inner, true),
+    }
+}
+
+fn map_inner<'a>(ty: &Type<'a, &'a str>, inside_non_null: bool) -> NullableType<'a> {
+    match ty {
+        Type::NamedType(name) => {
+            let inner_mapped = NullableType::NamedType(&name);
+            if inside_non_null {
+                inner_mapped
+            } else {
+                NullableType::NullableType(Box::new(inner_mapped))
+            }
+        }
+        Type::ListType(inner) => {
+            let inner_mapped = NullableType::ListType(Box::new(map(&*inner)));
+            if inside_non_null {
+                inner_mapped
+            } else {
+                NullableType::NullableType(Box::new(inner_mapped))
+            }
+        }
+        Type::NonNullType(inner) => map_inner(&*inner, true),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn named_type() {
+        let input = Type::NonNullType(Box::new(Type::NamedType("Int")));
+        let expected = "Int".to_string();
+        assert_eq!(map(&input).debug_print(), expected);
+
+        let input = Type::NamedType("Int");
+        let expected = "Nullable(Int)".to_string();
+        assert_eq!(map(&input).debug_print(), expected);
+
+        let input = Type::NonNullType(Box::new(Type::ListType(Box::new(Type::NonNullType(
+            Box::new(Type::NamedType("Int")),
+        )))));
+        let expected = "List(Int)".to_string();
+        assert_eq!(map(&input).debug_print(), expected);
+
+        let input = Type::ListType(Box::new(Type::NonNullType(Box::new(Type::NamedType(
+            "Int",
+        )))));
+        let expected = "Nullable(List(Int))".to_string();
+        assert_eq!(map(&input).debug_print(), expected);
+
+        let input = Type::NonNullType(Box::new(Type::ListType(Box::new(Type::NamedType("Int")))));
+        let expected = "List(Nullable(Int))".to_string();
+        assert_eq!(map(&input).debug_print(), expected);
+
+        let input = Type::ListType(Box::new(Type::NamedType("Int")));
+        let expected = "Nullable(List(Nullable(Int)))".to_string();
+        assert_eq!(map(&input).debug_print(), expected);
+    }
 }

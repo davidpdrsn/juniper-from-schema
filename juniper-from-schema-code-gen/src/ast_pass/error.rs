@@ -3,13 +3,13 @@ use graphql_parser::{query::Value, Pos};
 use std::fmt::{self, Write};
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Error<'doc> {
+pub struct Error {
     pub(super) pos: Pos,
-    pub(super) kind: ErrorKind<'doc>,
+    pub(super) kind: ErrorKind,
 }
 
-impl<'doc> Error<'doc> {
-    pub fn display(self, raw_schema: &'doc str) -> ErrorDisplay<'doc> {
+impl Error {
+    pub fn display<'a>(&'a self, raw_schema: &'a str) -> ErrorDisplay<'a> {
         ErrorDisplay {
             error: self,
             raw_schema,
@@ -18,16 +18,13 @@ impl<'doc> Error<'doc> {
 }
 
 #[derive(Debug)]
-pub struct ErrorDisplay<'doc> {
-    error: Error<'doc>,
-    raw_schema: &'doc str,
+pub struct ErrorDisplay<'a> {
+    error: &'a Error,
+    raw_schema: &'a str,
 }
 
 impl<'a> fmt::Display for ErrorDisplay<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // TODO: Handle lines that are really long and cause wrapping (screenshot on desktop)
-        // TODO: Seems to be issues with multiline comments (screenshot on desktop)
-
         let schema_lines = self.raw_schema.lines().collect::<Vec<_>>();
 
         let number_of_digits_in_line_count = number_of_digits(self.error.pos.line as i32);
@@ -73,13 +70,13 @@ impl<'a> fmt::Display for ErrorDisplay<'a> {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum Deprecation<'doc> {
-    InvalidName(&'doc str),
+pub enum Deprecation {
+    InvalidName(String),
     WrongNumberOfArgs(usize),
-    InvalidKey(&'doc str),
+    InvalidKey(String),
 }
 
-impl<'doc> fmt::Display for Deprecation<'doc> {
+impl fmt::Display for Deprecation {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Deprecation::*;
         match self {
@@ -87,7 +84,7 @@ impl<'doc> fmt::Display for Deprecation<'doc> {
             WrongNumberOfArgs(count) => {
                 write!(f, "Wrong number of args. Expected 0 or 1, got `{}`", count)
             }
-            InvalidKey(key) => write!(f, "Invalid key. Exptec `reason`, got `{}`", key),
+            InvalidKey(key) => write!(f, "Invalid key. Expected `reason`, got `{}`", key),
         }
     }
 }
@@ -139,11 +136,11 @@ impl fmt::Display for ValueType {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum Ownership<'doc> {
-    InvalidValue(&'doc str),
+pub enum Ownership {
+    InvalidValue(String),
 }
 
-impl<'doc> fmt::Display for Ownership<'doc> {
+impl fmt::Display for Ownership {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::InvalidValue(name) => write!(
@@ -156,11 +153,11 @@ impl<'doc> fmt::Display for Ownership<'doc> {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum Juniper<'doc> {
-    InvalidName(&'doc str),
+pub enum Juniper {
+    InvalidName(String),
 }
 
-impl<'doc> fmt::Display for Juniper<'doc> {
+impl fmt::Display for Juniper {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::InvalidName(name) => write!(f, "Invalid name `{}`. Expected `juniper`", name),
@@ -169,17 +166,17 @@ impl<'doc> fmt::Display for Juniper<'doc> {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum UnsupportedDirectiveKind<'doc> {
-    Deprecation(Deprecation<'doc>),
-    Ownership(Ownership<'doc>),
-    Juniper(Juniper<'doc>),
+pub enum UnsupportedDirectiveKind {
+    Deprecation(Deprecation),
+    Ownership(Ownership),
+    Juniper(Juniper),
     InvalidType {
         actual: ValueType,
         expected: ValueType,
     },
 }
 
-impl<'doc> fmt::Display for UnsupportedDirectiveKind<'doc> {
+impl fmt::Display for UnsupportedDirectiveKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Deprecation(inner) => write!(f, "{}", inner),
@@ -194,13 +191,13 @@ impl<'doc> fmt::Display for UnsupportedDirectiveKind<'doc> {
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum ErrorKind<'doc> {
+pub enum ErrorKind {
     DateTimeScalarNotDefined,
     DateScalarNotDefined,
     UuidScalarNotDefined,
     UrlScalarNotDefined,
     SpecialCaseScalarWithDescription,
-    UnsupportedDirective(UnsupportedDirectiveKind<'doc>),
+    UnsupportedDirective(UnsupportedDirectiveKind),
     UnknownDirective {
         suggestions: Vec<String>,
     },
@@ -208,12 +205,12 @@ pub enum ErrorKind<'doc> {
     NonnullableFieldWithDefaultValue,
     TypeExtensionNotSupported,
     UnionFieldTypeMismatch {
-        union_name: &'doc str,
-        field_name: &'doc str,
-        type_a: &'doc str,
-        field_type_a: &'doc str,
-        type_b: &'doc str,
-        field_type_b: &'doc str,
+        union_name: String,
+        field_name: String,
+        type_a: String,
+        field_type_a: String,
+        type_b: String,
+        field_type_b: String,
     },
     VariableDefaultValue,
     InputTypeFieldWithDefaultValue,
@@ -229,7 +226,7 @@ pub enum ErrorKind<'doc> {
     SubscriptionFieldMustBeOwned,
 }
 
-impl<'doc> ErrorKind<'doc> {
+impl ErrorKind {
     fn description(&self) -> String {
         match self {
             ErrorKind::DateTimeScalarNotDefined => {

@@ -1,4 +1,4 @@
-# juniper-from-schema-code-gen
+# juniper-from-schema-proc-macro
 
 Internal crate for [juniper-from-schema](https://crates.io/crates/juniper-from-schema).
 

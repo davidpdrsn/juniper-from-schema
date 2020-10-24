@@ -1,7 +1,5 @@
 mod gen_query_trails;
 
-use super::ast_data_pass::AstData;
-use super::ast_data_pass::DateTimeScalarDefinition;
 use super::directive_parsing::*;
 use super::error::Error;
 use super::schema_visitor::*;
@@ -9,8 +7,9 @@ use super::type_name;
 use super::validations::*;
 use super::EmitError;
 use super::ErrorKind;
+use super::NullableType;
 use super::TypeKind;
-use crate::nullable_type::NullableType;
+use super::{AstData, DateTimeScalarDefinition};
 use graphql_parser::schema;
 use graphql_parser::schema::Value;
 use graphql_parser::Pos;
@@ -24,16 +23,15 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashSet;
 use std::convert::TryFrom;
-use std::rc::Rc;
 use syn::Ident;
 use syn::LitStr;
 use syn::Token;
 
 #[derive(Debug)]
 pub struct CodeGenPass<'doc> {
-    error_type: Rc<syn::Type>,
-    context_type: Rc<syn::Type>,
-    errors: BTreeSet<Error<'doc>>,
+    error_type: &'doc syn::Type,
+    context_type: &'doc syn::Type,
+    errors: BTreeSet<Error>,
     ast_data: AstData<'doc>,
     raw_schema: &'doc str,
     scalars: Vec<Scalar<'doc>>,
@@ -49,13 +47,13 @@ pub struct CodeGenPass<'doc> {
 impl<'doc> CodeGenPass<'doc> {
     pub fn new(
         raw_schema: &'doc str,
-        error_type: syn::Type,
-        context_type: syn::Type,
+        error_type: &'doc syn::Type,
+        context_type: &'doc syn::Type,
         ast_data: AstData<'doc>,
     ) -> Self {
         Self {
-            error_type: Rc::new(error_type),
-            context_type: Rc::new(context_type),
+            error_type,
+            context_type,
             ast_data,
             errors: BTreeSet::new(),
             raw_schema,
@@ -73,7 +71,7 @@ impl<'doc> CodeGenPass<'doc> {
     pub fn gen_juniper_code(
         mut self,
         doc: &'doc schema::Document<'doc, &'doc str>,
-    ) -> Result<TokenStream, BTreeSet<Error<'doc>>> {
+    ) -> Result<TokenStream, BTreeSet<Error>> {
         self.validate_doc(doc);
         self.check_for_errors()?;
 
@@ -135,7 +133,7 @@ impl<'doc> CodeGenPass<'doc> {
         }
     }
 
-    fn check_for_errors(&self) -> Result<(), BTreeSet<Error<'doc>>> {
+    fn check_for_errors(&self) -> Result<(), BTreeSet<Error>> {
         if self.errors.is_empty() {
             Ok(())
         } else {
@@ -144,8 +142,8 @@ impl<'doc> CodeGenPass<'doc> {
     }
 }
 
-impl<'doc> EmitError<'doc> for CodeGenPass<'doc> {
-    fn emit_error(&mut self, pos: Pos, kind: ErrorKind<'doc>) {
+impl<'doc> EmitError for CodeGenPass<'doc> {
+    fn emit_error(&mut self, pos: Pos, kind: ErrorKind) {
         self.errors.emit_error(pos, kind)
     }
 }
@@ -283,7 +281,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
             self.subscription = Some(Subscription {
                 name: format_ident!("{}", name),
                 description: description.as_ref(),
-                context_type: self.context_type.clone(),
+                context_type: self.context_type,
                 fields,
             });
         } else {
@@ -300,7 +298,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
             self.objects.push(Object {
                 name: format_ident!("{}", name),
                 description: description.as_ref(),
-                context_type: self.context_type.clone(),
+                context_type: self.context_type,
                 fields,
                 implements_interfaces,
             });
@@ -339,7 +337,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
             name,
             fields,
             implementors,
-            context_type: self.context_type.clone(),
+            context_type: self.context_type,
         });
     }
 
@@ -377,7 +375,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
             name,
             variants,
             description: description.as_ref(),
-            context_type: Rc::clone(&self.context_type),
+            context_type: self.context_type,
         })
     }
 
@@ -584,8 +582,8 @@ impl<'doc> CodeGenPass<'doc> {
         Field {
             description: description.as_ref(),
             name: format_ident!("r#{}", name.to_snake_case()),
-            context_type: self.context_type.clone(),
-            error_type: self.error_type.clone(),
+            context_type: self.context_type,
+            error_type: self.error_type,
             args,
             return_type,
             directives: field_directives,
@@ -1271,7 +1269,7 @@ impl<'doc> ToTokens for Scalar<'doc> {
 struct Object<'doc> {
     name: Ident,
     description: Option<&'doc String>,
-    context_type: Rc<syn::Type>,
+    context_type: &'doc syn::Type,
     fields: Vec<Field<'doc>>,
     implements_interfaces: Vec<Ident>,
 }
@@ -1293,6 +1291,10 @@ impl<'doc> ToTokens for Object<'doc> {
         }
 
         graphql_attrs.push_key_value(format_ident!("Context"), context_type);
+        graphql_attrs.push_key_value(
+            format_ident!("Scalar"),
+            quote! { juniper_from_schema::juniper::DefaultScalarValue },
+        );
 
         if !implements_interfaces.is_empty() {
             graphql_attrs.push_key_value(
@@ -1339,8 +1341,8 @@ fn fields_trait_name(name: &Ident) -> Ident {
 struct Field<'doc> {
     description: Option<&'doc String>,
     name: Ident,
-    error_type: Rc<syn::Type>,
-    context_type: Rc<syn::Type>,
+    error_type: &'doc syn::Type,
+    context_type: &'doc syn::Type,
     args: Vec<FieldArg<'doc>>,
     return_type: Type,
     directives: FieldDirectives,
@@ -1988,7 +1990,7 @@ impl<'a, 'doc> ToTokens for FieldArgsToTokensInterface<'a, 'doc> {
 struct Subscription<'doc> {
     name: Ident,
     description: Option<&'doc String>,
-    context_type: Rc<syn::Type>,
+    context_type: &'doc syn::Type,
     fields: Vec<Field<'doc>>,
 }
 
@@ -2007,6 +2009,10 @@ impl<'doc> ToTokens for Subscription<'doc> {
         if let Some(description) = description {
             graphql_attrs.push_key_value(format_ident!("description"), description);
         }
+        graphql_attrs.push_key_value(
+            format_ident!("Scalar"),
+            quote! { juniper_from_schema::juniper::DefaultScalarValue },
+        );
 
         let trait_name = fields_trait_name(name);
 
@@ -2045,7 +2051,7 @@ struct Interface<'doc> {
     trait_name: Ident,
     fields: Vec<Field<'doc>>,
     implementors: Vec<Ident>,
-    context_type: Rc<syn::Type>,
+    context_type: &'doc syn::Type,
 }
 
 impl<'doc> ToTokens for Interface<'doc> {
@@ -2108,7 +2114,7 @@ struct Union<'doc> {
     name: Ident,
     variants: Vec<UnionVariant>,
     description: Option<&'doc String>,
-    context_type: Rc<syn::Type>,
+    context_type: &'doc syn::Type,
 }
 
 impl<'doc> ToTokens for Union<'doc> {

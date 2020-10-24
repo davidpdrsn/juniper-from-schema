@@ -8,11 +8,11 @@ use graphql_parser::schema::{self, *};
 use graphql_parser::Pos;
 use heck::SnakeCase;
 
-pub struct FieldNameCaseValidator<'doc> {
-    pub errors: BTreeSet<Error<'doc>>,
+pub struct FieldNameCaseValidator {
+    pub errors: BTreeSet<Error>,
 }
 
-impl<'doc> FieldNameCaseValidator<'doc> {
+impl FieldNameCaseValidator {
     pub fn new() -> Self {
         Self {
             errors: Default::default(),
@@ -20,7 +20,7 @@ impl<'doc> FieldNameCaseValidator<'doc> {
     }
 }
 
-impl<'doc> SchemaVisitor<'doc> for FieldNameCaseValidator<'doc> {
+impl<'doc> SchemaVisitor<'doc> for FieldNameCaseValidator {
     fn visit_object_type(&mut self, ty: &'doc schema::ObjectType<'doc, &'doc str>) {
         self.validate_fields(&ty.fields);
     }
@@ -36,8 +36,8 @@ impl<'doc> SchemaVisitor<'doc> for FieldNameCaseValidator<'doc> {
     }
 }
 
-impl<'doc> FieldNameCaseValidator<'doc> {
-    fn validate_fields(&mut self, fields: &'doc [Field<'doc, &'doc str>]) {
+impl FieldNameCaseValidator {
+    fn validate_fields<'doc>(&mut self, fields: &'doc [Field<'doc, &'doc str>]) {
         for field in fields {
             self.validate_field(&field.name, field.position);
         }
@@ -50,11 +50,11 @@ impl<'doc> FieldNameCaseValidator<'doc> {
     }
 }
 
-pub struct UuidNameCaseValidator<'doc> {
-    pub errors: BTreeSet<Error<'doc>>,
+pub struct UuidNameCaseValidator {
+    pub errors: BTreeSet<Error>,
 }
 
-impl<'doc> UuidNameCaseValidator<'doc> {
+impl UuidNameCaseValidator {
     pub fn new() -> Self {
         Self {
             errors: Default::default(),
@@ -62,7 +62,7 @@ impl<'doc> UuidNameCaseValidator<'doc> {
     }
 }
 
-impl<'doc> SchemaVisitor<'doc> for UuidNameCaseValidator<'doc> {
+impl<'doc> SchemaVisitor<'doc> for UuidNameCaseValidator {
     fn visit_scalar_type(&mut self, scalar: &'doc ScalarType<'doc, &'doc str>) {
         if scalar.name == "UUID" {
             self.errors

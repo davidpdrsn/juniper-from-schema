@@ -8,8 +8,8 @@ use syn::{
 #[derive(Debug)]
 pub struct GraphqlSchemaFromFileInput {
     pub schema_path: PathBuf,
-    pub error_type: Type,
-    pub context_type: Type,
+    pub error_type: Option<Type>,
+    pub context_type: Option<Type>,
 }
 
 impl Parse for GraphqlSchemaFromFileInput {
@@ -57,16 +57,8 @@ impl Parse for GraphqlSchemaFromFileInput {
 
         Ok(GraphqlSchemaFromFileInput {
             schema_path,
-            error_type: error_type.unwrap_or_else(default_error_type),
-            context_type: context_type.unwrap_or_else(default_context_type),
+            error_type,
+            context_type,
         })
     }
-}
-
-pub fn default_error_type() -> Type {
-    syn::parse_str("juniper::FieldError").expect("Failed to parse default error type")
-}
-
-pub fn default_context_type() -> Type {
-    syn::parse_str("Context").expect("Failed to parse default context type")
 }

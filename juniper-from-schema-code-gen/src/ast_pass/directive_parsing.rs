@@ -7,8 +7,7 @@ use graphql_parser::{query::Value, schema::*};
 use std::convert::identity;
 
 pub trait FromDirective: Sized {
-    fn from_directive<'doc>(dir: &'doc Directive<'doc, &'doc str>)
-        -> Result<Self, ErrorKind<'doc>>;
+    fn from_directive<'doc>(dir: &'doc Directive<'doc, &'doc str>) -> Result<Self, ErrorKind>;
 }
 
 pub trait FromDirectiveArguments: Sized + Default {
@@ -16,7 +15,7 @@ pub trait FromDirectiveArguments: Sized + Default {
 
     fn from_directive_args<'doc>(
         args: &'doc (&'doc str, Value<'doc, &'doc str>),
-    ) -> Option<Result<Self, ErrorKind<'doc>>>;
+    ) -> Option<Result<Self, ErrorKind>>;
 }
 
 impl<T: FromDirectiveArguments> FromDirectiveArguments for Option<T> {
@@ -24,7 +23,7 @@ impl<T: FromDirectiveArguments> FromDirectiveArguments for Option<T> {
 
     fn from_directive_args<'doc>(
         args: &'doc (&'doc str, Value<'doc, &'doc str>),
-    ) -> Option<Result<Option<T>, ErrorKind<'doc>>> {
+    ) -> Option<Result<Option<T>, ErrorKind>> {
         match T::from_directive_args(args) {
             // KEY didn't match
             None => None,
@@ -49,13 +48,13 @@ impl Default for Deprecation {
 }
 
 impl FromDirective for Deprecation {
-    fn from_directive<'doc>(
-        dir: &'doc Directive<'doc, &'doc str>,
-    ) -> Result<Self, ErrorKind<'doc>> {
+    fn from_directive<'doc>(dir: &'doc Directive<'doc, &'doc str>) -> Result<Self, ErrorKind> {
         let name = &dir.name;
         if *name != "deprecated" {
             return Err(ErrorKind::UnsupportedDirective(
-                UnsupportedDirectiveKind::Deprecation(error::Deprecation::InvalidName(name)),
+                UnsupportedDirectiveKind::Deprecation(error::Deprecation::InvalidName(
+                    name.to_string(),
+                )),
             ));
         }
 
@@ -70,7 +69,9 @@ impl FromDirective for Deprecation {
         if let Some((key, value)) = &dir.arguments.first() {
             if *key != "reason" {
                 return Err(ErrorKind::UnsupportedDirective(
-                    UnsupportedDirectiveKind::Deprecation(error::Deprecation::InvalidKey(key)),
+                    UnsupportedDirectiveKind::Deprecation(error::Deprecation::InvalidKey(
+                        key.to_string(),
+                    )),
                 ));
             }
 
@@ -118,11 +119,11 @@ macro_rules! impl_from_directive_for {
             $($name: FromDirectiveArguments,)*
         {
             #[allow(non_snake_case)]
-            fn from_directive<'doc>(dir: &'doc Directive<'doc, &'doc str>) -> Result<Self, ErrorKind<'doc>> {
+            fn from_directive<'doc>(dir: &'doc Directive<'doc, &'doc str>) -> Result<Self, ErrorKind> {
                 let name = &dir.name;
                 if *name != "juniper" {
                     return Err(ErrorKind::UnsupportedDirective(
-                        UnsupportedDirectiveKind::Juniper(Juniper::InvalidName(name)),
+                        UnsupportedDirectiveKind::Juniper(Juniper::InvalidName(name.to_string())),
                     ));
                 }
 
@@ -203,7 +204,7 @@ impl FromDirectiveArguments for Ownership {
 
     fn from_directive_args<'doc>(
         (key, value): &'doc (&'doc str, Value<'doc, &'doc str>),
-    ) -> Option<Result<Self, ErrorKind<'doc>>> {
+    ) -> Option<Result<Self, ErrorKind>> {
         if *key != Self::KEY {
             return None;
         }
@@ -217,7 +218,9 @@ impl FromDirectiveArguments for Ownership {
                 "as_ref" => Ownership::AsRef,
                 value => {
                     return Err(ErrorKind::UnsupportedDirective(
-                        UnsupportedDirectiveKind::Ownership(error::Ownership::InvalidValue(value)),
+                        UnsupportedDirectiveKind::Ownership(error::Ownership::InvalidValue(
+                            value.to_string(),
+                        )),
                     ));
                 }
             };
@@ -244,7 +247,7 @@ impl FromDirectiveArguments for Infallible {
 
     fn from_directive_args<'doc>(
         (key, value): &'doc (&'doc str, Value<'doc, &'doc str>),
-    ) -> Option<Result<Self, ErrorKind<'doc>>> {
+    ) -> Option<Result<Self, ErrorKind>> {
         if *key != Self::KEY {
             return None;
         }
@@ -268,7 +271,7 @@ impl FromDirectiveArguments for Async {
 
     fn from_directive_args<'doc>(
         (key, value): &'doc (&'doc str, Value<'doc, &'doc str>),
-    ) -> Option<Result<Self, ErrorKind<'doc>>> {
+    ) -> Option<Result<Self, ErrorKind>> {
         if *key != Self::KEY {
             return None;
         }
@@ -298,7 +301,7 @@ impl FromDirectiveArguments for StreamType {
 
     fn from_directive_args<'doc>(
         (key, value): &'doc (&'doc str, Value<'doc, &'doc str>),
-    ) -> Option<Result<Self, ErrorKind<'doc>>> {
+    ) -> Option<Result<Self, ErrorKind>> {
         if *key != Self::KEY {
             return None;
         }
@@ -324,7 +327,7 @@ impl FromDirectiveArguments for StreamItemInfallible {
 
     fn from_directive_args<'doc>(
         (key, value): &'doc (&'doc str, Value<'doc, &'doc str>),
-    ) -> Option<Result<Self, ErrorKind<'doc>>> {
+    ) -> Option<Result<Self, ErrorKind>> {
         if *key != Self::KEY {
             return None;
         }
@@ -356,7 +359,7 @@ impl FromDirectiveArguments for DateTimeScalarArguments {
 
     fn from_directive_args<'doc>(
         (key, value): &'doc (&'doc str, Value<'doc, &'doc str>),
-    ) -> Option<Result<Self, ErrorKind<'doc>>> {
+    ) -> Option<Result<Self, ErrorKind>> {
         if *key != Self::KEY {
             return None;
         }
@@ -370,9 +373,7 @@ impl FromDirectiveArguments for DateTimeScalarArguments {
     }
 }
 
-fn value_as_string<'doc>(
-    value: &'doc Value<'doc, &'doc str>,
-) -> Result<&'doc str, ErrorKind<'doc>> {
+fn value_as_string<'doc>(value: &'doc Value<'doc, &'doc str>) -> Result<&'doc str, ErrorKind> {
     match value {
         Value::String(x) => Ok(x),
         other => Err(ErrorKind::UnsupportedDirective(
@@ -384,7 +385,7 @@ fn value_as_string<'doc>(
     }
 }
 
-fn value_as_bool<'doc>(value: &'doc Value<'doc, &'doc str>) -> Result<bool, ErrorKind<'doc>> {
+fn value_as_bool<'doc>(value: &'doc Value<'doc, &'doc str>) -> Result<bool, ErrorKind> {
     match value {
         Value::Boolean(x) => Ok(*x),
         other => Err(ErrorKind::UnsupportedDirective(
@@ -480,7 +481,7 @@ pub struct DateTimeScalarType<'a>(pub &'a ScalarType<'a, &'a str>);
 
 impl<'doc, T> ParseDirective<DateTimeScalarType<'doc>> for T
 where
-    T: EmitError<'doc>,
+    T: EmitError,
 {
     type Output = DateTimeScalarArguments;
 

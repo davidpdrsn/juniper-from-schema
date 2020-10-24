@@ -8,17 +8,17 @@ edition = "2018"
 homepage = "https://github.com/davidpdrsn/juniper-from-schema"
 keywords = ["web", "graphql", "juniper"]
 license = "MIT"
-name = "juniper-from-schema-code-gen"
+name = "juniper-from-schema-proc-macro"
 readme = "README.md"
 repository = "https://github.com/davidpdrsn/juniper-from-schema.git"
 
 [dependencies]
+juniper-from-schema-code-gen = { version = "0.5.2", path = "../juniper-from-schema-code-gen" }
 syn = { version = "1", features = ["extra-traits"] }
-quote = "1"
-graphql-parser = "0.3"
-proc-macro2 = "1"
-heck = "0.3"
-colored = "1.8"
 
 [dev_dependencies]
 version-sync = "0.8"
+
+[lib]
+proc-macro = true
+path = "src/lib.rs"

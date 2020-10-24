@@ -2,7 +2,13 @@
 
 members = [
     "juniper-from-schema",
+    "juniper-from-schema-proc-macro",
     "juniper-from-schema-code-gen",
+    "juniper-from-schema-build",
+
+    # Tests
+    "juniper-from-schema-build-tests/basic",
+    "juniper-from-schema-build-tests/file",
 ]
 
 exclude = ["generate-subscription-tests"]

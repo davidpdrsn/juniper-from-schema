@@ -440,12 +440,12 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                             self.pass.emit_error(
                                 union.position,
                                 ErrorKind::UnionFieldTypeMismatch {
-                                    union_name: &union.name,
-                                    field_name: &field.name,
-                                    type_a: &type_a,
-                                    type_b: &type_b,
-                                    field_type_a: &field_type_a,
-                                    field_type_b: &field_type_b,
+                                    union_name: union.name.to_string(),
+                                    field_name: field.name.to_string(),
+                                    type_a: type_a.to_string(),
+                                    type_b: type_b.to_string(),
+                                    field_type_a: field_type_a.to_string(),
+                                    field_type_b: field_type_b.to_string(),
                                 },
                             );
                         }
@@ -809,7 +809,7 @@ fn build_fields_map<'a>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::ast_pass::ast_data_pass::AstData;
+    use crate::ast_pass::AstData;
 
     #[test]
     fn test_fails_to_generate_query_trail_for_unions_where_fields_dont_overlap() {
@@ -835,12 +835,9 @@ mod test {
 
         let doc = graphql_parser::parse_schema(&schema).unwrap();
         let ast_data = AstData::new_from_doc(&doc).unwrap();
-        let mut out = CodeGenPass::new(
-            schema,
-            crate::parse_input::default_error_type(),
-            crate::parse_input::default_context_type(),
-            ast_data,
-        );
+        let context_type = crate::default_error_type();
+        let error_type = crate::default_context_type();
+        let mut out = CodeGenPass::new(schema, &context_type, &error_type, ast_data);
 
         out.gen_query_trails(&doc);
 
