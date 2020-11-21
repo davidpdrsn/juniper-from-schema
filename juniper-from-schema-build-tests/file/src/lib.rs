@@ -1,6 +1,6 @@
 #![allow(unused_braces)]
 
-use juniper::{Executor, FieldError, FieldResult, IntoFieldError};
+use juniper::{Executor, FieldError, IntoFieldError};
 
 juniper_from_schema::include_schema!();
 
