@@ -1650,7 +1650,7 @@ impl<'a, 'doc> ToTokens for FieldToTokensInterface<'a, 'doc> {
 
         let args = args.iter().map(|arg| arg.to_tokens_for_interface());
 
-        let mut graphql_attrs = GraphqlAttr::new_interface();
+        let mut graphql_attrs = GraphqlAttr::new();
 
         if let Some(desc) = description {
             graphql_attrs.push_key_value(format_ident!("description"), desc);
@@ -2467,7 +2467,6 @@ enum GraphqlAttr {
     Normal { items: Vec<GraphqlAttrItem> },
     Object { items: Vec<GraphqlAttrItem> },
     Interface { items: Vec<GraphqlAttrItem> },
-    InterfaceTopLevel { items: Vec<GraphqlAttrItem> },
     Subscription { items: Vec<GraphqlAttrItem> },
 }
 
@@ -2491,12 +2490,8 @@ impl GraphqlAttr {
         Self::Subscription { items: Vec::new() }
     }
 
-    fn new_interface() -> Self {
-        Self::Interface { items: Vec::new() }
-    }
-
     fn new_interface_top_level() -> Self {
-        Self::InterfaceTopLevel { items: Vec::new() }
+        Self::Interface { items: Vec::new() }
     }
 
     fn push(&mut self, key: Ident) {
@@ -2504,7 +2499,6 @@ impl GraphqlAttr {
             GraphqlAttr::Normal { items } => items,
             GraphqlAttr::Object { items } => items,
             GraphqlAttr::Interface { items } => items,
-            GraphqlAttr::InterfaceTopLevel { items } => items,
             GraphqlAttr::Subscription { items } => items,
         };
         items.push(GraphqlAttrItem::Bare(key));
@@ -2515,7 +2509,6 @@ impl GraphqlAttr {
             GraphqlAttr::Normal { items } => items,
             GraphqlAttr::Object { items } => items,
             GraphqlAttr::Interface { items } => items,
-            GraphqlAttr::InterfaceTopLevel { items } => items,
             GraphqlAttr::Subscription { items } => items,
         };
         items.push(GraphqlAttrItem::KeyValue {
@@ -2533,7 +2526,6 @@ impl GraphqlAttr {
             GraphqlAttr::Normal { items } => items,
             GraphqlAttr::Object { items } => items,
             GraphqlAttr::Interface { items } => items,
-            GraphqlAttr::InterfaceTopLevel { items } => items,
             GraphqlAttr::Subscription { items } => items,
         };
         let args = values
@@ -2553,8 +2545,7 @@ impl ToTokens for GraphqlAttr {
                 quote! { juniper_from_schema::juniper::graphql_object },
                 items,
             ),
-            GraphqlAttr::Interface { items } => (quote! { graphql_interface }, items),
-            GraphqlAttr::InterfaceTopLevel { items } => (
+            GraphqlAttr::Interface { items } => (
                 quote! { juniper_from_schema::juniper::graphql_interface },
                 items,
             ),
