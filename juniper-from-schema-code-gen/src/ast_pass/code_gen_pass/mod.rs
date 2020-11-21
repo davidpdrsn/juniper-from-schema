@@ -1,32 +1,18 @@
 mod gen_query_trails;
 
-use super::directive_parsing::*;
-use super::error::Error;
-use super::schema_visitor::*;
-use super::type_name;
-use super::validations::*;
-use super::EmitError;
-use super::ErrorKind;
-use super::NullableType;
-use super::TypeKind;
-use super::{AstData, DateTimeScalarDefinition};
-use graphql_parser::schema;
-use graphql_parser::schema::Value;
-use graphql_parser::Pos;
-use heck::CamelCase;
-use heck::SnakeCase;
-use proc_macro2::Span;
-use proc_macro2::TokenStream;
-use quote::ToTokens;
-use quote::{format_ident, quote};
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
-use std::collections::HashSet;
-use std::convert::TryFrom;
-use syn::parse_quote;
-use syn::Ident;
-use syn::LitStr;
-use syn::Token;
+use super::{
+    directive_parsing::*, error::Error, schema_visitor::*, type_name, validations::*, AstData,
+    DateTimeScalarDefinition, EmitError, ErrorKind, NullableType, TypeKind,
+};
+use graphql_parser::{schema, schema::Value, Pos};
+use heck::{CamelCase, SnakeCase};
+use proc_macro2::{Span, TokenStream};
+use quote::{format_ident, quote, ToTokens};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashSet},
+    convert::TryFrom,
+};
+use syn::{parse_quote, Ident, LitStr, Token};
 
 #[derive(Debug)]
 pub struct CodeGenPass<'doc> {

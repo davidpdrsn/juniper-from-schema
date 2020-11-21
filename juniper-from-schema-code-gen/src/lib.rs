@@ -17,8 +17,10 @@ use ast_pass::{code_gen_pass::CodeGenPass, error, AstData};
 use graphql_parser::parse_schema;
 use proc_macro2::Span;
 use quote::quote;
-use std::fmt;
-use std::path::{Path, PathBuf};
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+};
 
 const DATE_TIME_SCALAR_NAME: &str = "DateTimeUtc";
 const DATE_SCALAR_NAME: &str = "Date";

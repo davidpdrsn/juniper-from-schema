@@ -1,9 +1,9 @@
 use super::CodeGenPass;
-use crate::ast_pass::schema_visitor::visit_document;
-use crate::ast_pass::type_name;
-use crate::ast_pass::EmitError;
-use crate::ast_pass::TypeKind;
-use crate::ast_pass::{error::ErrorKind, schema_visitor::SchemaVisitor};
+use crate::ast_pass::{
+    error::ErrorKind,
+    schema_visitor::{visit_document, SchemaVisitor},
+    type_name, EmitError, TypeKind,
+};
 use graphql_parser::schema::*;
 use heck::{CamelCase, MixedCase, SnakeCase};
 use proc_macro2::TokenStream;

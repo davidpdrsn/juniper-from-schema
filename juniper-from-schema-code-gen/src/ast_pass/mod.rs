@@ -9,8 +9,7 @@ use self::{
     error::{Error, ErrorKind},
     schema_visitor::{visit_document, SchemaVisitor},
 };
-use graphql_parser::schema::*;
-use graphql_parser::Pos;
+use graphql_parser::{schema::*, Pos};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 pub fn type_name<'doc>(type_: &Type<'doc, &'doc str>) -> &'doc str {

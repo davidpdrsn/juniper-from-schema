@@ -1,8 +1,7 @@
 #![allow(dead_code, unused_variables, unused_imports)]
 
 use async_trait::async_trait;
-use futures::stream::Stream;
-use futures::stream::StreamExt;
+use futures::stream::{Stream, StreamExt};
 use juniper::*;
 use juniper_from_schema::graphql_schema;
 use std::pin::Pin;

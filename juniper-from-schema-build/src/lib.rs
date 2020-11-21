@@ -49,10 +49,12 @@
 #![recursion_limit = "256"]
 #![doc(html_root_url = "https://docs.rs/juniper-from-schema-build/0.5.2")]
 
-use std::error::Error;
-use std::fs;
-use std::path::Path;
-use std::{env, path::PathBuf};
+use std::{
+    env,
+    error::Error,
+    fs,
+    path::{Path, PathBuf},
+};
 
 /// Simple compilation of a GraphQL schema literal.
 pub fn compile_schema_literal(schema: &str) -> Result<(), Box<dyn Error>> {

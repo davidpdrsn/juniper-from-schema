@@ -1,9 +1,9 @@
 #![deny(unused_variables)]
 
-use graphql_parser::schema;
-use graphql_parser::schema::Definition;
-use graphql_parser::schema::TypeDefinition;
-use graphql_parser::schema::TypeExtension;
+use graphql_parser::{
+    schema,
+    schema::{Definition, TypeDefinition, TypeExtension},
+};
 
 pub trait SchemaVisitor<'doc> {
     #[inline]

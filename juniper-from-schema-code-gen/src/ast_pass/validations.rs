@@ -1,11 +1,10 @@
 use std::collections::BTreeSet;
 
-use super::error::Error;
-use super::schema_visitor::SchemaVisitor;
-use super::EmitError;
-use super::ErrorKind;
-use graphql_parser::schema::{self, *};
-use graphql_parser::Pos;
+use super::{error::Error, schema_visitor::SchemaVisitor, EmitError, ErrorKind};
+use graphql_parser::{
+    schema::{self, *},
+    Pos,
+};
 use heck::SnakeCase;
 
 pub struct FieldNameCaseValidator {
