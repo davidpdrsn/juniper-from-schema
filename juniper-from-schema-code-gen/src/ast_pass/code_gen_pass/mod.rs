@@ -23,6 +23,7 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashSet;
 use std::convert::TryFrom;
+use syn::parse_quote;
 use syn::Ident;
 use syn::LitStr;
 use syn::Token;
@@ -161,7 +162,7 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         let query_type = match query {
             Some(query) => {
                 let ident = format_ident!("{}", query);
-                syn::parse2(quote! { #ident }).unwrap()
+                parse_quote! { #ident }
             }
             None => {
                 self.emit_error(*position, ErrorKind::NoQueryType);
@@ -172,26 +173,22 @@ impl<'doc> SchemaVisitor<'doc> for CodeGenPass<'doc> {
         let mutation_type = match mutation {
             Some(mutation) => {
                 let ident = format_ident!("{}", mutation);
-                syn::parse2(quote! { #ident }).unwrap()
+                parse_quote! { #ident }
             }
             None => {
                 let context_type = &self.context_type;
-                syn::parse2(quote! { juniper_from_schema::juniper::EmptyMutation<#context_type> })
-                    .unwrap()
+                parse_quote! { juniper_from_schema::juniper::EmptyMutation<#context_type> }
             }
         };
 
         let subscription_type = match subscription {
             Some(subscription) => {
                 let ident = format_ident!("{}", subscription);
-                syn::parse2(quote! { #ident }).unwrap()
+                parse_quote! { #ident }
             }
             None => {
                 let context_type = &self.context_type;
-                syn::parse2(
-                    quote! { juniper_from_schema::juniper::EmptySubscription<#context_type> },
-                )
-                .unwrap()
+                parse_quote! { juniper_from_schema::juniper::EmptySubscription<#context_type> }
             }
         };
 
@@ -598,15 +595,11 @@ impl<'doc> CodeGenPass<'doc> {
     ) -> Type {
         fn gen_leaf<'doc>(pass: &CodeGenPass<'doc>, name: &'doc str) -> Type {
             match &*name {
-                "String" => Type::Scalar(Either::A(
-                    syn::parse2(quote! { std::string::String }).unwrap(),
-                )),
-                "Float" => Type::Scalar(Either::A(syn::parse2(quote! { f64 }).unwrap())),
-                "Int" => Type::Scalar(Either::A(syn::parse2(quote! { i32 }).unwrap())),
-                "Boolean" => Type::Scalar(Either::A(syn::parse2(quote! { bool }).unwrap())),
-                "ID" => Type::Scalar(Either::A(
-                    syn::parse2(quote! { juniper_from_schema::juniper::ID }).unwrap(),
-                )),
+                "String" => Type::Scalar(Either::A(parse_quote! { std::string::String })),
+                "Float" => Type::Scalar(Either::A(parse_quote! { f64 })),
+                "Int" => Type::Scalar(Either::A(parse_quote! { i32 })),
+                "Boolean" => Type::Scalar(Either::A(parse_quote! { bool })),
+                "ID" => Type::Scalar(Either::A(parse_quote! { juniper_from_schema::juniper::ID })),
                 name => {
                     if pass.ast_data.is_scalar(name) {
                         Type::Scalar(Either::B(format_ident!("{}", name)))
@@ -635,46 +628,42 @@ impl<'doc> CodeGenPass<'doc> {
                         if !pass.ast_data.url_scalar_defined() {
                             pass.emit_error(pos, ErrorKind::UrlScalarNotDefined);
                         }
-                        Type::Scalar(Either::A(syn::parse2(quote! { url::Url }).unwrap()))
+                        Type::Scalar(Either::A(parse_quote! { url::Url }))
                     }
 
                     name if name == crate::UUID_SCALAR_NAME => {
                         if !pass.ast_data.uuid_scalar_defined() {
                             pass.emit_error(pos, ErrorKind::UuidScalarNotDefined);
                         }
-                        Type::Scalar(Either::A(syn::parse2(quote! { uuid::Uuid }).unwrap()))
+                        Type::Scalar(Either::A(parse_quote! { uuid::Uuid }))
                     }
 
                     name if name == crate::DATE_SCALAR_NAME => {
                         if !pass.ast_data.date_scalar_defined() {
                             pass.emit_error(pos, ErrorKind::DateScalarNotDefined);
                         }
-                        Type::Scalar(Either::A(
-                            syn::parse2(quote! { chrono::naive::NaiveDate }).unwrap(),
-                        ))
+                        Type::Scalar(Either::A(parse_quote! { chrono::naive::NaiveDate }))
                     }
 
-                    name if name == crate::DATE_TIME_SCALAR_NAME => match pass
-                        .ast_data
-                        .date_time_scalar_definition()
-                    {
-                        Some(DateTimeScalarDefinition::WithTimeZone) => Type::Scalar(Either::A(
-                            syn::parse2(quote! { chrono::DateTime<chrono::offset::Utc> }).unwrap(),
-                        )),
+                    name if name == crate::DATE_TIME_SCALAR_NAME => {
+                        match pass.ast_data.date_time_scalar_definition() {
+                            Some(DateTimeScalarDefinition::WithTimeZone) => Type::Scalar(
+                                Either::A(parse_quote! { chrono::DateTime<chrono::offset::Utc> }),
+                            ),
 
-                        Some(DateTimeScalarDefinition::WithoutTimeZone) => Type::Scalar(Either::A(
-                            syn::parse2(quote! { chrono::naive::NaiveDateTime }).unwrap(),
-                        )),
+                            Some(DateTimeScalarDefinition::WithoutTimeZone) => Type::Scalar(
+                                Either::A(parse_quote! { chrono::naive::NaiveDateTime }),
+                            ),
 
-                        None => {
-                            pass.emit_error(pos, ErrorKind::DateTimeScalarNotDefined);
+                            None => {
+                                pass.emit_error(pos, ErrorKind::DateTimeScalarNotDefined);
 
-                            Type::Scalar(Either::A(
-                                syn::parse2(quote! { chrono::DateTime<chrono::offset::Utc> })
-                                    .unwrap(),
-                            ))
+                                Type::Scalar(Either::A(
+                                    parse_quote! { chrono::DateTime<chrono::offset::Utc> },
+                                ))
+                            }
                         }
-                    },
+                    }
 
                     _ => gen_leaf(pass, inner),
                 },
@@ -1416,20 +1405,18 @@ impl<'doc> Field<'doc> {
     fn return_type_not_wrapped_in_result(&self) -> syn::Type {
         let return_type = &self.return_type;
 
-        let inner_ty = match &self.directives.ownership {
+        match &self.directives.ownership {
             Ownership::Owned => {
-                quote! { #return_type }
+                parse_quote! { #return_type }
             }
             Ownership::Borrowed => {
-                quote! { &#return_type }
+                parse_quote! { &#return_type }
             }
             Ownership::AsRef => {
                 // this case is handled in `graphql_type_to_rust_type`
-                quote! { #return_type }
+                parse_quote! { #return_type }
             }
-        };
-
-        syn::parse2(inner_ty).unwrap()
+        }
     }
 
     fn full_return_type(&self) -> syn::Type {
@@ -1443,15 +1430,14 @@ impl<'doc> Field<'doc> {
     fn full_stream_return_type(&self) -> syn::Type {
         let default_return_type = || {
             let item_type = self.stream_item_type();
-            syn::parse2(quote! {
+            parse_quote! {
                 std::pin::Pin<
                     std::boxed::Box<
                         dyn juniper_from_schema::futures::Stream<Item = #item_type>
                             + std::marker::Send
                     >
                 >
-            })
-            .unwrap()
+            }
         };
 
         if let Some(ty) = &self.directives.stream_type {
@@ -1473,7 +1459,7 @@ impl<'doc> Field<'doc> {
             } else {
                 let ty = self.return_type_not_wrapped_in_result();
                 let error_type = &self.error_type;
-                syn::parse2(quote! { std::result::Result<#ty, #error_type> }).unwrap()
+                parse_quote! { std::result::Result<#ty, #error_type> }
             }
         } else {
             self.return_type_not_wrapped_in_result()
@@ -2586,9 +2572,8 @@ fn maybe_wrap_final_return_type_in_result(
     if directives.infallible.value {
         ty
     } else {
-        syn::parse2(quote! {
+        parse_quote! {
             std::result::Result<#ty, #error_type>
-        })
-        .unwrap()
+        }
     }
 }
