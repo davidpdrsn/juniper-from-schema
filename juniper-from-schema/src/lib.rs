@@ -9,6 +9,7 @@
 //!
 //! - [Example](#example)
 //! - [Example web app](#example-web-app)
+//! - [Supported juniper versions](#supported-juniper-versions)
 //! - [GraphQL features](#graphql-features)
 //!     - [The `ID` type](#the-id-type)
 //!     - [Custom scalar types](#custom-scalar-types)
@@ -128,6 +129,13 @@
 //! [Rocket]: https://rocket.rs
 //! [Diesel]: http://diesel.rs
 //! [Actix]: https://actix.rs/
+//!
+//! # Supported juniper versions
+//!
+//! | juniper-from-schema | juniper |
+//! |---|---|
+//! | 0.6.x | 0.15.x |
+//! | 0.5.x | 0.14.x |
 //!
 //! # GraphQL features
 //!
