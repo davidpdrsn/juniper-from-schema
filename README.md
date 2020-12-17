@@ -11,11 +11,9 @@ removes most of the boilerplate involved in using Juniper.
 
 [macro calls]: https://graphql-rust.github.io/types/objects/complex_fields.html
 
-# Supporting juniper master (with subscriptions and async)
+# Looking for juniper 0.15 support?
 
-The master branch of juniper-from-schema is currently tracking juniper's master branch because we're working on adding support for all the cool things things they've made including subscriptions and async resolvers.
-
-If you're looking for use juniper 0.14 use the version thats on [crates.io](https://crates.io/crates/juniper-from-schema).
+The version of juniper-from-schema that is released on crates.io (0.5.2) doesn't juniper 0.15. However the master branch does! So you will have to use a git dependency for now. We plan to do an official release soon. Follow [this](https://github.com/davidpdrsn/juniper-from-schema/milestone/1) milestone to see whats left.
 
 # Example
 
