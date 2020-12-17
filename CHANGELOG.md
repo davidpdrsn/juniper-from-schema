@@ -6,6 +6,8 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ## Unreleased
 
+- Async resolvers are now supported (requires juniper 0.15).
+- Subscriptions are now supported (requires juniper 0.15).
 - Give nice error if you declare custom scalar with same name as built-in.
 - Re-export juniper from juniper-from-schema to make sure we're always using the same version.
 - Support generating code from `build.rs` instead of a procedural macro. See the docs for more details.
