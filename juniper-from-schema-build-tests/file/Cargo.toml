@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 juniper-from-schema = { version = "0.5.2", path = "../../juniper-from-schema" }
-juniper = { git = "https://github.com/graphql-rust/juniper.git", branch = "master" }
+juniper = "0.15"
 
 [build-dependencies]
 juniper-from-schema-build = { version = "0.5.2", path = "../../juniper-from-schema-build" }

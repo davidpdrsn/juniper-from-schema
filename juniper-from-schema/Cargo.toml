@@ -14,7 +14,7 @@ repository = "https://github.com/davidpdrsn/juniper-from-schema.git"
 
 [dependencies]
 juniper-from-schema-proc-macro = { version = "0.5.2", path = "../juniper-from-schema-proc-macro" }
-juniper = { git = "https://github.com/graphql-rust/juniper.git", branch = "master" }
+juniper = "0.15"
 futures = "0.3"
 
 [dev_dependencies]
