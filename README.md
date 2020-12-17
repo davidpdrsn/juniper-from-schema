@@ -13,7 +13,7 @@ removes most of the boilerplate involved in using Juniper.
 
 # Looking for juniper 0.15 support?
 
-The version of juniper-from-schema that is released on crates.io (0.5.2) doesn't juniper 0.15. However the master branch does! So you will have to use a git dependency for now. We plan to do an official release soon. Follow [this](https://github.com/davidpdrsn/juniper-from-schema/milestone/1) milestone to see whats left.
+The version of juniper-from-schema that is released on crates.io (0.5.2) doesn't support juniper 0.15. However the master branch does! So you will have to use a git dependency for now. We plan to do an official release soon. Follow [this](https://github.com/davidpdrsn/juniper-from-schema/milestone/1) milestone to see whats left.
 
 # Example
 
