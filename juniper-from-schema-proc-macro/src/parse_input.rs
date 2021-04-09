@@ -7,7 +7,7 @@ use syn::{
 
 #[derive(Debug)]
 pub struct GraphqlSchemaFromFileInput {
-    pub schema_path: PathBuf,
+    pub schema_paths: Vec<PathBuf>,
     pub error_type: Option<Type>,
     pub context_type: Option<Type>,
 }
@@ -56,7 +56,9 @@ impl Parse for GraphqlSchemaFromFileInput {
         }
 
         Ok(GraphqlSchemaFromFileInput {
-            schema_path,
+            // Only supporting single paths for macro, since long term we're
+            // moving towards the build.rs style
+            schema_paths: vec![schema_path],
             error_type,
             context_type,
         })

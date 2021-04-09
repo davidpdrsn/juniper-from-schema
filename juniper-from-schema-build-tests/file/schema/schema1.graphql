@@ -3,5 +3,5 @@ schema {
 }
 
 type Query {
-    ping: Boolean!
+    foo: Foo
 }

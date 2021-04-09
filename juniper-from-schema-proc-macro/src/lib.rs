@@ -21,7 +21,7 @@ use parse_input::GraphqlSchemaFromFileInput;
 #[proc_macro]
 pub fn graphql_schema_from_file(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let GraphqlSchemaFromFileInput {
-        schema_path,
+        schema_paths,
         context_type,
         error_type,
     } = match syn::parse::<GraphqlSchemaFromFileInput>(input) {
@@ -29,7 +29,7 @@ pub fn graphql_schema_from_file(input: proc_macro::TokenStream) -> proc_macro::T
         Err(e) => return e.to_compile_error().into(),
     };
 
-    let mut builder = CodeGen::build_from_schema_file(schema_path);
+    let mut builder = CodeGen::build_from_schema_files(schema_paths);
     if let Some(context_type) = context_type {
         builder = builder.context_type(context_type);
     }

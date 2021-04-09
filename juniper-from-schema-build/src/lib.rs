@@ -73,19 +73,19 @@ pub fn configure_for_schema_literal(schema: &str) -> CodeGen {
 }
 
 /// Simple compilation of a GraphQL schema file.
-pub fn compile_file<P: AsRef<Path>>(path: P) -> Result<(), Box<dyn Error>> {
-    configure_for_file(path).compile()
+pub fn compile_files<P: AsRef<Path>>(paths: Vec<P>) -> Result<(), Box<dyn Error>> {
+    configure_for_files(paths).compile()
 }
 
 /// Configure a [`CodeGen`] with a GraphQL schema file.
 ///
 /// [`CodeGen`]: struct.CodeGen.html
-pub fn configure_for_file<P: AsRef<Path>>(path: P) -> CodeGen {
+pub fn configure_for_files<P: AsRef<Path>>(paths: Vec<P>) -> CodeGen {
     let root = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
-    let path = root.join(path);
+    let paths = paths.into_iter().map(|path| root.join(path)).collect();
 
     CodeGen {
-        schema: SchemaLocation::File(path),
+        schema: SchemaLocation::Files(paths),
         context_type: None,
         error_type: None,
     }
@@ -101,7 +101,7 @@ pub struct CodeGen {
 
 #[derive(Debug)]
 enum SchemaLocation {
-    File(PathBuf),
+    Files(Vec<PathBuf>),
     Literal(String),
 }
 
@@ -132,8 +132,8 @@ impl CodeGen {
         let dest_path = Path::new(&out_dir).join("juniper_from_schema_graphql_schema.rs");
 
         let mut code_gen = match self.schema {
-            SchemaLocation::File(path) => {
-                juniper_from_schema_code_gen::CodeGen::build_from_schema_file(path)
+            SchemaLocation::Files(paths) => {
+                juniper_from_schema_code_gen::CodeGen::build_from_schema_files(paths)
             }
             SchemaLocation::Literal(schema) => {
                 juniper_from_schema_code_gen::CodeGen::build_from_schema_literal(schema)
