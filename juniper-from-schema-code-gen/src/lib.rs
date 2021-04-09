@@ -35,9 +35,9 @@ pub struct CodeGen {
 }
 
 impl CodeGen {
-    pub fn build_from_schema_file(path: PathBuf) -> CodeGenBuilder {
+    pub fn build_from_schema_files(paths: Vec<PathBuf>) -> CodeGenBuilder {
         CodeGenBuilder {
-            schema: SchemaLocation::File(path),
+            schema: SchemaLocation::Files(paths),
             context_type: None,
             error_type: None,
         }
@@ -52,12 +52,32 @@ impl CodeGen {
     }
 
     pub fn generate_code(self) -> Result<proc_macro2::TokenStream, Error> {
-        let (schema, schema_path) = match self.schema {
-            SchemaLocation::File(path) => (
-                std::fs::read_to_string(&path).map_err(Error::Io)?,
-                Some(path),
-            ),
-            SchemaLocation::Literal(schema) => (schema, None),
+        let (schema, schema_paths) = match self.schema {
+            SchemaLocation::Files(glob_patterns) => {
+                // Each input path is a glob pattern, expand each one and concat
+                // them all together
+                let mut paths: Vec<PathBuf> = Vec::new();
+                for path in glob_patterns {
+                    let globbed_paths = glob::glob(
+                        path.to_str()
+                            .expect("Invalid UTF-8 characters in file name"),
+                    )
+                    .map_err(Error::SchemaPathError)?;
+                    for path in globbed_paths {
+                        let path = path.map_err(Error::SchemaGlobError)?;
+                        paths.push(path);
+                    }
+                }
+
+                // Read each schema file and put it all in one string
+                let schema: String = paths
+                    .iter()
+                    .map(|path| std::fs::read_to_string(&path))
+                    .collect::<Result<_, _>>()
+                    .map_err(Error::Io)?;
+                (schema, paths)
+            }
+            SchemaLocation::Literal(schema) => (schema, Vec::new()),
         };
 
         let doc = match parse_schema(&schema) {
@@ -84,7 +104,8 @@ impl CodeGen {
                     eprintln!("{}", tokens);
                 }
 
-                if let Some(path) = schema_path {
+                // Force a Rust recompile whenever the schema changes
+                for path in schema_paths {
                     include_literal_schema(&mut tokens, path.as_path());
                 }
 
@@ -118,6 +139,10 @@ fn include_literal_schema(tokens: &mut proc_macro2::TokenStream, schema_path: &P
 
 #[derive(Debug)]
 pub enum Error {
+    /// User passed an invalid glob pattern
+    SchemaPathError(glob::PatternError),
+    /// Glob pattern couldn't be expanded (e.g. permission denied)
+    SchemaGlobError(glob::GlobError),
     SchemaParseError(graphql_parser::schema::ParseError),
     CodeGenErrors {
         errors: Vec<error::Error>,
@@ -129,6 +154,8 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Error::SchemaPathError(inner) => write!(f, "{}", inner),
+            Error::SchemaGlobError(inner) => write!(f, "{}", inner),
             Error::SchemaParseError(inner) => write!(f, "{}", inner),
             Error::CodeGenErrors { errors, schema } => {
                 assert!(
@@ -186,7 +213,7 @@ impl CodeGenBuilder {
 
 #[derive(Debug)]
 enum SchemaLocation {
-    File(PathBuf),
+    Files(Vec<PathBuf>),
     Literal(String),
 }
 
