@@ -299,7 +299,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                         let s = FromLookAheadValue::<String>::from(self);
                         let parsed = chrono::DateTime::parse_from_rfc3339(&s);
                         match parsed {
-                            Ok(date_time) => date_time.into(),
+                            Ok(date_time) => Into::into(date_time),
                             Err(e) => {
                                 panic!(
                                     "Error parsing DateTime. Format used is RFC 3339 (aka ISO 8601)\n{}",
@@ -317,7 +317,7 @@ impl<'pass, 'doc> QueryTrailCodeGenPass<'pass, 'doc> {
                         let s = FromLookAheadValue::<String>::from(self);
                         let parsed = chrono::NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S");
                         match parsed {
-                            Ok(date_time) => date_time.into(),
+                            Ok(date_time) => Into::into(date_time),
                             Err(e) => {
                                 panic!(
                                     "Error parsing NaiveDateTime. Format used is `%Y-%m-%d %H:%M:%S`\n{}",
